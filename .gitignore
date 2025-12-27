@@ -28,3 +28,7 @@ build/
 # Misc
 *.tmp
 *.temp
+
+# Audio cache (keep directory)
+client/audio/*.mp3
+!client/audio/.gitkeep

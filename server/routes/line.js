@@ -82,6 +82,15 @@ async function handleCommand(message, userId) {
     'help': () => getHelpReply()
   };
   
+  // 語音指令：語音 2330
+  if (msg.startsWith('語音') || msg.startsWith('播報')) {
+    const stockId = msg.replace(/^(語音|播報)\s*/, '').trim();
+    if (/^\d{4,6}$/.test(stockId)) {
+      return await sendVoiceReport(stockId, userId);
+    }
+    return { type: 'text', text: '請輸入：語音 股票代碼\n例如：語音 2330' };
+  }
+  
   for (const [cmd, handler] of Object.entries(commands)) {
     if (msg.includes(cmd)) {
       return await handler();
@@ -197,6 +206,52 @@ async function getIndicesReply() {
 }
 
 /**
+ * 🔊 發送語音播報
+ */
+async function sendVoiceReport(stockId, userId) {
+  try {
+    const voiceService = require('../services/voiceService');
+    const stockData = await stockService.getRealtimePrice(stockId);
+    
+    if (!stockData) {
+      return { type: 'text', text: `❌ 找不到股票 ${stockId}` };
+    }
+    
+    // 檢查語音是否啟用
+    const settings = await voiceService.getVoiceSettings();
+    
+    if (!settings.enabled) {
+      // 語音未啟用，發送文字提示
+      const isUp = stockData.change >= 0;
+      return { 
+        type: 'text', 
+        text: `🔊 ${stockData.name}（${stockId}）\n` +
+          `現價：${stockData.price} 元\n` +
+          `漲跌：${isUp ? '+' : ''}${stockData.change}（${stockData.changePercent}%）\n\n` +
+          `💡 語音播報未啟用，請至網頁設定開啟`
+      };
+    }
+    
+    // 發送語音
+    const success = await lineService.sendStockVoiceAlert(userId, stockData, voiceService);
+    
+    if (success) {
+      return null; // 語音發送成功，不需要額外回覆
+    } else {
+      return { 
+        type: 'text', 
+        text: `⚠️ 語音生成失敗\n\n` +
+          `📊 ${stockData.name}：${stockData.price} 元（${stockData.changePercent}%）`
+      };
+    }
+    
+  } catch (error) {
+    console.error('語音播報錯誤:', error);
+    return { type: 'text', text: '⚠️ 語音播報服務暫時無法使用' };
+  }
+}
+
+/**
  * 取得說明回覆
  */
 function getHelpReply() {
@@ -204,6 +259,7 @@ function getHelpReply() {
     `━━━━━━━━━━━━━━\n` +
     `🔹 輸入股票代碼查詢\n` +
     `   例：2330、0050\n\n` +
+    `🔊「語音 2330」語音播報\n` +
     `🔹「持股」查看持股\n` +
     `🔹「監控」查看監控清單\n` +
     `🔹「指數」查看國際指數\n` +
