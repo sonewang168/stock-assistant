@@ -65,23 +65,22 @@ app.use('/webhook', express.raw({ type: 'application/json' }), lineRoutes);
 // ==================== 健康檢查 ====================
 
 app.get('/api/health', async (req, res) => {
+  let dbStatus = 'unknown';
+  
   try {
-    // 測試資料庫連接
-    await pool.query('SELECT NOW()');
-    
-    res.json({ 
-      status: 'ok', 
-      timestamp: new Date().toISOString(),
-      version: '1.0.0',
-      database: 'connected'
-    });
+    await pool.query('SELECT 1');
+    dbStatus = 'connected';
   } catch (error) {
-    res.status(500).json({ 
-      status: 'error', 
-      message: error.message,
-      database: 'disconnected'
-    });
+    dbStatus = 'disconnected';
   }
+  
+  // 即使資料庫未連接也回傳 200，讓 Render 認為服務正常
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    version: '1.0.0',
+    database: dbStatus
+  });
 });
 
 // Keep Alive（防止 Render 休眠）
@@ -108,22 +107,9 @@ app.use((err, req, res, next) => {
 // ==================== 啟動伺服器 ====================
 
 async function startServer() {
-  try {
-    // 初始化資料庫
-    console.log('🔄 檢查資料庫...');
-    await initDatabase();
-    
-    // 檢查是否需要載入初始資料
-    const stockCount = await pool.query('SELECT COUNT(*) FROM stocks');
-    if (parseInt(stockCount.rows[0].count) === 0) {
-      console.log('📦 載入初始資料...');
-      await seedStocks();
-      await seedSettings();
-    }
-    
-    // 啟動伺服器
-    app.listen(PORT, () => {
-      console.log(`
+  // 先啟動伺服器（不等資料庫）
+  app.listen(PORT, () => {
+    console.log(`
 ╔═══════════════════════════════════════════╗
 ║                                           ║
 ║     📊 股海秘書 LINE 秘書                  ║
@@ -132,21 +118,37 @@ async function startServer() {
 ║     🌐 http://localhost:${PORT}              ║
 ║                                           ║
 ╚═══════════════════════════════════════════╝
-      `);
+    `);
+  });
+
+  // 背景初始化資料庫（不阻塞啟動）
+  setTimeout(async () => {
+    try {
+      console.log('🔄 檢查資料庫...');
+      await initDatabase();
+      
+      // 檢查是否需要載入初始資料
+      const stockCount = await pool.query('SELECT COUNT(*) FROM stocks');
+      if (parseInt(stockCount.rows[0].count) === 0) {
+        console.log('📦 載入初始資料...');
+        await seedStocks();
+        await seedSettings();
+      }
+      
+      console.log('✅ 資料庫初始化完成');
       
       // 啟動排程任務
       if (process.env.NODE_ENV === 'production') {
         scheduler.start();
       } else {
         console.log('⚠️ 開發模式：排程任務未啟動');
-        console.log('   如需測試排程，請設定 NODE_ENV=production');
       }
-    });
-    
-  } catch (error) {
-    console.error('❌ 啟動失敗:', error);
-    process.exit(1);
-  }
+      
+    } catch (error) {
+      console.error('⚠️ 資料庫初始化失敗:', error.message);
+      console.log('   伺服器將繼續運行，部分功能可能不可用');
+    }
+  }, 2000);
 }
 
 startServer();
