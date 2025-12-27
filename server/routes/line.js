@@ -113,10 +113,22 @@ async function handleCommand(message, userId) {
     return await getStockInfoReply(msg);
   }
   
+  // 加監控指令：+2330 或 加2330 或 監控2330
+  if (/^[+＋加監控]\s*\d{4,6}$/.test(msg)) {
+    const stockId = msg.replace(/^[+＋加監控]\s*/, '').trim();
+    return await addToWatchlist(stockId);
+  }
+  
+  // 移除監控：-2330 或 刪2330
+  if (/^[-－刪移除]\s*\d{4,6}$/.test(msg)) {
+    const stockId = msg.replace(/^[-－刪移除]\s*/, '').trim();
+    return await removeFromWatchlist(stockId);
+  }
+  
   // 指令列表
   const commands = {
-    '持股': () => getPortfolioReply(userId),
-    '監控': () => getWatchlistReply(userId),
+    '持股': () => getPortfolioReply(),
+    '監控': () => getWatchlistReply(),
     '指數': () => getIndicesReply(),
     '說明': () => getHelpReply(),
     'help': () => getHelpReply()
@@ -140,7 +152,7 @@ async function handleCommand(message, userId) {
   // 找不到指令
   return {
     type: 'text',
-    text: `🤔 不認識的指令\n\n輸入股票代碼查詢（如 2330）\n或輸入「說明」查看指令`
+    text: `🤔 不認識的指令\n\n輸入股票代碼查詢（如 2330）\n輸入「+2330」加入監控\n輸入「說明」查看指令`
   };
 }
 
@@ -184,16 +196,16 @@ async function getStockInfoReply(stockId) {
 /**
  * 取得持股回覆
  */
-async function getPortfolioReply(userId) {
+async function getPortfolioReply() {
   const sql = `
-    SELECT p.*, s.name as stock_name
+    SELECT p.stock_id, p.shares, p.avg_cost, s.name as stock_name
     FROM portfolio p
-    JOIN stocks s ON p.stock_id = s.id
-    WHERE p.user_id = $1 AND p.shares > 0
-    LIMIT 10
+    LEFT JOIN stocks s ON p.stock_id = s.id
+    WHERE p.user_id = 'default' AND p.shares > 0
+    LIMIT 20
   `;
   
-  const result = await pool.query(sql, [userId]);
+  const result = await pool.query(sql);
   
   if (result.rows.length === 0) {
     return { type: 'text', text: '📭 目前沒有持股紀錄\n\n請在網頁版新增持股' };
@@ -202,37 +214,112 @@ async function getPortfolioReply(userId) {
   let info = '💼 我的持股\n━━━━━━━━━━━━━━\n';
   
   for (const row of result.rows) {
-    info += `${row.stock_name}：${row.shares}股 @ $${row.avg_cost}\n`;
+    const name = row.stock_name || row.stock_id;
+    info += `• ${name}：${row.shares}股 @ $${row.avg_cost}\n`;
   }
   
   return { type: 'text', text: info };
 }
 
 /**
- * 取得監控清單回覆
+ * 取得監控清單回覆（使用 default 用戶，與網頁版同步）
  */
-async function getWatchlistReply(userId) {
+async function getWatchlistReply() {
   const sql = `
-    SELECT w.*, s.name as stock_name
+    SELECT w.stock_id, s.name as stock_name
     FROM watchlist w
-    JOIN stocks s ON w.stock_id = s.id
-    WHERE w.user_id = $1 AND w.is_active = true
-    LIMIT 10
+    LEFT JOIN stocks s ON w.stock_id = s.id
+    WHERE w.user_id = 'default' AND w.is_active = true
+    ORDER BY w.created_at DESC
+    LIMIT 20
   `;
   
-  const result = await pool.query(sql, [userId]);
+  const result = await pool.query(sql);
   
   if (result.rows.length === 0) {
-    return { type: 'text', text: '📭 目前沒有監控股票\n\n請在網頁版新增監控' };
+    return { type: 'text', text: '📭 目前沒有監控股票\n\n輸入「+2330」加入監控' };
   }
   
   let info = '📋 監控清單\n━━━━━━━━━━━━━━\n';
   
   for (const row of result.rows) {
-    info += `${row.stock_name}（${row.stock_id}）\n`;
+    const name = row.stock_name || row.stock_id;
+    info += `• ${name}（${row.stock_id}）\n`;
   }
   
+  info += `\n💡 輸入「+代碼」加入\n💡 輸入「-代碼」移除`;
+  
   return { type: 'text', text: info };
+}
+
+/**
+ * 加入監控清單
+ */
+async function addToWatchlist(stockId) {
+  try {
+    // 先確認股票存在
+    const stockData = await stockService.getRealtimePrice(stockId);
+    
+    if (!stockData) {
+      return { type: 'text', text: `❌ 找不到股票 ${stockId}` };
+    }
+    
+    // 確保 stocks 表有這支股票
+    await pool.query(`
+      INSERT INTO stocks (id, name, market) 
+      VALUES ($1, $2, $3)
+      ON CONFLICT (id) DO UPDATE SET name = $2
+    `, [stockId, stockData.name, stockData.market || 'TSE']);
+    
+    // 加入監控（使用 default 用戶）
+    const sql = `
+      INSERT INTO watchlist (stock_id, user_id)
+      VALUES ($1, 'default')
+      ON CONFLICT (stock_id, user_id) 
+      DO UPDATE SET is_active = true
+      RETURNING *
+    `;
+    
+    await pool.query(sql, [stockId]);
+    
+    return { 
+      type: 'text', 
+      text: `✅ 已加入監控\n\n📊 ${stockData.name}（${stockId}）\n💰 現價：${stockData.price} 元\n\n💡 輸入「監控」查看清單` 
+    };
+    
+  } catch (error) {
+    console.error('加入監控錯誤:', error);
+    return { type: 'text', text: '⚠️ 加入監控失敗，請稍後再試' };
+  }
+}
+
+/**
+ * 移除監控
+ */
+async function removeFromWatchlist(stockId) {
+  try {
+    const sql = `
+      UPDATE watchlist 
+      SET is_active = false 
+      WHERE stock_id = $1 AND user_id = 'default'
+      RETURNING *
+    `;
+    
+    const result = await pool.query(sql, [stockId]);
+    
+    if (result.rows.length === 0) {
+      return { type: 'text', text: `❌ ${stockId} 不在監控清單中` };
+    }
+    
+    return { 
+      type: 'text', 
+      text: `✅ 已移除監控：${stockId}\n\n💡 輸入「監控」查看清單` 
+    };
+    
+  } catch (error) {
+    console.error('移除監控錯誤:', error);
+    return { type: 'text', text: '⚠️ 移除監控失敗' };
+  }
 }
 
 /**
@@ -320,14 +407,17 @@ async function sendVoiceReport(stockId, userId) {
 function getHelpReply() {
   const help = `📱 股海秘書指令說明\n` +
     `━━━━━━━━━━━━━━\n` +
-    `🔹 輸入股票代碼查詢\n` +
-    `   例：2330、0050\n\n` +
+    `🔍 查詢股價\n` +
+    `   輸入代碼，如：2330\n\n` +
+    `➕ 加入監控\n` +
+    `   +2330 或 加2330\n\n` +
+    `➖ 移除監控\n` +
+    `   -2330 或 刪2330\n\n` +
+    `📋「監控」查看監控清單\n` +
+    `💼「持股」查看持股\n` +
     `🔊「語音 2330」語音播報\n` +
-    `🔹「持股」查看持股\n` +
-    `🔹「監控」查看監控清單\n` +
-    `🔹「指數」查看國際指數\n` +
-    `🔹「說明」顯示此訊息\n\n` +
-    `💡 更多功能請使用網頁版`;
+    `❓「說明」顯示此訊息\n\n` +
+    `💡 網頁版與 LINE 同步`;
 
   return { type: 'text', text: help };
 }

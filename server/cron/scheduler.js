@@ -436,10 +436,10 @@ class Scheduler {
    */
   async getWatchlist() {
     const sql = `
-      SELECT w.*, s.name as stock_name
+      SELECT w.stock_id, w.custom_threshold, s.name as stock_name
       FROM watchlist w
-      JOIN stocks s ON w.stock_id = s.id
-      WHERE w.is_active = true
+      LEFT JOIN stocks s ON w.stock_id = s.id
+      WHERE w.is_active = true AND w.user_id = 'default'
     `;
     const result = await pool.query(sql);
     return result.rows;
