@@ -1,0 +1,33 @@
+# Render.com 部署設定
+# 此檔案會自動設定 Web Service 和 PostgreSQL
+
+databases:
+  - name: stock-assistant-db
+    databaseName: stockassistant
+    user: stockuser
+    plan: free
+
+services:
+  - type: web
+    name: stock-assistant
+    env: node
+    region: singapore
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stock-assistant-db
+          property: connectionString
+      - key: LINE_CHANNEL_TOKEN
+        sync: false
+      - key: LINE_CHANNEL_SECRET
+        sync: false
+      - key: LINE_USER_ID
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

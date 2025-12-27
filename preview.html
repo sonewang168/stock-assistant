@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>股海秘書 - 本機預覽</title>
+  <style>
+    :root {
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #1a1a2e;
+      --bg-card: rgba(255, 255, 255, 0.05);
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.6);
+      --accent: #64c8ff;
+      --accent-glow: rgba(100, 200, 255, 0.3);
+      --success: #00C851;
+      --danger: #ff4444;
+      --border: rgba(255, 255, 255, 0.1);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Microsoft JhengHei', sans-serif;
+      background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .hidden { display: none !important; }
+
+    /* ==================== 開機動畫 ==================== */
+    .splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+      z-index: 9999;
+      transition: opacity 0.5s ease;
+    }
+
+    .splash.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .splash-container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      perspective: 1000px;
+    }
+
+    .splash-logo {
+      font-size: 100px;
+      font-weight: 200;
+      color: #fff;
+      z-index: 10;
+      animation: logoSpin 3s ease-in-out infinite;
+      text-shadow: 
+        0 0 10px rgba(255, 255, 255, 0.5),
+        0 0 20px rgba(255, 255, 255, 0.3),
+        0 0 40px rgba(100, 200, 255, 0.3),
+        0 0 80px rgba(100, 200, 255, 0.2);
+      transform-style: preserve-3d;
+    }
+
+    @keyframes logoSpin {
+      0% { 
+        opacity: 0.9; 
+        transform: scale(1) rotateY(0deg);
+        filter: brightness(1);
+        text-shadow: 
+          0 0 10px rgba(255, 255, 255, 0.5),
+          0 0 20px rgba(100, 200, 255, 0.3);
+      }
+      25% {
+        text-shadow: 
+          -5px 0 15px rgba(100, 200, 255, 0.6),
+          0 0 30px rgba(150, 220, 255, 0.4);
+      }
+      50% { 
+        opacity: 1; 
+        transform: scale(1.05) rotateY(180deg);
+        filter: brightness(1.3);
+        text-shadow: 
+          0 0 20px rgba(255, 255, 255, 0.8),
+          0 0 40px rgba(150, 220, 255, 0.6);
+      }
+      75% {
+        text-shadow: 
+          5px 0 15px rgba(100, 200, 255, 0.6),
+          0 0 30px rgba(150, 220, 255, 0.4);
+      }
+      100% { 
+        opacity: 0.9; 
+        transform: scale(1) rotateY(360deg);
+        filter: brightness(1);
+        text-shadow: 
+          0 0 10px rgba(255, 255, 255, 0.5),
+          0 0 20px rgba(100, 200, 255, 0.3);
+      }
+    }
+
+    .splash-glow-ring {
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      animation: rotate 4s linear infinite;
+    }
+
+    .splash-glow-ring::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      padding: 3px;
+      background: conic-gradient(
+        from 0deg,
+        transparent 0deg, transparent 60deg,
+        rgba(100, 200, 255, 0.8) 120deg,
+        rgba(150, 220, 255, 1) 180deg,
+        rgba(100, 200, 255, 0.8) 240deg,
+        transparent 300deg, transparent 360deg
+      );
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+    }
+
+    .splash-glow-ring::after {
+      content: '';
+      position: absolute;
+      inset: -10px;
+      border-radius: 50%;
+      background: conic-gradient(
+        from 0deg,
+        transparent 0deg, transparent 60deg,
+        rgba(100, 200, 255, 0.3) 120deg,
+        rgba(150, 220, 255, 0.5) 180deg,
+        rgba(100, 200, 255, 0.3) 240deg,
+        transparent 300deg, transparent 360deg
+      );
+      filter: blur(15px);
+      animation: rotate 4s linear infinite;
+    }
+
+    @keyframes rotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .splash-outer-glow {
+      position: absolute;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(100, 200, 255, 0.15) 0%, transparent 70%);
+      animation: pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.5; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    .splash-inner-ring {
+      position: absolute;
+      width: 160px;
+      height: 160px;
+      border: 1px solid rgba(150, 220, 255, 0.15);
+      border-radius: 50%;
+      animation: rotateReverse 6s linear infinite;
+    }
+
+    @keyframes rotateReverse {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(-360deg); }
+    }
+
+    .splash-particles {
+      position: absolute;
+      width: 300px;
+      height: 300px;
+    }
+
+    .splash-particle {
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      background: rgba(150, 220, 255, 0.8);
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      box-shadow: 0 0 6px rgba(150, 220, 255, 0.5);
+    }
+
+    .splash-particle:nth-child(1) { animation: orbit 8s linear infinite; }
+    .splash-particle:nth-child(2) { animation: orbit 10s linear infinite 0.5s; }
+    .splash-particle:nth-child(3) { animation: orbit 12s linear infinite 1s; }
+    .splash-particle:nth-child(4) { animation: orbit 9s linear infinite 1.5s; }
+    .splash-particle:nth-child(5) { animation: orbit 11s linear infinite 2s; }
+    .splash-particle:nth-child(6) { animation: orbit 7s linear infinite 2.5s; }
+
+    @keyframes orbit {
+      from { transform: rotate(0deg) translateX(130px) rotate(0deg); }
+      to { transform: rotate(360deg) translateX(130px) rotate(-360deg); }
+    }
+
+    .splash-progress {
+      position: absolute;
+      bottom: -70px;
+      width: 160px;
+      text-align: center;
+    }
+
+    .splash-progress-bar {
+      width: 100%;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .splash-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, rgba(100, 200, 255, 0.5), rgba(150, 220, 255, 1), rgba(100, 200, 255, 0.5));
+      animation: loading 2.5s ease-in-out forwards;
+    }
+
+    @keyframes loading {
+      0% { width: 0%; }
+      100% { width: 100%; }
+    }
+
+    .splash-loading-text {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.4);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    .splash-title {
+      position: absolute;
+      bottom: -130px;
+      font-size: 18px;
+      color: rgba(255, 255, 255, 0.7);
+      letter-spacing: 6px;
+    }
+
+    .splash-subtitle {
+      position: absolute;
+      bottom: -155px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.3);
+      letter-spacing: 2px;
+    }
+
+    .float-num {
+      position: fixed;
+      font-size: 14px;
+      color: rgba(100, 200, 255, 0.15);
+      font-family: 'SF Mono', 'Monaco', monospace;
+      animation: floatUp 10s linear infinite;
+      pointer-events: none;
+    }
+
+    @keyframes floatUp {
+      0% { transform: translateY(100vh); opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(-50px); opacity: 0; }
+    }
+
+    /* ==================== 主應用程式 ==================== */
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      padding: 15px 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+
+    .header-logo {
+      font-size: 28px;
+      font-weight: 200;
+      margin-right: 10px;
+      text-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .header-title {
+      font-size: 18px;
+      font-weight: 400;
+      flex: 1;
+    }
+
+    .header-btn {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 5px;
+    }
+
+    .content {
+      flex: 1;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .demo-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 30px;
+      margin: 20px auto;
+      max-width: 400px;
+    }
+
+    .demo-title {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+
+    .demo-price {
+      font-size: 48px;
+      font-weight: 600;
+      color: var(--success);
+    }
+
+    .demo-change {
+      font-size: 20px;
+      color: var(--success);
+      margin-top: 5px;
+    }
+
+    .demo-info {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      text-align: left;
+    }
+
+    .demo-item {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .demo-label {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .demo-value {
+      font-size: 14px;
+    }
+
+    .bottom-nav {
+      display: flex;
+      background: rgba(0, 0, 0, 0.9);
+      border-top: 1px solid var(--border);
+      padding: 10px 0 20px;
+    }
+
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .nav-item.active {
+      color: var(--accent);
+    }
+
+    .nav-icon { font-size: 20px; }
+    .nav-label { font-size: 10px; }
+
+    .note {
+      margin-top: 30px;
+      padding: 20px;
+      background: rgba(100, 200, 255, 0.1);
+      border-radius: 12px;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .note strong {
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <!-- 開機動畫 -->
+  <div id="splash" class="splash">
+    <div class="splash-container">
+      <div class="splash-outer-glow"></div>
+      <div class="splash-particles">
+        <div class="splash-particle"></div>
+        <div class="splash-particle"></div>
+        <div class="splash-particle"></div>
+        <div class="splash-particle"></div>
+        <div class="splash-particle"></div>
+        <div class="splash-particle"></div>
+      </div>
+      <div class="splash-glow-ring"></div>
+      <div class="splash-inner-ring"></div>
+      <div class="splash-logo">股</div>
+      <div class="splash-progress">
+        <div class="splash-progress-bar">
+          <div class="splash-progress-fill"></div>
+        </div>
+        <div class="splash-loading-text">Loading</div>
+      </div>
+      <div class="splash-title">股海秘書</div>
+      <div class="splash-subtitle">STOCK SECRETARY</div>
+    </div>
+  </div>
+
+  <!-- 主應用程式 -->
+  <div id="app" class="app hidden">
+    <header class="header">
+      <div class="header-logo">股</div>
+      <h1 class="header-title">股海秘書</h1>
+      <button class="header-btn">⚙️</button>
+    </header>
+
+    <main class="content">
+      <div class="demo-card">
+        <div class="demo-title">台積電 2330</div>
+        <div class="demo-price">1,150</div>
+        <div class="demo-change">▲ +35 (+3.14%)</div>
+        <div class="demo-info">
+          <div class="demo-item">
+            <span class="demo-label">開盤</span>
+            <span class="demo-value">1,120</span>
+          </div>
+          <div class="demo-item">
+            <span class="demo-label">最高</span>
+            <span class="demo-value">1,155</span>
+          </div>
+          <div class="demo-item">
+            <span class="demo-label">最低</span>
+            <span class="demo-value">1,118</span>
+          </div>
+          <div class="demo-item">
+            <span class="demo-label">昨收</span>
+            <span class="demo-value">1,115</span>
+          </div>
+          <div class="demo-item">
+            <span class="demo-label">RSI(14)</span>
+            <span class="demo-value">65.8</span>
+          </div>
+          <div class="demo-item">
+            <span class="demo-label">KD(9)</span>
+            <span class="demo-value">72/68</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="note">
+        <strong>📱 本機預覽模式</strong><br><br>
+        這是開機動畫和 UI 展示。<br>
+        完整功能需部署到 Render 後使用。<br><br>
+        部署教學請參考 <strong>README.md</strong>
+      </div>
+    </main>
+
+    <nav class="bottom-nav">
+      <button class="nav-item active">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">總覽</span>
+      </button>
+      <button class="nav-item">
+        <span class="nav-icon">👁️</span>
+        <span class="nav-label">監控</span>
+      </button>
+      <button class="nav-item">
+        <span class="nav-icon">💼</span>
+        <span class="nav-label">持股</span>
+      </button>
+      <button class="nav-item">
+        <span class="nav-icon">🎯</span>
+        <span class="nav-label">提醒</span>
+      </button>
+    </nav>
+  </div>
+
+  <script>
+    // 背景飄動數字
+    const nums = ['2330', '0050', '+2.5%', '▲', '168.5', '0056', '-1.2%', '▼', '00878', '+1.8%', '2317', '▲'];
+    for (let i = 0; i < 15; i++) {
+      const el = document.createElement('div');
+      el.className = 'float-num';
+      el.textContent = nums[Math.floor(Math.random() * nums.length)];
+      el.style.left = Math.random() * 90 + 5 + '%';
+      el.style.animationDelay = Math.random() * 10 + 's';
+      el.style.animationDuration = (8 + Math.random() * 6) + 's';
+      document.body.appendChild(el);
+    }
+
+    // 3秒後顯示主畫面
+    setTimeout(() => {
+      document.getElementById('splash').classList.add('fade-out');
+      document.getElementById('app').classList.remove('hidden');
+      
+      setTimeout(() => {
+        document.getElementById('splash').remove();
+      }, 500);
+    }, 3000);
+  </script>
+</body>
+</html>

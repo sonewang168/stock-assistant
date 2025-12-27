@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>股海秘書</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <!-- 開機動畫 -->
+  <div id="splash" class="splash">
+    <div class="splash-container">
+      <div class="splash-outer-glow"></div>
+      <div class="splash-particles">
+        <div class="splash-particle"></div>
+        <div class="splash-particle"></div>
+        <div class="splash-particle"></div>
+        <div class="splash-particle"></div>
+      </div>
+      <div class="splash-glow-ring"></div>
+      <div class="splash-inner-ring"></div>
+      <div class="splash-logo">股</div>
+      <div class="splash-progress">
+        <div class="splash-progress-bar">
+          <div class="splash-progress-fill"></div>
+        </div>
+        <div class="splash-loading-text">Loading</div>
+      </div>
+      <div class="splash-title">股海秘書</div>
+      <div class="splash-subtitle">INVESTMENT ASSISTANT</div>
+    </div>
+  </div>
+
+  <!-- 主應用程式 -->
+  <div id="app" class="app hidden">
+    <!-- 頂部導航 -->
+    <header class="header">
+      <div class="header-logo">股</div>
+      <h1 class="header-title">股海秘書</h1>
+      <button class="header-btn" onclick="app.openSettings()">⚙️</button>
+    </header>
+
+    <!-- 標籤頁 -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="dashboard">📊 總覽</button>
+      <button class="tab" data-tab="watchlist">👁️ 監控</button>
+      <button class="tab" data-tab="portfolio">💼 持股</button>
+      <button class="tab" data-tab="alerts">🎯 提醒</button>
+    </nav>
+
+    <!-- 內容區 -->
+    <main class="content">
+      <!-- 總覽頁 -->
+      <section id="dashboard" class="page active">
+        <div class="search-box">
+          <input type="text" id="stockSearch" placeholder="輸入股票代碼 (如 2330)" maxlength="6">
+          <button onclick="app.searchStock()">🔍</button>
+        </div>
+
+        <div id="stockResult" class="stock-result hidden"></div>
+
+        <div class="section">
+          <h2 class="section-title">📈 熱門股票</h2>
+          <div id="hotStocks" class="stock-grid">
+            <div class="loading">載入中...</div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2 class="section-title">📋 最新推播</h2>
+          <div id="recentAlerts" class="alert-list">
+            <div class="loading">載入中...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 監控頁 -->
+      <section id="watchlist" class="page">
+        <div class="section-header">
+          <h2>監控清單</h2>
+          <button class="btn-add" onclick="app.openAddWatchlist()">+ 新增</button>
+        </div>
+        <div id="watchlistItems" class="watchlist-items">
+          <div class="loading">載入中...</div>
+        </div>
+      </section>
+
+      <!-- 持股頁 -->
+      <section id="portfolio" class="page">
+        <div class="portfolio-summary" id="portfolioSummary">
+          <div class="loading">載入中...</div>
+        </div>
+        <div class="section-header">
+          <h2>持股明細</h2>
+          <button class="btn-add" onclick="app.openAddPortfolio()">+ 新增</button>
+        </div>
+        <div id="portfolioItems" class="portfolio-items">
+          <div class="loading">載入中...</div>
+        </div>
+      </section>
+
+      <!-- 提醒頁 -->
+      <section id="alerts" class="page">
+        <div class="section-header">
+          <h2>到價提醒</h2>
+          <button class="btn-add" onclick="app.openAddAlert()">+ 新增</button>
+        </div>
+        <div id="alertItems" class="alert-items">
+          <div class="loading">載入中...</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 底部導航（手機用）-->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="dashboard">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">總覽</span>
+      </button>
+      <button class="nav-item" data-tab="watchlist">
+        <span class="nav-icon">👁️</span>
+        <span class="nav-label">監控</span>
+      </button>
+      <button class="nav-item" data-tab="portfolio">
+        <span class="nav-icon">💼</span>
+        <span class="nav-label">持股</span>
+      </button>
+      <button class="nav-item" data-tab="alerts">
+        <span class="nav-icon">🎯</span>
+        <span class="nav-label">提醒</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-backdrop" onclick="app.closeModal()"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">標題</h3>
+        <button class="modal-close" onclick="app.closeModal()">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="./js/app.js"></script>
+</body>
+</html>
