@@ -12,54 +12,94 @@ const { pool } = require('../db');
 /**
  * POST /webhook
  * LINE Webhook 接收訊息
+ * 
+ * 重要：必須在 1 秒內回覆 200，否則 LINE 會重試！
  */
-router.post('/', async (req, res) => {
-  try {
-    // 解析 body
-    const body = typeof req.body === 'string' 
-      ? JSON.parse(req.body) 
-      : req.body;
-    
-    if (!body.events || body.events.length === 0) {
-      return res.status(200).send('OK');
+
+// 防重機制：記錄已處理的訊息 ID（用 message.id 而非 webhookEventId）
+const processedMessages = new Map();
+const MESSAGE_COOLDOWN = 60000; // 60 秒內同一訊息不重複處理
+
+function isProcessed(messageId) {
+  const now = Date.now();
+  
+  // 清理過期記錄
+  for (const [id, time] of processedMessages) {
+    if (now - time > MESSAGE_COOLDOWN) {
+      processedMessages.delete(id);
     }
-    
-    const event = body.events[0];
-    
-    // 處理訊息事件
-    if (event.type === 'message' && event.message.type === 'text') {
-      const userId = event.source.userId;
-      const userMessage = event.message.text.trim();
-      const replyToken = event.replyToken;
-      
-      // 儲存 User ID
-      await saveLineUserId(userId);
-      
-      // 處理指令
-      const response = await handleCommand(userMessage, userId);
-      
-      if (response) {
-        await lineService.replyMessage(replyToken, response);
-      }
-    }
-    
-    // Follow 事件
-    if (event.type === 'follow') {
-      const userId = event.source.userId;
-      await saveLineUserId(userId);
-      
-      await lineService.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '👋 歡迎使用股海秘書！\n\n輸入股票代碼（如 2330）查詢股價\n輸入「說明」查看所有指令'
-      });
-    }
-    
-    res.status(200).send('OK');
-    
-  } catch (error) {
-    console.error('Webhook 錯誤:', error);
-    res.status(200).send('OK');
   }
+  
+  if (processedMessages.has(messageId)) {
+    console.log(`⏭️ 跳過重複訊息: ${messageId}`);
+    return true;
+  }
+  
+  processedMessages.set(messageId, now);
+  return false;
+}
+
+router.post('/', (req, res) => {
+  // ⚡ 立即回覆 200（避免 LINE 重試）
+  res.status(200).send('OK');
+  
+  // 異步處理訊息（不阻塞回覆）
+  setImmediate(async () => {
+    try {
+      // 解析 body
+      const body = typeof req.body === 'string' 
+        ? JSON.parse(req.body) 
+        : req.body;
+      
+      if (!body.events || body.events.length === 0) {
+        return;
+      }
+      
+      const event = body.events[0];
+      
+      // 🛡️ 用 message.id 防重（這個 ID 不會因重試而改變）
+      const messageId = event.message?.id;
+      if (!messageId) {
+        console.log('⚠️ 訊息沒有 ID，跳過');
+        return;
+      }
+      
+      if (isProcessed(messageId)) {
+        return; // 已處理過，跳過
+      }
+      
+      console.log(`📩 處理訊息 ID: ${messageId}`);
+      
+      // 處理訊息事件
+      if (event.type === 'message' && event.message.type === 'text') {
+        const userId = event.source.userId;
+        const userMessage = event.message.text.trim();
+        
+        // 儲存 User ID
+        await saveLineUserId(userId);
+        
+        // 處理指令（只用 push，不用 reply）
+        const response = await handleCommand(userMessage, userId);
+        
+        if (response) {
+          await lineService.sendTextMessage(userId, response.text || '處理完成');
+        }
+      }
+      
+      // Follow 事件
+      if (event.type === 'follow') {
+        const userId = event.source.userId;
+        await saveLineUserId(userId);
+        
+        await lineService.sendTextMessage(userId, 
+          '👋 歡迎使用股海秘書！\n\n輸入股票代碼（如 2330）查詢股價\n輸入「說明」查看所有指令'
+        );
+      }
+      
+    } catch (error) {
+      console.error('Webhook 處理錯誤:', error);
+    }
+  });
 });
 
 /**
@@ -206,9 +246,33 @@ async function getIndicesReply() {
 }
 
 /**
- * 🔊 發送語音播報
+ * 🔊 發送語音播報（有防重機制）
  */
+// 語音請求防重
+const voiceRequests = new Map();
+const VOICE_COOLDOWN = 60000; // 60 秒內不重複發送同一股票
+
 async function sendVoiceReport(stockId, userId) {
+  // 🛡️ 防重檢查
+  const requestKey = `voice_${userId}_${stockId}`;
+  const lastRequest = voiceRequests.get(requestKey);
+  const now = Date.now();
+  
+  if (lastRequest && (now - lastRequest) < VOICE_COOLDOWN) {
+    console.log(`⏭️ 語音冷卻中: ${stockId}`);
+    return null; // 冷卻中，不回應
+  }
+  
+  // 記錄請求時間
+  voiceRequests.set(requestKey, now);
+  
+  // 清理過期的請求記錄
+  for (const [key, time] of voiceRequests) {
+    if (now - time > VOICE_COOLDOWN * 2) {
+      voiceRequests.delete(key);
+    }
+  }
+
   try {
     const voiceService = require('../services/voiceService');
     const stockData = await stockService.getRealtimePrice(stockId);
@@ -221,7 +285,7 @@ async function sendVoiceReport(stockId, userId) {
     const settings = await voiceService.getVoiceSettings();
     
     if (!settings.enabled) {
-      // 語音未啟用，發送文字提示
+      // 語音未啟用，發送文字
       const isUp = stockData.change >= 0;
       return { 
         type: 'text', 
@@ -232,22 +296,21 @@ async function sendVoiceReport(stockId, userId) {
       };
     }
     
-    // 發送語音
+    console.log(`🔊 發送語音: ${stockData.name}`);
+    
+    // 發送語音（同步等待）
     const success = await lineService.sendStockVoiceAlert(userId, stockData, voiceService);
     
-    if (success) {
-      return null; // 語音發送成功，不需要額外回覆
-    } else {
-      return { 
-        type: 'text', 
-        text: `⚠️ 語音生成失敗\n\n` +
-          `📊 ${stockData.name}：${stockData.price} 元（${stockData.changePercent}%）`
-      };
+    if (!success) {
+      return { type: 'text', text: `⚠️ 語音生成失敗` };
     }
+    
+    // 語音已發送，不需要額外回應
+    return null;
     
   } catch (error) {
     console.error('語音播報錯誤:', error);
-    return { type: 'text', text: '⚠️ 語音播報服務暫時無法使用' };
+    return { type: 'text', text: '⚠️ 語音播報失敗' };
   }
 }
 

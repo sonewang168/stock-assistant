@@ -300,35 +300,8 @@ class StockApp {
   }
 
   async speakStock(stockId) {
-    this.showToast('🔊 正在生成語音...');
-    
-    try {
-      const response = await fetch(`${API_BASE}/voice/stock/${stockId}`);
-      const data = await response.json();
-      
-      if (data.error) {
-        // 改用瀏覽器 TTS
-        const stock = data.stock || await this.getStockData(stockId);
-        if (stock) {
-          const text = `${stock.name}，現價 ${stock.price} 元，${stock.change >= 0 ? '上漲' : '下跌'} ${Math.abs(stock.changePercent)} 趴`;
-          this.speakWithBrowser(text);
-        }
-        return;
-      }
-      
-      if (data.voice) {
-        if (data.voice.useBrowserTTS) {
-          this.speakWithBrowser(data.voice.text);
-        } else if (data.voice.dataUrl) {
-          const audio = new Audio(data.voice.dataUrl);
-          audio.play();
-        }
-      }
-      
-    } catch (error) {
-      // 備用方案：直接用瀏覽器 TTS
-      this.speakWithBrowser(`無法取得股票 ${stockId} 的語音資訊`);
-    }
+    // 直接呼叫手動播報
+    await this.speakStockNow(stockId);
   }
 
   async getStockData(stockId) {
@@ -642,6 +615,167 @@ class StockApp {
       this.loadAlerts();
     } catch (error) {
       this.showToast('操作失敗');
+    }
+  }
+
+  // ==================== 語音播報控制 ====================
+
+  voiceAutoPlay = false;  // 預設關閉，需手動開啟
+  audioQueue = [];
+  isPlaying = false;
+
+  // 切換自動播報（網頁上的按鈕控制）
+  toggleVoiceAutoPlay() {
+    this.voiceAutoPlay = !this.voiceAutoPlay;
+    
+    if (this.voiceAutoPlay) {
+      this.showToast('🔊 即時語音播報已開啟');
+      this.updateVoiceButton(true);
+      this.startAlertPolling();
+    } else {
+      this.showToast('🔇 即時語音播報已關閉');
+      this.updateVoiceButton(false);
+      // 清空佇列
+      this.audioQueue = [];
+      speechSynthesis.cancel();
+    }
+  }
+
+  updateVoiceButton(isOn) {
+    const btn = document.getElementById('voiceToggleBtn');
+    if (btn) {
+      btn.innerHTML = isOn ? '🔊' : '🔇';
+      btn.title = isOn ? '關閉語音播報' : '開啟語音播報';
+      btn.style.color = isOn ? '#00C851' : '#888';
+    }
+  }
+
+  startAlertPolling() {
+    if (this.alertPollInterval) return;
+    
+    // 每 30 秒檢查新警報
+    this.alertPollInterval = setInterval(() => {
+      if (this.voiceAutoPlay) {
+        this.checkNewAlerts();
+      }
+    }, 30000);
+  }
+
+  async checkNewAlerts() {
+    if (!this.voiceAutoPlay) return;
+    
+    try {
+      const response = await fetch(`${API_BASE}/alert/logs?limit=1`);
+      const logs = await response.json();
+      
+      if (logs.length > 0) {
+        const latestAlert = logs[0];
+        const lastAlertId = localStorage.getItem('lastAlertId');
+        
+        // 有新警報
+        if (latestAlert.id !== parseInt(lastAlertId)) {
+          localStorage.setItem('lastAlertId', latestAlert.id);
+          this.autoPlayAlert(latestAlert);
+        }
+      }
+    } catch (error) {
+      // 忽略錯誤
+    }
+  }
+
+  async autoPlayAlert(alert) {
+    if (!this.voiceAutoPlay) return;
+    
+    const isUp = parseFloat(alert.change_percent) >= 0;
+    const text = `${alert.stock_name}，${alert.alert_type}，` +
+      `現價 ${alert.price} 元，` +
+      `${isUp ? '上漲' : '下跌'} ${Math.abs(alert.change_percent)} 趴`;
+    
+    // 加入播放佇列
+    this.audioQueue.push(text);
+    this.processAudioQueue();
+  }
+
+  async processAudioQueue() {
+    if (this.isPlaying || this.audioQueue.length === 0) return;
+    if (!this.voiceAutoPlay) return;  // 再次確認
+    
+    this.isPlaying = true;
+    const text = this.audioQueue.shift();
+    
+    try {
+      const response = await fetch(`${API_BASE}/voice/speak`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      
+      const data = await response.json();
+      
+      if (data.useBrowserTTS) {
+        await this.speakWithBrowserAsync(text);
+      } else if (data.dataUrl) {
+        await this.playAudioAsync(data.dataUrl);
+      }
+    } catch (error) {
+      // 備用：使用瀏覽器 TTS
+      await this.speakWithBrowserAsync(text);
+    }
+    
+    this.isPlaying = false;
+    
+    // 處理下一個
+    if (this.audioQueue.length > 0 && this.voiceAutoPlay) {
+      setTimeout(() => this.processAudioQueue(), 500);
+    }
+  }
+
+  playAudioAsync(dataUrl) {
+    return new Promise((resolve) => {
+      const audio = new Audio(dataUrl);
+      audio.onended = resolve;
+      audio.onerror = resolve;
+      audio.play().catch(resolve);
+    });
+  }
+
+  speakWithBrowserAsync(text) {
+    return new Promise((resolve) => {
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-TW';
+        utterance.rate = 1.0;
+        utterance.onend = resolve;
+        utterance.onerror = resolve;
+        speechSynthesis.speak(utterance);
+      } else {
+        resolve();
+      }
+    });
+  }
+
+  // 手動播報股票（點擊 🔊 按鈕）
+  async speakStockNow(stockId) {
+    try {
+      this.showToast('🔊 正在播報...');
+      
+      const response = await fetch(`${API_BASE}/stock/${stockId}`);
+      const stock = await response.json();
+      
+      if (stock.error) {
+        this.showToast('找不到股票');
+        return;
+      }
+      
+      const isUp = stock.change >= 0;
+      const text = `${stock.name}，現價 ${stock.price} 元，` +
+        `${isUp ? '上漲' : '下跌'} ${Math.abs(stock.changePercent).toFixed(2)} 趴`;
+      
+      // 直接播放，不用佇列
+      this.speakWithBrowser(text);
+      
+    } catch (error) {
+      this.showToast('播報失敗');
     }
   }
 
