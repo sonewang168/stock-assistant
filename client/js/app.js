@@ -178,9 +178,12 @@ class StockApp {
             <div class="stock-name">${stock.name}</div>
             <div class="stock-id">${stock.id} | ${stock.market}</div>
           </div>
-          <button class="item-btn" onclick="app.addToWatchlist('${stock.id}', '${stock.name}')">
-            + 監控
-          </button>
+          <div style="display: flex; gap: 8px;">
+            <button class="item-btn" onclick="app.speakStock('${stock.id}')">🔊</button>
+            <button class="item-btn" onclick="app.addToWatchlist('${stock.id}', '${stock.name}')">
+              + 監控
+            </button>
+          </div>
         </div>
         <div>
           <span class="stock-price">${stock.price}</span>
@@ -293,6 +296,47 @@ class StockApp {
       }
     } catch (error) {
       this.showToast('操作失敗');
+    }
+  }
+
+  async speakStock(stockId) {
+    this.showToast('🔊 正在生成語音...');
+    
+    try {
+      const response = await fetch(`${API_BASE}/voice/stock/${stockId}`);
+      const data = await response.json();
+      
+      if (data.error) {
+        // 改用瀏覽器 TTS
+        const stock = data.stock || await this.getStockData(stockId);
+        if (stock) {
+          const text = `${stock.name}，現價 ${stock.price} 元，${stock.change >= 0 ? '上漲' : '下跌'} ${Math.abs(stock.changePercent)} 趴`;
+          this.speakWithBrowser(text);
+        }
+        return;
+      }
+      
+      if (data.voice) {
+        if (data.voice.useBrowserTTS) {
+          this.speakWithBrowser(data.voice.text);
+        } else if (data.voice.dataUrl) {
+          const audio = new Audio(data.voice.dataUrl);
+          audio.play();
+        }
+      }
+      
+    } catch (error) {
+      // 備用方案：直接用瀏覽器 TTS
+      this.speakWithBrowser(`無法取得股票 ${stockId} 的語音資訊`);
+    }
+  }
+
+  async getStockData(stockId) {
+    try {
+      const response = await fetch(`${API_BASE}/stock/${stockId}`);
+      return await response.json();
+    } catch {
+      return null;
     }
   }
 
@@ -624,11 +668,98 @@ class StockApp {
         <label class="form-label">停利閾值 (%)</label>
         <input type="number" class="form-input" id="settingTakeProfit" value="20">
       </div>
+      
+      <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+      <h4 style="margin-bottom: 15px;">🔊 語音播報設定</h4>
+      
+      <div class="form-group">
+        <label class="form-label">啟用語音播報</label>
+        <select class="form-select" id="settingVoiceEnabled">
+          <option value="false">關閉</option>
+          <option value="true">開啟</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">語音引擎</label>
+        <select class="form-select" id="settingVoiceProvider" onchange="app.onVoiceProviderChange()">
+          <option value="gemini">🤖 Google TTS（免費）</option>
+          <option value="elevenlabs">🎙️ ElevenLabs（高品質）</option>
+        </select>
+      </div>
+      <div class="form-group" id="voiceIdGroup" style="display:none;">
+        <label class="form-label">ElevenLabs 聲音</label>
+        <select class="form-select" id="settingVoiceId">
+          <option value="pNInz6obpgDQGcFmaJgB">Adam（男聲，穩重）</option>
+          <option value="EXAVITQu4vr4xnSDxMaL">Bella（女聲，溫柔）</option>
+          <option value="21m00Tcm4TlvDq8ikWAM">Rachel（女聲，專業）</option>
+          <option value="TxGEqnHWrfWFTfGW9XjX">Josh（男聲，年輕）</option>
+          <option value="VR6AewLTigWG4xSOukaG">Arnold（男聲，深沉）</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <button class="item-btn" onclick="app.testVoice()" style="width: 100%; padding: 12px;">
+          🔊 測試語音
+        </button>
+      </div>
+      
       <button class="form-btn" onclick="app.saveSettings()">儲存設定</button>
     `);
     
     // 載入現有設定
     this.loadSettings();
+  }
+
+  onVoiceProviderChange() {
+    const provider = document.getElementById('settingVoiceProvider').value;
+    const voiceIdGroup = document.getElementById('voiceIdGroup');
+    voiceIdGroup.style.display = provider === 'elevenlabs' ? 'block' : 'none';
+  }
+
+  async testVoice() {
+    const provider = document.getElementById('settingVoiceProvider').value;
+    const voiceId = document.getElementById('settingVoiceId')?.value;
+    
+    this.showToast('🔊 正在生成語音...');
+    
+    try {
+      const response = await fetch(`${API_BASE}/voice/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, voiceId })
+      });
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        this.showToast('❌ ' + data.error);
+        return;
+      }
+      
+      // 播放語音
+      if (data.useBrowserTTS) {
+        // 使用瀏覽器 TTS
+        this.speakWithBrowser(data.text);
+      } else if (data.dataUrl) {
+        const audio = new Audio(data.dataUrl);
+        audio.play();
+      }
+      
+      this.showToast('✅ 語音播放中');
+      
+    } catch (error) {
+      this.showToast('❌ 測試失敗');
+    }
+  }
+
+  speakWithBrowser(text) {
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'zh-TW';
+      utterance.rate = 1.0;
+      speechSynthesis.speak(utterance);
+    } else {
+      this.showToast('瀏覽器不支援語音');
+    }
   }
 
   async loadSettings() {
@@ -648,6 +779,20 @@ class StockApp {
       if (settings.take_profit_percent) {
         document.getElementById('settingTakeProfit').value = settings.take_profit_percent;
       }
+      // 語音設定
+      if (settings.voice_enabled) {
+        document.getElementById('settingVoiceEnabled').value = settings.voice_enabled;
+      }
+      if (settings.voice_provider) {
+        document.getElementById('settingVoiceProvider').value = settings.voice_provider;
+        this.onVoiceProviderChange();
+      }
+      if (settings.elevenlabs_voice_id) {
+        const voiceIdSelect = document.getElementById('settingVoiceId');
+        if (voiceIdSelect) {
+          voiceIdSelect.value = settings.elevenlabs_voice_id;
+        }
+      }
     } catch (error) {
       console.error('載入設定失敗:', error);
     }
@@ -658,7 +803,10 @@ class StockApp {
       ai_style: document.getElementById('settingAiStyle').value,
       price_threshold: document.getElementById('settingThreshold').value,
       stop_loss_percent: document.getElementById('settingStopLoss').value,
-      take_profit_percent: document.getElementById('settingTakeProfit').value
+      take_profit_percent: document.getElementById('settingTakeProfit').value,
+      voice_enabled: document.getElementById('settingVoiceEnabled').value,
+      voice_provider: document.getElementById('settingVoiceProvider').value,
+      elevenlabs_voice_id: document.getElementById('settingVoiceId')?.value || 'pNInz6obpgDQGcFmaJgB'
     };
     
     try {

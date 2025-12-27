@@ -20,6 +20,7 @@ const portfolioRoutes = require('./routes/portfolio');
 const alertRoutes = require('./routes/alert');
 const lineRoutes = require('./routes/line');
 const settingsRoutes = require('./routes/settings');
+const voiceRoutes = require('./routes/voice');
 
 // 排程
 const scheduler = require('./cron/scheduler');
@@ -58,6 +59,7 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/alert', alertRoutes);
 app.use('/api/line', lineRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/voice', voiceRoutes);
 
 // LINE Webhook（需要原始 body）
 app.use('/webhook', express.raw({ type: 'application/json' }), lineRoutes);

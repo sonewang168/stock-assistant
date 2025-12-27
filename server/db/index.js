@@ -6,8 +6,11 @@ const { Pool } = require('pg');
 
 // 資料庫連接池
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/stockassistant',
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000
 });
 
 // 測試連接
@@ -16,7 +19,8 @@ pool.on('connect', () => {
 });
 
 pool.on('error', (err) => {
-  console.error('❌ PostgreSQL 連接錯誤:', err);
+  console.error('❌ PostgreSQL 連接錯誤:', err.message);
+  // 不要讓錯誤終止程序
 });
 
 // ==================== 資料表結構 ====================
@@ -195,7 +199,11 @@ async function seedSettings() {
     ['enable_highlow_alert', 'true'],
     ['highlow_days', '20'],
     ['stop_loss_percent', '-10'],
-    ['take_profit_percent', '20']
+    ['take_profit_percent', '20'],
+    // 語音設定
+    ['voice_enabled', 'false'],
+    ['voice_provider', 'gemini'],  // 'elevenlabs' 或 'gemini'
+    ['elevenlabs_voice_id', 'pNInz6obpgDQGcFmaJgB']  // Adam
   ];
 
   const insertSQL = `
