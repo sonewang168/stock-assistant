@@ -5,6 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
+const stockService = require('../services/stockService');
 
 /**
  * GET /api/watchlist
@@ -40,7 +41,22 @@ router.post('/', async (req, res) => {
     if (!stockId) {
       return res.status(400).json({ error: '缺少 stockId' });
     }
+
+    // 先取得股票資訊
+    const stockData = await stockService.getRealtimePrice(stockId);
     
+    if (!stockData) {
+      return res.status(404).json({ error: `找不到股票 ${stockId}` });
+    }
+
+    // 確保 stocks 表有這支股票（解決外鍵約束問題）
+    await pool.query(`
+      INSERT INTO stocks (id, name, market) 
+      VALUES ($1, $2, $3)
+      ON CONFLICT (id) DO UPDATE SET name = $2
+    `, [stockId, stockData.name, stockData.market || 'TSE']);
+    
+    // 加入監控
     const sql = `
       INSERT INTO watchlist (stock_id, user_id, custom_threshold, notes)
       VALUES ($1, $2, $3, $4)
@@ -53,8 +69,14 @@ router.post('/', async (req, res) => {
     `;
     
     const result = await pool.query(sql, [stockId, userId, customThreshold, notes]);
-    res.json(result.rows[0]);
+    
+    // 回傳時附上股票名稱
+    const response = result.rows[0];
+    response.stock_name = stockData.name;
+    
+    res.json(response);
   } catch (error) {
+    console.error('新增監控錯誤:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -97,7 +119,6 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    // 軟刪除
     const sql = `
       UPDATE watchlist SET is_active = false WHERE id = $1 RETURNING *
     `;
@@ -140,7 +161,20 @@ router.post('/toggle/:stockId', async (req, res) => {
       const result = await pool.query(toggleSql, [stockId, userId]);
       res.json(result.rows[0]);
     } else {
-      // 不存在，新增
+      // 不存在，先確保股票在 stocks 表中
+      const stockData = await stockService.getRealtimePrice(stockId);
+      
+      if (!stockData) {
+        return res.status(404).json({ error: `找不到股票 ${stockId}` });
+      }
+
+      await pool.query(`
+        INSERT INTO stocks (id, name, market) 
+        VALUES ($1, $2, $3)
+        ON CONFLICT (id) DO UPDATE SET name = $2
+      `, [stockId, stockData.name, stockData.market || 'TSE']);
+
+      // 新增監控
       const insertSql = `
         INSERT INTO watchlist (stock_id, user_id) VALUES ($1, $2) RETURNING *
       `;

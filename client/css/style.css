@@ -668,6 +668,7 @@ body {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.7);
+  z-index: 1;
 }
 
 .modal-content {
@@ -678,6 +679,7 @@ body {
   border-radius: 20px 20px 0 0;
   overflow: hidden;
   animation: slideUp 0.3s ease;
+  z-index: 2;
 }
 
 @keyframes slideUp {
