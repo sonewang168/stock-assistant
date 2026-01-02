@@ -78,11 +78,16 @@ router.post('/', (req, res) => {
         // 儲存 User ID
         await saveLineUserId(userId);
         
-        // 處理指令（只用 push，不用 reply）
+        // 處理指令
         const response = await handleCommand(userMessage, userId);
         
         if (response) {
-          await lineService.sendTextMessage(userId, response.text || '處理完成');
+          // 根據回應類型發送
+          if (response.type === 'flex') {
+            await lineService.sendFlexMessage(userId, response);
+          } else {
+            await lineService.sendTextMessage(userId, response.text || '處理完成');
+          }
         }
       }
       
@@ -110,7 +115,7 @@ async function handleCommand(message, userId) {
   
   // 查詢股價：輸入代碼
   if (/^\d{4,6}$/.test(msg)) {
-    return await getStockInfoReply(msg);
+    return await getStockInfoFlex(msg);
   }
   
   // 加監控指令：+2330 或 加2330 或 監控2330
@@ -133,9 +138,9 @@ async function handleCommand(message, userId) {
   
   // 指令列表
   const commands = {
-    '持股': () => getPortfolioReply(),
-    '監控': () => getWatchlistReply(),
-    '熱門': () => getHotStocksReply(),
+    '持股': () => getPortfolioFlex(),
+    '監控': () => getWatchlistFlex(),
+    '熱門': () => getHotStocksFlex(),
     '大盤': () => getMarketReply(),
     '指數': () => getMarketReply(),
     '說明': () => getHelpReply(),
@@ -160,7 +165,7 @@ async function handleCommand(message, userId) {
   // 嘗試用名稱搜尋
   if (msg.length >= 2 && !/^\d+$/.test(msg)) {
     const searchResult = await searchStock(msg);
-    if (searchResult.text.includes('找到')) {
+    if (searchResult.type === 'flex' || (searchResult.text && searchResult.text.includes('找到'))) {
       return searchResult;
     }
   }
@@ -177,9 +182,33 @@ async function handleCommand(message, userId) {
 }
 
 /**
- * 取得股票資訊回覆
+ * 🕐 取得台灣時間
  */
-async function getStockInfoReply(stockId) {
+function getTaiwanTime() {
+  return new Date().toLocaleTimeString('zh-TW', { 
+    timeZone: 'Asia/Taipei',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
+
+/**
+ * 🕐 取得台灣日期
+ */
+function getTaiwanDate() {
+  return new Date().toLocaleDateString('zh-TW', { 
+    timeZone: 'Asia/Taipei',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric'
+  });
+}
+
+/**
+ * 📊 取得股票資訊 Flex Message
+ */
+async function getStockInfoFlex(stockId) {
   const stockData = await stockService.getRealtimePrice(stockId);
   
   if (!stockData) {
@@ -189,40 +218,159 @@ async function getStockInfoReply(stockId) {
   const indicators = await technicalService.getFullIndicators(stockId);
   const chip = await stockService.getInstitutionalData(stockId);
   
-  let info = `📊 ${stockData.name}（${stockId}）\n`;
-  info += `━━━━━━━━━━━━━━\n`;
-  info += `💰 現價：${stockData.price}\n`;
-  info += `📈 漲跌：${stockData.change > 0 ? '+' : ''}${stockData.change}（${stockData.changePercent}%）\n`;
-  info += `📊 開：${stockData.open} 高：${stockData.high}\n`;
-  info += `📊 低：${stockData.low} 昨：${stockData.yesterday}\n`;
+  const isUp = stockData.change >= 0;
+  const color = isUp ? '#00C851' : '#ff4444';
+  const arrow = isUp ? '▲' : '▼';
+  const emoji = isUp ? '📈' : '📉';
   
-  if (indicators) {
-    info += `\n📈 技術指標\n`;
-    info += `RSI(14)：${indicators.rsi || 'N/A'}\n`;
-    if (indicators.kd) {
-      info += `KD(9)：${indicators.kd.k}/${indicators.kd.d}\n`;
+  // 基本資訊
+  const bodyContents = [
+    {
+      type: 'box',
+      layout: 'horizontal',
+      contents: [
+        { type: 'text', text: `${stockData.price}`, size: '3xl', weight: 'bold', color: color },
+        { type: 'text', text: `${arrow} ${stockData.changePercent}%`, size: 'xl', color: color, align: 'end', gravity: 'bottom' }
+      ]
+    },
+    { type: 'separator', margin: 'lg' },
+    {
+      type: 'box',
+      layout: 'horizontal',
+      margin: 'lg',
+      contents: [
+        { type: 'text', text: '開盤', size: 'sm', color: '#888888', flex: 1 },
+        { type: 'text', text: `${stockData.open}`, size: 'sm', align: 'end', flex: 1 },
+        { type: 'text', text: '最高', size: 'sm', color: '#888888', flex: 1 },
+        { type: 'text', text: `${stockData.high}`, size: 'sm', align: 'end', flex: 1 }
+      ]
+    },
+    {
+      type: 'box',
+      layout: 'horizontal',
+      margin: 'sm',
+      contents: [
+        { type: 'text', text: '昨收', size: 'sm', color: '#888888', flex: 1 },
+        { type: 'text', text: `${stockData.yesterday}`, size: 'sm', align: 'end', flex: 1 },
+        { type: 'text', text: '最低', size: 'sm', color: '#888888', flex: 1 },
+        { type: 'text', text: `${stockData.low}`, size: 'sm', align: 'end', flex: 1 }
+      ]
     }
+  ];
+  
+  // 技術指標
+  if (indicators) {
+    bodyContents.push({ type: 'separator', margin: 'lg' });
+    bodyContents.push({
+      type: 'box',
+      layout: 'vertical',
+      margin: 'lg',
+      contents: [
+        { type: 'text', text: '📈 技術指標', size: 'sm', color: '#888888', weight: 'bold' },
+        {
+          type: 'box',
+          layout: 'horizontal',
+          margin: 'sm',
+          contents: [
+            { type: 'text', text: 'RSI(14)', size: 'sm', color: '#888888', flex: 1 },
+            { type: 'text', text: `${indicators.rsi || 'N/A'}`, size: 'sm', align: 'end', flex: 1 },
+            { type: 'text', text: 'KD(9)', size: 'sm', color: '#888888', flex: 1 },
+            { type: 'text', text: indicators.kd ? `${indicators.kd.k}/${indicators.kd.d}` : 'N/A', size: 'sm', align: 'end', flex: 1 }
+          ]
+        }
+      ]
+    });
   }
   
+  // 三大法人
   if (chip) {
-    info += `\n💰 三大法人\n`;
-    info += `外資：${chip.foreign > 0 ? '+' : ''}${(chip.foreign/1000).toFixed(0)}張\n`;
-    info += `投信：${chip.investment > 0 ? '+' : ''}${(chip.investment/1000).toFixed(0)}張\n`;
+    bodyContents.push({ type: 'separator', margin: 'lg' });
+    bodyContents.push({
+      type: 'box',
+      layout: 'vertical',
+      margin: 'lg',
+      contents: [
+        { type: 'text', text: '💰 三大法人', size: 'sm', color: '#888888', weight: 'bold' },
+        {
+          type: 'box',
+          layout: 'horizontal',
+          margin: 'sm',
+          contents: [
+            { type: 'text', text: '外資', size: 'sm', color: '#888888', flex: 1 },
+            { 
+              type: 'text', 
+              text: `${chip.foreign > 0 ? '+' : ''}${(chip.foreign/1000).toFixed(0)}張`, 
+              size: 'sm', 
+              color: chip.foreign >= 0 ? '#00C851' : '#ff4444',
+              align: 'end', 
+              flex: 1 
+            },
+            { type: 'text', text: '投信', size: 'sm', color: '#888888', flex: 1 },
+            { 
+              type: 'text', 
+              text: `${chip.investment > 0 ? '+' : ''}${(chip.investment/1000).toFixed(0)}張`, 
+              size: 'sm', 
+              color: chip.investment >= 0 ? '#00C851' : '#ff4444',
+              align: 'end', 
+              flex: 1 
+            }
+          ]
+        }
+      ]
+    });
   }
   
-  return { type: 'text', text: info };
+  return {
+    type: 'flex',
+    altText: `${stockData.name}（${stockId}）${stockData.price} ${arrow}${stockData.changePercent}%`,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: stockData.name, color: '#ffffff', size: 'xl', weight: 'bold', flex: 1 },
+              { type: 'text', text: stockId, color: '#ffffffaa', size: 'sm', align: 'end' }
+            ]
+          },
+          { type: 'text', text: `${emoji} ${isUp ? '上漲' : '下跌'} ${Math.abs(stockData.changePercent)}%`, color: '#ffffff', size: 'sm', margin: 'md' }
+        ],
+        backgroundColor: color,
+        paddingAll: '20px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: bodyContents,
+        paddingAll: '20px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: `⏰ ${getTaiwanTime()}`, size: 'xs', color: '#888888' }
+        ],
+        paddingAll: '15px'
+      }
+    }
+  };
 }
 
 /**
- * 取得持股回覆
+ * 💼 取得持股 Flex Message
  */
-async function getPortfolioReply() {
+async function getPortfolioFlex() {
   const sql = `
     SELECT p.stock_id, p.shares, p.avg_cost, s.name as stock_name
     FROM portfolio p
     LEFT JOIN stocks s ON p.stock_id = s.id
     WHERE p.user_id = 'default' AND p.shares > 0
-    LIMIT 20
+    LIMIT 10
   `;
   
   const result = await pool.query(sql);
@@ -231,27 +379,127 @@ async function getPortfolioReply() {
     return { type: 'text', text: '📭 目前沒有持股紀錄\n\n請在網頁版新增持股' };
   }
   
-  let info = '💼 我的持股\n━━━━━━━━━━━━━━\n';
+  // 取得即時價格計算損益
+  const holdings = [];
+  let totalValue = 0;
+  let totalCost = 0;
   
   for (const row of result.rows) {
-    const name = row.stock_name || row.stock_id;
-    info += `• ${name}：${row.shares}股 @ $${row.avg_cost}\n`;
+    const stockData = await stockService.getRealtimePrice(row.stock_id);
+    const currentPrice = stockData?.price || row.avg_cost;
+    const value = currentPrice * row.shares;
+    const cost = row.avg_cost * row.shares;
+    const profit = value - cost;
+    const profitPercent = ((currentPrice - row.avg_cost) / row.avg_cost * 100).toFixed(2);
+    
+    totalValue += value;
+    totalCost += cost;
+    
+    holdings.push({
+      name: row.stock_name || row.stock_id,
+      stockId: row.stock_id,
+      shares: row.shares,
+      avgCost: row.avg_cost,
+      currentPrice,
+      profit,
+      profitPercent
+    });
   }
   
-  return { type: 'text', text: info };
+  const totalProfit = totalValue - totalCost;
+  const totalProfitPercent = totalCost > 0 ? ((totalProfit / totalCost) * 100).toFixed(2) : 0;
+  const isProfit = totalProfit >= 0;
+  const color = isProfit ? '#00C851' : '#ff4444';
+  
+  const holdingRows = holdings.map(h => {
+    const hColor = h.profit >= 0 ? '#00C851' : '#ff4444';
+    return {
+      type: 'box',
+      layout: 'horizontal',
+      contents: [
+        { type: 'text', text: h.name, size: 'sm', flex: 3 },
+        { type: 'text', text: `${h.currentPrice}`, size: 'sm', align: 'end', flex: 2 },
+        { type: 'text', text: `${h.profit >= 0 ? '+' : ''}${h.profitPercent}%`, size: 'sm', color: hColor, align: 'end', flex: 2 }
+      ],
+      margin: 'sm'
+    };
+  });
+  
+  return {
+    type: 'flex',
+    altText: `💼 持股報告 ${isProfit ? '📈' : '📉'} ${totalProfitPercent}%`,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: '💼 我的持股', size: 'xl', weight: 'bold', color: '#ffffff' },
+          { type: 'text', text: `總報酬 ${isProfit ? '+' : ''}${totalProfitPercent}%`, size: 'md', color: '#ffffff', margin: 'sm' }
+        ],
+        backgroundColor: color,
+        paddingAll: '20px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: '總市值', size: 'sm', color: '#888888' },
+              { type: 'text', text: `$${Math.round(totalValue).toLocaleString()}`, size: 'lg', weight: 'bold', align: 'end' }
+            ]
+          },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            margin: 'md',
+            contents: [
+              { type: 'text', text: '總損益', size: 'sm', color: '#888888' },
+              { type: 'text', text: `${isProfit ? '+' : ''}$${Math.round(totalProfit).toLocaleString()}`, size: 'sm', color: color, align: 'end' }
+            ]
+          },
+          { type: 'separator', margin: 'lg' },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            margin: 'md',
+            contents: [
+              { type: 'text', text: '股票', size: 'xs', color: '#888888', flex: 3 },
+              { type: 'text', text: '現價', size: 'xs', color: '#888888', align: 'end', flex: 2 },
+              { type: 'text', text: '報酬', size: 'xs', color: '#888888', align: 'end', flex: 2 }
+            ]
+          },
+          ...holdingRows
+        ],
+        paddingAll: '20px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: `⏰ ${getTaiwanTime()}`, size: 'xs', color: '#888888' }
+        ],
+        paddingAll: '15px'
+      }
+    }
+  };
 }
 
 /**
- * 取得監控清單回覆（使用 default 用戶，與網頁版同步）
+ * 📋 取得監控清單 Flex Message
  */
-async function getWatchlistReply() {
+async function getWatchlistFlex() {
   const sql = `
     SELECT w.stock_id, s.name as stock_name
     FROM watchlist w
     LEFT JOIN stocks s ON w.stock_id = s.id
     WHERE w.user_id = 'default' AND w.is_active = true
     ORDER BY w.created_at DESC
-    LIMIT 20
+    LIMIT 10
   `;
   
   const result = await pool.query(sql);
@@ -260,16 +508,174 @@ async function getWatchlistReply() {
     return { type: 'text', text: '📭 目前沒有監控股票\n\n輸入「+2330」加入監控' };
   }
   
-  let info = '📋 監控清單\n━━━━━━━━━━━━━━\n';
-  
+  // 取得即時價格
+  const stockRows = [];
   for (const row of result.rows) {
-    const name = row.stock_name || row.stock_id;
-    info += `• ${name}（${row.stock_id}）\n`;
+    const stockData = await stockService.getRealtimePrice(row.stock_id);
+    const isUp = stockData?.change >= 0;
+    const color = isUp ? '#00C851' : '#ff4444';
+    const arrow = isUp ? '▲' : '▼';
+    
+    stockRows.push({
+      type: 'box',
+      layout: 'horizontal',
+      contents: [
+        { type: 'text', text: row.stock_name || row.stock_id, size: 'sm', flex: 3 },
+        { type: 'text', text: `${stockData?.price || 'N/A'}`, size: 'sm', align: 'end', flex: 2 },
+        { type: 'text', text: stockData ? `${arrow}${stockData.changePercent}%` : 'N/A', size: 'sm', color: color, align: 'end', flex: 2 }
+      ],
+      margin: 'sm'
+    });
   }
   
-  info += `\n💡 輸入「+代碼」加入\n💡 輸入「-代碼」移除`;
-  
-  return { type: 'text', text: info };
+  return {
+    type: 'flex',
+    altText: `📋 監控清單（${result.rows.length}支）`,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: '📋 監控清單', size: 'xl', weight: 'bold', color: '#ffffff' },
+          { type: 'text', text: `共 ${result.rows.length} 支股票`, size: 'sm', color: '#ffffffaa', margin: 'sm' }
+        ],
+        backgroundColor: '#2C3E50',
+        paddingAll: '20px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: '股票', size: 'xs', color: '#888888', flex: 3 },
+              { type: 'text', text: '現價', size: 'xs', color: '#888888', align: 'end', flex: 2 },
+              { type: 'text', text: '漲跌', size: 'xs', color: '#888888', align: 'end', flex: 2 }
+            ]
+          },
+          { type: 'separator', margin: 'md' },
+          ...stockRows,
+          { type: 'separator', margin: 'lg' },
+          {
+            type: 'text',
+            text: '💡 +代碼 加入｜-代碼 移除',
+            size: 'xs',
+            color: '#888888',
+            margin: 'md',
+            align: 'center'
+          }
+        ],
+        paddingAll: '20px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: `⏰ ${getTaiwanTime()}`, size: 'xs', color: '#888888' }
+        ],
+        paddingAll: '15px'
+      }
+    }
+  };
+}
+
+/**
+ * 🔥 取得熱門股票 Flex Message
+ */
+async function getHotStocksFlex() {
+  try {
+    const hotStocks = [
+      { id: '2330', name: '台積電' },
+      { id: '2317', name: '鴻海' },
+      { id: '2454', name: '聯發科' },
+      { id: '0050', name: '元大50' },
+      { id: '0056', name: '元大高股息' },
+      { id: '00878', name: '國泰永續高股息' }
+    ];
+    
+    const stockRows = [];
+    for (const stock of hotStocks) {
+      const data = await stockService.getRealtimePrice(stock.id);
+      if (data) {
+        const isUp = data.change >= 0;
+        const color = isUp ? '#00C851' : '#ff4444';
+        const arrow = isUp ? '▲' : '▼';
+        
+        stockRows.push({
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'text', text: stock.name, size: 'sm', flex: 3 },
+            { type: 'text', text: `${data.price}`, size: 'sm', align: 'end', flex: 2 },
+            { type: 'text', text: `${arrow}${data.changePercent}%`, size: 'sm', color: color, align: 'end', flex: 2 }
+          ],
+          margin: 'sm'
+        });
+      }
+    }
+    
+    return {
+      type: 'flex',
+      altText: '🔥 熱門股票',
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '🔥 熱門股票', size: 'xl', weight: 'bold', color: '#ffffff' },
+            { type: 'text', text: getTaiwanDate(), size: 'sm', color: '#ffffffaa', margin: 'sm' }
+          ],
+          backgroundColor: '#E74C3C',
+          paddingAll: '20px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                { type: 'text', text: '股票', size: 'xs', color: '#888888', flex: 3 },
+                { type: 'text', text: '現價', size: 'xs', color: '#888888', align: 'end', flex: 2 },
+                { type: 'text', text: '漲跌', size: 'xs', color: '#888888', align: 'end', flex: 2 }
+              ]
+            },
+            { type: 'separator', margin: 'md' },
+            ...stockRows,
+            { type: 'separator', margin: 'lg' },
+            {
+              type: 'text',
+              text: '💡 輸入代碼查看詳情',
+              size: 'xs',
+              color: '#888888',
+              margin: 'md',
+              align: 'center'
+            }
+          ],
+          paddingAll: '20px'
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'text', text: `⏰ ${getTaiwanTime()}`, size: 'xs', color: '#888888' }
+          ],
+          paddingAll: '15px'
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('取得熱門股票錯誤:', error);
+    return { type: 'text', text: '⚠️ 取得熱門股票失敗' };
+  }
 }
 
 /**
@@ -293,28 +699,26 @@ async function addToWatchlist(stockId) {
     
     // 加入監控（使用 default 用戶）
     const sql = `
-      INSERT INTO watchlist (stock_id, user_id)
-      VALUES ($1, 'default')
-      ON CONFLICT (stock_id, user_id) 
-      DO UPDATE SET is_active = true
-      RETURNING *
+      INSERT INTO watchlist (stock_id, stock_name, user_id, is_active)
+      VALUES ($1, $2, 'default', true)
+      ON CONFLICT (stock_id, user_id) DO UPDATE SET is_active = true
     `;
     
-    await pool.query(sql, [stockId]);
+    await pool.query(sql, [stockId, stockData.name]);
     
     return { 
       type: 'text', 
-      text: `✅ 已加入監控\n\n📊 ${stockData.name}（${stockId}）\n💰 現價：${stockData.price} 元\n\n💡 輸入「監控」查看清單` 
+      text: `✅ 已加入監控：${stockData.name}（${stockId}）\n\n輸入「監控」查看清單` 
     };
     
   } catch (error) {
     console.error('加入監控錯誤:', error);
-    return { type: 'text', text: '⚠️ 加入監控失敗，請稍後再試' };
+    return { type: 'text', text: '⚠️ 加入監控失敗' };
   }
 }
 
 /**
- * 移除監控
+ * 移除監控清單
  */
 async function removeFromWatchlist(stockId) {
   try {
@@ -322,19 +726,15 @@ async function removeFromWatchlist(stockId) {
       UPDATE watchlist 
       SET is_active = false 
       WHERE stock_id = $1 AND user_id = 'default'
-      RETURNING *
     `;
     
     const result = await pool.query(sql, [stockId]);
     
-    if (result.rows.length === 0) {
-      return { type: 'text', text: `❌ ${stockId} 不在監控清單中` };
+    if (result.rowCount === 0) {
+      return { type: 'text', text: `❌ 監控清單中沒有 ${stockId}` };
     }
     
-    return { 
-      type: 'text', 
-      text: `✅ 已移除監控：${stockId}\n\n💡 輸入「監控」查看清單` 
-    };
+    return { type: 'text', text: `✅ 已移除監控：${stockId}` };
     
   } catch (error) {
     console.error('移除監控錯誤:', error);
@@ -343,11 +743,10 @@ async function removeFromWatchlist(stockId) {
 }
 
 /**
- * 取得指數/大盤回覆
+ * 取得大盤資訊
  */
 async function getMarketReply() {
   try {
-    // 取得大盤指數
     const taiex = await stockService.getRealtimePrice('t00');
     
     if (!taiex) {
@@ -355,26 +754,74 @@ async function getMarketReply() {
     }
     
     const isUp = taiex.change >= 0;
+    const color = isUp ? '#00C851' : '#ff4444';
+    const arrow = isUp ? '▲' : '▼';
+    const emoji = isUp ? '📈' : '📉';
     
-    let info = `📈 台股大盤\n`;
-    info += `━━━━━━━━━━━━━━\n`;
-    info += `加權指數：${taiex.price}\n`;
-    info += `漲跌：${isUp ? '📈 +' : '📉 '}${taiex.change}（${taiex.changePercent}%）\n`;
-    info += `成交量：${(taiex.volume / 100000000).toFixed(0)} 億\n\n`;
-    
-    // 熱門股簡報
-    const hotStocks = ['2330', '2317', '2454', '2308', '3008'];
-    info += `🔥 權值股動態\n`;
-    
-    for (const id of hotStocks.slice(0, 3)) {
-      const stock = await stockService.getRealtimePrice(id);
-      if (stock) {
-        const up = stock.change >= 0;
-        info += `• ${stock.name}：${stock.price}（${up ? '+' : ''}${stock.changePercent}%）\n`;
+    return {
+      type: 'flex',
+      altText: `📊 加權指數 ${taiex.price} ${arrow}${taiex.changePercent}%`,
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '📊 加權指數', size: 'xl', weight: 'bold', color: '#ffffff' },
+            { type: 'text', text: `${emoji} ${isUp ? '上漲' : '下跌'} ${Math.abs(taiex.changePercent)}%`, color: '#ffffff', size: 'sm', margin: 'md' }
+          ],
+          backgroundColor: color,
+          paddingAll: '20px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                { type: 'text', text: `${taiex.price}`, size: '3xl', weight: 'bold', color: color },
+                { type: 'text', text: `${arrow} ${taiex.change}`, size: 'xl', color: color, align: 'end', gravity: 'bottom' }
+              ]
+            },
+            { type: 'separator', margin: 'lg' },
+            {
+              type: 'box',
+              layout: 'horizontal',
+              margin: 'lg',
+              contents: [
+                { type: 'text', text: '開盤', size: 'sm', color: '#888888', flex: 1 },
+                { type: 'text', text: `${taiex.open}`, size: 'sm', align: 'end', flex: 1 },
+                { type: 'text', text: '最高', size: 'sm', color: '#888888', flex: 1 },
+                { type: 'text', text: `${taiex.high}`, size: 'sm', align: 'end', flex: 1 }
+              ]
+            },
+            {
+              type: 'box',
+              layout: 'horizontal',
+              margin: 'sm',
+              contents: [
+                { type: 'text', text: '昨收', size: 'sm', color: '#888888', flex: 1 },
+                { type: 'text', text: `${taiex.yesterday}`, size: 'sm', align: 'end', flex: 1 },
+                { type: 'text', text: '最低', size: 'sm', color: '#888888', flex: 1 },
+                { type: 'text', text: `${taiex.low}`, size: 'sm', align: 'end', flex: 1 }
+              ]
+            }
+          ],
+          paddingAll: '20px'
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'text', text: `⏰ ${getTaiwanTime()}`, size: 'xs', color: '#888888' }
+          ],
+          paddingAll: '15px'
+        }
       }
-    }
-    
-    return { type: 'text', text: info };
+    };
     
   } catch (error) {
     console.error('取得大盤錯誤:', error);
@@ -383,412 +830,52 @@ async function getMarketReply() {
 }
 
 /**
- * 搜尋股票（用名稱）
+ * 搜尋股票
  */
 async function searchStock(keyword) {
   try {
-    // 先從資料庫搜尋
-    const dbResult = await pool.query(`
-      SELECT id, name, market FROM stocks 
-      WHERE name LIKE $1 OR id LIKE $1
-      LIMIT 5
-    `, [`%${keyword}%`]);
-    
-    if (dbResult.rows.length > 0) {
-      let info = `🔍 搜尋「${keyword}」\n`;
-      info += `━━━━━━━━━━━━━━\n`;
-      
-      for (const row of dbResult.rows) {
-        info += `• ${row.name}（${row.id}）\n`;
-      }
-      
-      info += `\n💡 輸入代碼查詢詳情`;
-      return { type: 'text', text: info };
-    }
-    
-    // 完整股票對照表
+    // 股票名稱對照表
     const stockMap = {
-      // ===== 權值股 / 大型股 =====
-      '台積電': '2330', '台積': '2330', 'TSMC': '2330',
-      '鴻海': '2317', '聯發科': '2454', '聯發': '2454',
-      '台達電': '2308', '台達': '2308',
-      '大立光': '3008', '聯電': '2303',
-      '日月光投控': '3711', '日月光': '3711',
-      '中華電': '2412', '中華電信': '2412',
-      '台塑': '1301', '南亞': '1303', '台化': '1326',
-      '台塑化': '6505', '台泥': '1101', '亞泥': '1102',
-      '統一': '1216', '統一超': '2912',
-      '和泰車': '2207', '裕隆': '2201',
+      // 半導體
+      '台積電': '2330', '聯發科': '2454', '聯電': '2303', '日月光': '3711',
+      '矽力': '6415', '世芯': '3661', '創意': '3443', '瑞昱': '2379',
+      '力積電': '6770', '南亞科': '2408', '華邦電': '2344', '旺宏': '2337',
+      '群聯': '8299', '慧榮': '5765', '穩懋': '3105', '環球晶': '6488',
       
-      // ===== 金融股 =====
-      '國泰金': '2882', '國泰': '2882',
-      '富邦金': '2881', '富邦': '2881',
-      '中信金': '2891', '中信': '2891',
-      '玉山金': '2884', '玉山': '2884',
-      '元大金': '2885', '元大': '2885',
-      '兆豐金': '2886', '兆豐': '2886',
-      '第一金': '2892', '合庫金': '5880',
-      '華南金': '2880', '台新金': '2887',
-      '永豐金': '2890', '新光金': '2888',
-      '開發金': '2883', '國票金': '2889',
-      '台企銀': '2834', '彰銀': '2801',
-      '上海商銀': '5876', '京城銀': '2809',
-      '遠東銀': '2845', '安泰銀': '2849',
-      '王道銀': '2897', '聯邦銀': '2838',
-      '台中銀': '2812', '高雄銀': '2836',
-      '三信商銀': '2806', '華票': '2820',
-      '國泰人壽': '2882', '富邦人壽': '2881',
-      '新光人壽': '2888', '台灣人壽': '2833',
-      '元大證': '6016', '凱基證': '6008',
-      '群益證': '6005', '統一證': '2855',
-      '永豐金證': '2890', '元富證': '2856',
-      '日盛金': '5820', '康和證': '6016',
+      // 電子代工
+      '鴻海': '2317', '廣達': '2382', '仁寶': '2324', '緯創': '3231',
+      '和碩': '4938', '英業達': '2356', '緯穎': '6669', '可成': '2474',
       
-      // ===== 半導體 - 晶圓代工 =====
-      '力積電': '6770', '世界先進': '5347',
-      '穩懋': '3105', '宏捷科': '8086',
-      '環球晶': '6488', '合晶': '6182', '中美晶': '5483',
-      '台勝科': '3532', '嘉晶': '3016',
-      
-      // ===== 半導體 - 記憶體 =====
-      '華邦電': '2344', '旺宏': '2337', '南亞科': '2408',
-      '威剛': '3260', '十銓': '4967', '創見': '2451',
-      '鈺創': '5351', '晶豪科': '3006', '華泰': '2329',
-      '力晶': '5765', '茂德': '5765',
-      
-      // ===== 半導體 - IC設計 =====
-      '瑞昱': '2379', '聯詠': '3034', '矽力': '6415',
-      '群聯': '8299', '祥碩': '5269', '創意': '3443',
-      '世芯': '3661', '智原': '3035', 'M31': '6643',
-      '譜瑞': '4966', '鈺太': '6679', '敦泰': '3545',
-      '奇景': '3545', '義隆': '2458', '盛群': '6202',
-      '凌陽': '2401', '松翰': '5471', '新唐': '4919',
-      '九齊': '5765', '笙泉': '3122', '致新': '8081',
-      '茂達': '6138', '類比科': '3438', '立錡': '6286',
-      '通嘉': '3588', '偉詮電': '2436', '沛亨': '6291',
-      '原相': '3227', '昇佳': '6732', '奕力': '3598',
-      '晶相光': '3530', '普誠': '4977', '九暘': '3780',
-      '驊訊': '6237', '鑫創': '3259', '威盛': '2388',
-      
-      // ===== 半導體 - 封測 =====
-      '力成': '6239', '京元電子': '2449', '京元電': '2449',
-      '矽格': '6257', '頎邦': '6147', '超豐': '2441',
-      '菱生': '2369', '南茂': '8150', '華東': '8110',
-      '欣銓': '3264', '精材': '3374', '同欣電': '6271',
-      '久元': '6261', '捷敏': '6525',
-      
-      // ===== 半導體 - 設備/材料 =====
-      '弘塑': '3131', '辛耘': '3583', '家登': '3680',
-      '漢唐': '2404', '帆宣': '6196', '京鼎': '3413',
-      '萬潤': '6187', '翔名': '8091', '濾能': '6823',
-      '閎康': '3587', '汎銓': '6830', '崇越': '5765',
-      '中砂': '1560', '光洋科': '1785', '長興': '1717',
-      '勝一': '1773', '昇陽半': '8028', '台燿': '6274',
-      '達興材料': '5765', '華立': '3010',
-      
-      // ===== 半導體 - 測試 =====
-      '精測': '6510', '雍智': '6861', '穎崴': '6515',
-      '旺矽': '6223', '中華精測': '6510',
-      
-      // ===== 電子 - 代工 =====
-      '廣達': '2382', '仁寶': '2324', '緯創': '3231',
-      '英業達': '2356', '和碩': '4938', '華碩': '2357',
-      '宏碁': '2353', '微星': '2377', '技嘉': '2376',
-      '藍天': '2362', '倫飛': '2364', '致伸': '4915',
-      '光寶科': '2301', '佳世達': '2352', '明基': '2352',
-      '鴻準': '2354', '可成': '2474', '嘉澤': '3533',
-      
-      // ===== 電子 - 面板 =====
+      // 面板
       '友達': '2409', '群創': '3481', '彩晶': '6116',
-      '瀚宇彩晶': '6116', '凌巨': '8105', '華映': '2475',
       
-      // ===== 電子 - PCB =====
-      '欣興': '3037', '景碩': '3189', '南電': '8046',
-      '華通': '2313', '燿華': '2367', '健鼎': '3044',
-      '台光電': '2383', '聯茂': '6213', '金像電': '2368',
-      '耀華': '2367', '敬鵬': '2355', '楠梓電': '2316',
-      '嘉聯益': '6153', '臻鼎': '4958', '志超': '8213',
-      '定穎': '3715', '博智': '8155', '先豐': '5765',
-      '台燿': '6274', '騰輝': '6672', '柏承': '6141',
+      // 金融
+      '國泰金': '2882', '富邦金': '2881', '中信金': '2891', '台新金': '2887',
+      '玉山金': '2884', '元大金': '2885', '第一金': '2892', '華南金': '2880',
+      '兆豐金': '2886', '合庫金': '5880', '永豐金': '2890', '新光金': '2888',
+      '國票金': '2889', '開發金': '2883', '日盛金': '5820',
       
-      // ===== 電子 - 被動元件 =====
-      '國巨': '2327', '華新科': '2492', '禾伸堂': '3026',
-      '大毅': '2478', '奇力新': '2456', '旺詮': '2437',
-      '信昌電': '6173', '凱美': '2375', '鈺邦': '6449',
-      '立隆電': '2472', '智寶': '2375', '聚鼎': '6224',
+      // 傳產
+      '台塑': '1301', '南亞': '1303', '台化': '1326', '台塑化': '6505',
+      '中鋼': '2002', '長榮': '2603', '陽明': '2609', '萬海': '2615',
+      '統一': '1216', '統一超': '2912', '大立光': '3008',
       
-      // ===== 電子 - 連接器 =====
-      '鴻海精密': '2317', '正崴': '2392', '良維': '6290',
-      '宣德': '5765', '信邦': '3023', '嘉基': '5765',
-      '禾昌': '6158', '凡甲': '3526', '湧德': '3546',
+      // 電信
+      '中華電': '2412', '台灣大': '3045', '遠傳': '4904',
       
-      // ===== 電子 - 通訊/網通 =====
-      '正文': '4906', '啟碁': '6285', '中磊': '5388',
-      '智邦': '2345', '明泰': '3380', '合勤': '2391',
-      '友訊': '2332', '兆赫': '2485', '耀登': '3138',
-      '昇達科': '3491', '譁裕': '3419', '台揚': '2314',
-      '亞信': '3169', '晶訊': '5765', '啟發電': '2502',
-      '訊舟': '3047', '智易': '3596', '神準': '3558',
-      '建漢': '3062', '立端': '6245', '百一': '6152',
-      
-      // ===== 電子 - 電源 =====
-      '台達電': '2308', '光寶科': '2301', '康舒': '6282',
-      '全漢': '3015', '群電': '6412', '飛宏': '2457',
-      '新巨': '2420', '僑威': '3078', '明緯': '8937',
-      '博大': '8109', '健策': '3653', '力致': '3447',
-      
-      // ===== 電子 - 光學 =====
-      '大立光': '3008', '玉晶光': '3406', '亞光': '3019',
-      '今國光': '6209', '先進光': '3362', '佳凌': '4976',
-      '新鉅科': '3630', '揚明光': '3504', '聯一光': '3441',
-      
-      // ===== 電子 - LED =====
-      '億光': '2393', '晶電': '2448', '璨圓': '3061',
-      '隆達': '3698', '宏齊': '6168', '榮創': '3036',
-      '艾笛森': '3591', '華上': '6289', '泰谷': '3545',
-      
-      // ===== AI / 伺服器 =====
-      '緯穎': '6669', '川湖': '2059', '勤誠': '8210',
-      '奇鋐': '3017', '雙鴻': '3324', '超眾': '6230',
-      '信驊': '5274', '神基': '3005', '研華': '2395',
-      '樺漢': '6414', '安勤': '3479', '振樺電': '8114',
-      '廣積': '8050', '飛捷': '6206', '艾訊': '3088',
-      '凌華': '6166', '研揚': '2463', '營邦': '3559',
-      '創新': '5765', '立端': '6245', '英業達': '2356',
-      '技鼎': '6263', '其陽': '3338', '泓格': '3577',
-      
-      // ===== 電子 - 通路 =====
-      '大聯大': '3702', '文曄': '3036', '至上': '8112',
-      '增你強': '3078', '聯強': '2347', '詮欣': '6205',
-      '益登': '3048', '威健': '3033', '崇越電': '3388',
-      '尚立': '3390', '光聖': '6442', '唐鋒': '4610',
-      
-      // ===== 電子 - 軟體/SI =====
-      '精誠': '6214', '宏碁資訊': '6811', '零壹': '3029',
-      '敦陽科': '2480', '資通': '2471', '中菲': '5765',
-      '叡揚': '6752', '互動': '6486', '鼎新': '5765',
-      '伊雲谷': '6689', '網家': '8044', '富邦媒': '8454',
-      '數字': '5765', '昕力': '6851', '關貿': '6183',
-      '來毅': '5765', '博弈': '3625', '訊連': '5765',
-      
-      // ===== 傳產 - 航運 =====
-      '長榮': '2603', '陽明': '2609', '萬海': '2615',
-      '長榮航': '2618', '華航': '2610', '星宇': '2646',
-      '台驊投控': '2636', '慧洋': '2637', '裕民': '2606',
-      '新興': '2605', '四維航': '5765', '中航': '2612',
-      '台航': '2617', '建新': '2622', '東森': '5765',
-      '嘉里大榮': '2608', '宅配通': '2642', '中保科': '9917',
-      
-      // ===== 傳產 - 汽車 =====
-      '和泰車': '2207', '裕隆': '2201', '裕日車': '2227',
-      '中華汽車': '2204', '三陽工業': '2206', '光陽': '5765',
-      '東陽': '1319', '帝寶': '6605', '堤維西': '1522',
-      '為升': '2231', '皇田': '9951', '永彰': '4523',
-      '智伸科': '4551', '劍麟': '2228', '和大': '1536',
-      '同致': '3552', '朋程': '8255', '胡連': '6279',
-      
-      // ===== 傳產 - 紡織 =====
-      '遠東新': '1402', '新纖': '1409', '力麗': '1444',
-      '台化纖': '1326', '儒鴻': '1476', '聚陽': '1477',
-      '廣越': '4438', '銘旺實': '4432', '得力': '1464',
-      '年興': '1451', '宏遠': '1460', '南紡': '1440',
-      '利勤': '4426', '光明': '4420', '東隆興': '4401',
-      
-      // ===== 傳產 - 塑化 =====
-      '台塑': '1301', '南亞': '1303', '台化': '1326',
-      '台塑化': '6505', '台聚': '1304', '華夏': '1305',
-      '亞聚': '1308', '國喬': '1312', '聯成': '1313',
-      '中石化': '1314', '東聯': '1710', '榮化': '1704',
-      '和桐': '1714', '永光': '1711', '三芳': '1307',
-      
-      // ===== 傳產 - 食品 =====
-      '統一': '1216', '味全': '1201', '大成': '1210',
-      '卜蜂': '1215', '泰山': '1218', '愛之味': '1217',
-      '福懋油': '1225', '聯華': '1229', '天仁': '1233',
-      '黑松': '1234', '福壽': '1219', '南僑': '1702',
-      '佳格': '1227', '宏亞': '1236', '鮮活果汁': '1256',
-      '大統益': '1232', '葡萄王': '1707', '美食達人': '2723',
-      
-      // ===== 傳產 - 鋼鐵 =====
-      '中鋼': '2002', '中鴻': '2014', '東鋼': '2006',
-      '大成鋼': '2027', '榮剛': '5009', '千附': '8383',
-      '威致': '2028', '新光鋼': '2031', '燁輝': '2023',
-      '豐興': '2015', '春源': '2010', '海光': '2038',
-      '官田鋼': '2017', '盛餘': '2029', '聚亨': '2022',
-      
-      // ===== 傳產 - 水泥 =====
-      '台泥': '1101', '亞泥': '1102', '嘉泥': '1103',
-      '信大': '1109', '環泥': '1104', '幸福': '1108',
-      
-      // ===== 傳產 - 電機 =====
-      '東元': '1504', '大同': '2371', '士電': '1503',
-      '華城': '1519', '中興電': '1513', '亞力': '1514',
-      '大亞': '1609', '華電': '1603', '大山': '1615',
-      '山隆': '2616', '正道': '1519', '永大': '1507',
-      '中電': '1611', '恒耀': '8349', '康那香': '9919',
-      
-      // ===== 傳產 - 營建 =====
-      '興富發': '2542', '華固': '2548', '長虹': '5534',
-      '潤泰新': '9945', '遠雄': '5522', '國建': '2501',
-      '冠德': '2520', '皇翔': '2545', '達麗': '6177',
-      '宏璟': '2527', '櫻花建': '2539', '宏普': '2536',
-      '太子': '2511', '華建': '2530', '日勝生': '2547',
-      '鄉林': '5765', '基泰': '2538', '皇普': '2528',
-      '大華建': '2530', '龍邦': '2514', '南港': '2101',
-      
-      // ===== 傳產 - 觀光 =====
-      '晶華': '2707', '雄獅': '2731', '王品': '2727',
-      '瓦城': '2729', '六角': '2732', '美食達人': '2723',
-      '鳳凰': '5765', '山富': '2743', '五福': '2745',
-      '易遊網': '5765', '寒舍': '2739', '漢來美食': '1268',
-      '豆府': '2752', '八方雲集': '2753', '亞洲藏壽司': '2754',
-      '路易莎': '2758', '麥味登': '2742', '饗賓': '2742',
-      
-      // ===== 傳產 - 零售 =====
-      '統一超': '2912', '全家': '5903', '寶雅': '5904',
-      '三商家購': '2945', '誠品生活': '2926', '特力': '2908',
-      '潤泰全': '2915', '燦坤': '2430', '大潤發': '5765',
-      '全聯': '5765', '好市多': '5765', '家樂福': '5765',
-      '美廉社': '5765', '遠百': '2903', '新光三越': '2888',
-      
-      // ===== 傳產 - 電信 =====
-      '中華電': '2412', '遠傳': '4904', '台灣大': '3045',
-      '亞太電': '3682', '台固媒': '3045', '台灣之星': '5765',
-      
-      // ===== 傳產 - 輪胎 =====
-      '正新': '2105', '建大': '2106', '南港輪胎': '2101',
-      '泰豐': '2102', '華豐': '2109', '厚生': '2107',
-      
-      // ===== 傳產 - 製鞋/運動 =====
-      '豐泰': '9910', '寶成': '9904', '鈺齊': '9802',
-      '百和': '9938', '鐿鈦': '4163', '志強': '5765',
-      '巨大': '9921', '美利達': '9914', '愛地雅': '8933',
-      
-      // ===== 傳產 - 玻璃/陶瓷 =====
-      '台玻': '1802', '華新': '1605', '冠軍': '1806',
-      
-      // ===== 傳產 - 造紙 =====
-      '永豐餘': '1907', '正隆': '1904', '榮成': '1909',
-      '華紙': '1905', '士紙': '1903', '寶隆': '1906',
-      
-      // ===== 生技醫療 =====
-      '保瑞': '6472', '大江': '8436', '美時': '1795',
-      '中裕': '4147', '藥華藥': '6446', '合一': '4743',
-      '晟德': '4123', '東洋': '4105', '杏輝': '1734',
-      '佳醫': '4104', '大樹': '6469', '杏一': '4175',
-      '精華': '1565', '明基醫': '4116', '邦特': '4107',
-      '永信': '3705', '生達': '1720', '中化': '1701',
-      '台耀': '4746', '健喬': '4114', '友華': '4120',
-      '五鼎': '1733', '杏國': '4192', '浩鼎': '4174',
-      '基亞': '3176', '逸達': '6576', '智擎': '4162',
-      '太景': '4157', '北極星藥業': '6550', '心悅': '6575',
-      '泰福': '6541', '因華': '4172', '泰緯': '6528',
-      '國光生': '4142', '高端': '6547', '聯亞藥': '6562',
-      '康友': '6452', '承業醫': '4164', '醣聯': '4168',
-      
-      // ===== 金融租賃 =====
-      '裕融': '9941', '中租': '5871', '和潤': '6592',
-      '裕富': '5765', '裕國': '5765', '仲信': '5765',
-      
-      // ===== ETF - 市值型 =====
-      '元大50': '0050', '0050': '0050', '台灣50': '0050',
-      '富邦台50': '006208', '006208': '006208',
-      '元大中型100': '0051', '0051': '0051',
-      '永豐台灣加權': '006204', '006204': '006204',
-      '元大MSCI台灣': '006203', '006203': '006203',
-      '富邦摩台': '0057', '0057': '0057',
-      '元大台灣ESG永續': '00850', '00850': '00850', 'ESG': '00850',
-      '永豐台灣ESG': '00888', '00888': '00888',
-      '國泰台灣領袖50': '00922', '00922': '00922',
-      
-      // ===== ETF - 高股息 =====
-      '元大高股息': '0056', '0056': '0056', '高股息': '0056',
-      '國泰永續高股息': '00878', '00878': '00878', '永續高股息': '00878',
-      '復華台灣科技優息': '00929', '00929': '00929', '科技優息': '00929',
-      '元大台灣價值高息': '00940', '00940': '00940', '價值高息': '00940',
-      '統一台灣高息動能': '00939', '00939': '00939', '高息動能': '00939',
-      '群益台灣精選高息': '00919', '00919': '00919', '精選高息': '00919',
-      '富邦特選高股息': '00900', '00900': '00900',
-      '國泰股利精選30': '00701', '00701': '00701',
-      '元大優息': '00932', '00932': '00932',
-      '凱基優選高股息': '00915', '00915': '00915',
-      '中信成長高股息': '00934', '00934': '00934',
-      '台新臺灣永續高息': '00936', '00936': '00936',
-      '野村臺灣新科技50': '00935', '00935': '00935',
-      '大華優利高填息': '00918', '00918': '00918',
-      'FH富時高息低波': '00731', '00731': '00731',
-      
-      // ===== ETF - 科技 =====
-      '國泰費城半導體': '00830', '00830': '00830', '費半': '00830',
-      '富邦科技': '0052', '0052': '0052',
-      '元大電子': '0053', '0053': '0053',
-      '富邦NASDAQ': '00662', '00662': '00662', 'NASDAQ': '00662',
-      '國泰網路資安': '00875', '00875': '00875',
-      '統一FANG+': '00757', '00757': '00757', 'FANG': '00757',
-      '中信關鍵半導體': '00891', '00891': '00891',
-      '富邦台灣半導體': '00892', '00892': '00892',
-      '新光臺灣半導體': '00904', '00904': '00904',
-      '中信電池及儲能': '00902', '00902': '00902',
-      '國泰智能電動車': '00893', '00893': '00893',
-      '富邦未來車': '00895', '00895': '00895',
-      '中信綠能及電動車': '00896', '00896': '00896',
-      
-      // ===== ETF - 美股 =====
-      '元大S&P500': '00646', '00646': '00646', 'S&P500': '00646', 'SPY': '00646',
-      '國泰道瓊': '00668', '00668': '00668',
-      '富邦NASDAQ': '00662', 'QQQ': '00662',
-      '元大S&P原油正2': '00672L', '00672L': '00672L',
-      '元大標普500': '00646',
-      '永豐美國500大': '00858', '00858': '00858',
-      '國泰標普500': '00864', '00864': '00864',
-      
-      // ===== ETF - 日本 =====
-      '國泰日經225': '00657', '00657': '00657', '日經': '00657',
-      '富邦日本': '00645', '00645': '00645',
-      '元大日經225': '00661', '00661': '00661',
-      
-      // ===== ETF - 中國 =====
-      '元大寶滬深': '0061', '0061': '0061',
-      '富邦上證': '006205', '006205': '006205',
-      '元大滬深300': '0060', '0060': '0060',
-      '中信中國高股息': '00882', '00882': '00882', '中國高股息': '00882',
-      '復華中國5G': '00877', '00877': '00877',
-      '國泰中國A50': '00636', '00636': '00636',
-      
-      // ===== ETF - 新興市場 =====
-      '富邦越南': '00885', '00885': '00885', '越南': '00885',
-      '中信越南機會': '00894', '00894': '00894',
-      '國泰新興市場': '00736', '00736': '00736',
-      '富邦印度': '00652', '00652': '00652', '印度': '00652',
-      
-      // ===== ETF - 債券 =====
-      '元大美債20年': '00679B', '00679B': '00679B', '美債20': '00679B',
-      '國泰20年美債': '00687B', '00687B': '00687B',
-      '元大投資級公司債': '00720B', '00720B': '00720B',
-      '元大AAA至A公司債': '00751B', '00751B': '00751B',
-      '國泰投資級公司債': '00725B', '00725B': '00725B',
-      '富邦美債7-10': '00695B', '00695B': '00695B',
-      '元大美債7-10': '00697B', '00697B': '00697B',
-      '國泰A級公司債': '00761B', '00761B': '00761B',
-      
-      // ===== ETF - 槓桿/反向 =====
-      '元大台灣50正2': '00631L', '00631L': '00631L', '台灣50正2': '00631L',
-      '元大台灣50反1': '00632R', '00632R': '00632R', '台灣50反1': '00632R',
-      '富邦台灣加權正2': '00675L', '00675L': '00675L',
-      '富邦台灣加權反1': '00676R', '00676R': '00676R',
-      '國泰臺灣加權正2': '00663L', '00663L': '00663L',
-      '國泰臺灣加權反1': '00664R', '00664R': '00664R',
-      
-      // ===== 其他 =====
-      '台積ADR': '2330', '聯電ADR': '2303',
-      '台灣大盤': 't00', '加權指數': 't00', 'TAIEX': 't00'
+      // ETF
+      '0050': '0050', '元大50': '0050', '台灣50': '0050',
+      '0056': '0056', '元大高股息': '0056', '高股息': '0056',
+      '00878': '00878', '國泰永續高股息': '00878',
+      '00929': '00929', '復華台灣科技優息': '00929',
+      '00940': '00940', '元大台灣價值高息': '00940',
+      '00919': '00919', '群益台灣精選高息': '00919'
     };
     
     // 嘗試匹配
     for (const [name, id] of Object.entries(stockMap)) {
       if (name.includes(keyword) || keyword.includes(name)) {
-        // 找到匹配，直接查詢
-        return await getStockInfoReply(id);
+        return await getStockInfoFlex(id);
       }
     }
     
@@ -804,65 +891,23 @@ async function searchStock(keyword) {
 }
 
 /**
- * 取得熱門股票
- */
-async function getHotStocksReply() {
-  try {
-    const hotStocks = [
-      { id: '2330', name: '台積電' },
-      { id: '2317', name: '鴻海' },
-      { id: '2454', name: '聯發科' },
-      { id: '0050', name: '元大50' },
-      { id: '0056', name: '元大高股息' },
-      { id: '00878', name: '國泰永續高股息' },
-      { id: '2882', name: '國泰金' },
-      { id: '2881', name: '富邦金' }
-    ];
-    
-    let info = `🔥 熱門股票\n`;
-    info += `━━━━━━━━━━━━━━\n`;
-    
-    for (const stock of hotStocks) {
-      const data = await stockService.getRealtimePrice(stock.id);
-      if (data) {
-        const up = data.change >= 0;
-        info += `${stock.name}（${stock.id}）\n`;
-        info += `  💰 ${data.price}（${up ? '📈+' : '📉'}${data.changePercent}%）\n`;
-      }
-    }
-    
-    info += `\n💡 輸入代碼查看詳情`;
-    
-    return { type: 'text', text: info };
-    
-  } catch (error) {
-    console.error('取得熱門股票錯誤:', error);
-    return { type: 'text', text: '⚠️ 取得熱門股票失敗' };
-  }
-}
-
-/**
  * 🔊 發送語音播報（有防重機制）
  */
-// 語音請求防重
 const voiceRequests = new Map();
-const VOICE_COOLDOWN = 60000; // 60 秒內不重複發送同一股票
+const VOICE_COOLDOWN = 60000;
 
 async function sendVoiceReport(stockId, userId) {
-  // 🛡️ 防重檢查
   const requestKey = `voice_${userId}_${stockId}`;
   const lastRequest = voiceRequests.get(requestKey);
   const now = Date.now();
   
   if (lastRequest && (now - lastRequest) < VOICE_COOLDOWN) {
     console.log(`⏭️ 語音冷卻中: ${stockId}`);
-    return null; // 冷卻中，不回應
+    return null;
   }
   
-  // 記錄請求時間
   voiceRequests.set(requestKey, now);
   
-  // 清理過期的請求記錄
   for (const [key, time] of voiceRequests) {
     if (now - time > VOICE_COOLDOWN * 2) {
       voiceRequests.delete(key);
@@ -877,11 +922,9 @@ async function sendVoiceReport(stockId, userId) {
       return { type: 'text', text: `❌ 找不到股票 ${stockId}` };
     }
     
-    // 檢查語音是否啟用
     const settings = await voiceService.getVoiceSettings();
     
     if (!settings.enabled) {
-      // 語音未啟用，發送文字
       const isUp = stockData.change >= 0;
       return { 
         type: 'text', 
@@ -894,14 +937,12 @@ async function sendVoiceReport(stockId, userId) {
     
     console.log(`🔊 發送語音: ${stockData.name}`);
     
-    // 發送語音（同步等待）
     const success = await lineService.sendStockVoiceAlert(userId, stockData, voiceService);
     
     if (!success) {
       return { type: 'text', text: `⚠️ 語音生成失敗` };
     }
     
-    // 語音已發送，不需要額外回應
     return null;
     
   } catch (error) {
@@ -959,7 +1000,6 @@ router.post('/push', async (req, res) => {
   try {
     const { message } = req.body;
     
-    // 取得 User ID
     const result = await pool.query(
       "SELECT value FROM settings WHERE key = 'line_user_id'"
     );
