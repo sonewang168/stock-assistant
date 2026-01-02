@@ -8,6 +8,30 @@ const { pool } = require('../db');
 class LineService {
 
   /**
+   * 🕐 取得台灣時間字串
+   */
+  getTaiwanTime() {
+    return new Date().toLocaleTimeString('zh-TW', { 
+      timeZone: 'Asia/Taipei',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+
+  /**
+   * 🕐 取得台灣日期字串
+   */
+  getTaiwanDate() {
+    return new Date().toLocaleDateString('zh-TW', { 
+      timeZone: 'Asia/Taipei',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric'
+    });
+  }
+
+  /**
    * 發送 Flex Message
    */
   async sendFlexMessage(userId, flexContent) {
@@ -146,7 +170,7 @@ class LineService {
           type: 'box',
           layout: 'horizontal',
           contents: [
-            { type: 'text', text: `⏰ ${new Date().toLocaleTimeString('zh-TW')}`, size: 'xs', color: '#888888' }
+            { type: 'text', text: `⏰ ${this.getTaiwanTime()}`, size: 'xs', color: '#888888' }
           ],
           paddingAll: '15px'
         }
@@ -158,7 +182,7 @@ class LineService {
    * 建立日報 Flex Message
    */
   createDailyReportFlex(stockDataList, aiSummary) {
-    const today = new Date().toLocaleDateString('zh-TW');
+    const today = this.getTaiwanDate();
 
     const stockRows = stockDataList.slice(0, 10).map(stock => {
       const isUp = stock.change >= 0;
