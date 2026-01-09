@@ -277,9 +277,6 @@ async function handleCommand(message, userId) {
       `🤖 AI：問 台積電前景如何？\n` +
       `📋 輸入「說明」看更多`
   };
-} +
-      `📋 輸入「說明」看更多`
-  };
 }
 
 /**
