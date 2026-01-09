@@ -190,18 +190,6 @@ async function handleCommand(message, userId) {
     return await getStockNewsFlex(stockId);
   }
   
-  // 📊 財報指令
-  if (/^(財報|營收)\s*\d{4,6}$/.test(msg) || /^\d{4,6}\s*(財報|營收)$/.test(msg)) {
-    const stockId = msg.match(/\d{4,6}/)[0];
-    return await getEarningsFlex(stockId);
-  }
-  
-  // 💬 PTT 討論熱度
-  if (/^(PTT|ptt|討論)\s*\d{4,6}$/.test(msg) || /^\d{4,6}\s*(PTT|ptt|討論)$/.test(msg)) {
-    const stockId = msg.match(/\d{4,6}/)[0];
-    return await getPTTSentimentFlex(stockId);
-  }
-  
   // 🤖 AI 選股
   if (/^(選股|推薦|AI選股)/.test(msg)) {
     const criteria = msg.replace(/^(選股|推薦|AI選股)\s*/, '').trim() || '適合長期投資的優質股';
