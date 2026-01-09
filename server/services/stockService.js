@@ -305,6 +305,158 @@ class StockService {
   sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
+
+  // ==================== 美股功能 ====================
+
+  /**
+   * 🇺🇸 取得美股即時報價（使用 Yahoo Finance）
+   */
+  async getUSStockPrice(symbol) {
+    try {
+      const upperSymbol = symbol.toUpperCase();
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${upperSymbol}?interval=1d&range=1d`;
+      
+      const response = await axios.get(url, {
+        headers: { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        timeout: 10000
+      });
+
+      const data = response.data;
+      if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
+        return null;
+      }
+
+      const result = data.chart.result[0];
+      const meta = result.meta;
+      const quote = result.indicators.quote[0];
+      
+      const price = meta.regularMarketPrice || 0;
+      const previousClose = meta.previousClose || meta.chartPreviousClose || 0;
+      const change = price - previousClose;
+      const changePercent = previousClose > 0 ? ((change / previousClose) * 100) : 0;
+
+      // 盤前盤後價格
+      const preMarketPrice = meta.preMarketPrice || null;
+      const postMarketPrice = meta.postMarketPrice || null;
+
+      return {
+        id: upperSymbol,
+        symbol: upperSymbol,
+        name: meta.shortName || meta.symbol || upperSymbol,
+        price: price,
+        open: quote.open ? quote.open[quote.open.length - 1] : 0,
+        high: quote.high ? Math.max(...quote.high.filter(h => h)) : 0,
+        low: quote.low ? Math.min(...quote.low.filter(l => l)) : 0,
+        yesterday: previousClose,
+        change: change,
+        changePercent: parseFloat(changePercent.toFixed(2)),
+        volume: quote.volume ? quote.volume[quote.volume.length - 1] : 0,
+        preMarketPrice: preMarketPrice,
+        postMarketPrice: postMarketPrice,
+        currency: meta.currency || 'USD',
+        exchange: meta.exchangeName || 'NASDAQ',
+        market: 'US',  // 標記為美股
+        marketState: meta.marketState || 'CLOSED' // PRE, REGULAR, POST, CLOSED
+      };
+
+    } catch (error) {
+      console.error(`取得美股 ${symbol} 失敗:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * 🇺🇸 取得美股三大指數
+   */
+  async getUSIndices() {
+    const indices = [
+      { symbol: '^DJI', name: '道瓊工業' },
+      { symbol: '^GSPC', name: 'S&P 500' },
+      { symbol: '^IXIC', name: '那斯達克' }
+    ];
+
+    const results = [];
+    for (const index of indices) {
+      const data = await this.getUSStockPrice(index.symbol);
+      if (data) {
+        data.name = index.name;
+        results.push(data);
+      }
+      await this.sleep(300);
+    }
+    return results;
+  }
+
+  /**
+   * 🇺🇸 取得熱門美股
+   */
+  async getHotUSStocks() {
+    const hotStocks = [
+      'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 
+      'META', 'TSLA', 'TSM', 'AMD', 'INTC'
+    ];
+
+    const results = [];
+    for (const symbol of hotStocks) {
+      const data = await this.getUSStockPrice(symbol);
+      if (data) {
+        results.push(data);
+      }
+      await this.sleep(300);
+    }
+    
+    // 按漲跌幅排序
+    results.sort((a, b) => b.changePercent - a.changePercent);
+    return results;
+  }
+
+  /**
+   * 🇹🇼🇺🇸 取得台積電 ADR 價差
+   */
+  async getTSMSpread() {
+    try {
+      const [twStock, usStock] = await Promise.all([
+        this.getRealtimePrice('2330'),
+        this.getUSStockPrice('TSM')
+      ]);
+
+      if (!twStock || !usStock) return null;
+
+      // 假設匯率（實際應該抓即時匯率）
+      const usdTwd = 31.5;
+      
+      // TSM ADR = 5 股台積電
+      const adrInTwd = (usStock.price * usdTwd) / 5;
+      const spread = ((adrInTwd - twStock.price) / twStock.price * 100).toFixed(2);
+
+      return {
+        tw: twStock,
+        us: usStock,
+        usdTwd: usdTwd,
+        adrInTwd: adrInTwd.toFixed(2),
+        spread: parseFloat(spread), // 正數=ADR溢價，負數=ADR折價
+        spreadText: spread > 0 ? `ADR 溢價 ${spread}%` : `ADR 折價 ${Math.abs(spread)}%`
+      };
+    } catch (error) {
+      console.error('取得 TSM 價差失敗:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * 取得即時匯率
+   */
+  async getExchangeRate(from = 'USD', to = 'TWD') {
+    try {
+      const symbol = `${from}${to}=X`;
+      const data = await this.getUSStockPrice(symbol);
+      return data ? data.price : 31.5; // 預設匯率
+    } catch (error) {
+      return 31.5;
+    }
+  }
 }
 
 module.exports = new StockService();

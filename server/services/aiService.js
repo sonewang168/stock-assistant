@@ -212,6 +212,166 @@ class AIService {
       return { heat: 5, sentiment: 5, summary: '分析失敗' };
     }
   }
+
+  /**
+   * 🤖 AI 對話 - 問股票問題
+   */
+  async chat(userMessage, stockContext = null) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return '抱歉，AI 功能未設定。請設定 GEMINI_API_KEY 環境變數。';
+    }
+
+    let systemPrompt = `你是「股海秘書」AI 助理，專門回答台股和美股相關問題。
+你的特色：
+- 使用繁體中文台灣用語
+- 回答簡潔有力，不囉嗦
+- 會提供實用的投資觀點
+- 台股用紅漲綠跌，美股用綠漲紅跌
+- 適時提醒投資風險
+
+回答長度控制在 200 字以內。`;
+
+    if (stockContext) {
+      systemPrompt += `\n\n目前討論的股票資訊：
+股票：${stockContext.name}（${stockContext.id}）
+現價：${stockContext.price}
+漲跌：${stockContext.change > 0 ? '+' : ''}${stockContext.change}（${stockContext.changePercent}%）
+開盤：${stockContext.open}
+最高：${stockContext.high}
+最低：${stockContext.low}`;
+    }
+
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+      const response = await axios.post(url, {
+        contents: [
+          { role: 'user', parts: [{ text: systemPrompt }] },
+          { role: 'model', parts: [{ text: '好的，我是股海秘書 AI 助理，請問有什麼問題？' }] },
+          { role: 'user', parts: [{ text: userMessage }] }
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 500
+        }
+      }, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 20000
+      });
+
+      const result = response.data;
+      if (result.candidates && result.candidates[0]) {
+        return result.candidates[0].content.parts[0].text.trim();
+      }
+
+      return '抱歉，AI 暫時無法回應。';
+
+    } catch (error) {
+      console.error('AI 對話錯誤:', error.message);
+      return '抱歉，AI 回應失敗，請稍後再試。';
+    }
+  }
+
+  /**
+   * 🤖 AI 選股建議
+   */
+  async getStockRecommendation(criteria) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return null;
+    }
+
+    const prompt = `根據以下條件，推薦 5 檔台股或美股：
+${criteria}
+
+回覆格式（JSON 陣列）：
+[
+  {"code": "股票代碼", "name": "股票名稱", "reason": "推薦理由（20字內）"},
+  ...
+]
+
+只輸出 JSON，不要其他說明。`;
+
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+      const response = await axios.post(url, {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.6,
+          maxOutputTokens: 500
+        }
+      }, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 20000
+      });
+
+      const result = response.data;
+      if (result.candidates && result.candidates[0]) {
+        const text = result.candidates[0].content.parts[0].text.trim();
+        const match = text.match(/\[[\s\S]*\]/);
+        if (match) {
+          return JSON.parse(match[0]);
+        }
+      }
+
+      return null;
+
+    } catch (error) {
+      console.error('AI 選股錯誤:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * 🤖 AI 財報摘要
+   */
+  async summarizeEarnings(stockName, stockId) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return '財報功能未設定';
+    }
+
+    const prompt = `請簡要分析「${stockName}（${stockId}）」最近一季的財報表現：
+1. 營收年增率
+2. EPS 表現
+3. 毛利率變化
+4. 簡短評論（30字）
+
+回覆格式：
+營收：XX%
+EPS：XX元
+毛利率：XX%
+評論：XXXX
+
+如果找不到資料，就說「暫無財報資料」。`;
+
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+      const response = await axios.post(url, {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 200
+        }
+      }, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 15000
+      });
+
+      const result = response.data;
+      if (result.candidates && result.candidates[0]) {
+        return result.candidates[0].content.parts[0].text.trim();
+      }
+
+      return '暫無財報資料';
+
+    } catch (error) {
+      return '財報查詢失敗';
+    }
+  }
 }
 
 module.exports = new AIService();

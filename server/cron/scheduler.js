@@ -22,6 +22,14 @@ class Scheduler {
   start() {
     console.log('⏰ 排程任務啟動中...');
 
+    // 🆕 開盤提醒（週一到週五 08:55）
+    const openReminder = cron.schedule('55 8 * * 1-5', () => {
+      this.sendOpeningReminder();
+    }, {
+      timezone: 'Asia/Taipei'
+    });
+    this.jobs.push(openReminder);
+
     // 盤中監控（週一到週五 09:00-13:30，每 5 分鐘）
     const marketCheck = cron.schedule('*/5 9-13 * * 1-5', () => {
       const now = new Date();
@@ -53,6 +61,14 @@ class Scheduler {
     });
     this.jobs.push(chipUpdate);
 
+    // 🆕 美股開盤提醒（週二到週六 21:25 台灣時間 = 美東 09:25）
+    const usOpenReminder = cron.schedule('25 21 * * 2-6', () => {
+      this.sendUSOpeningReminder();
+    }, {
+      timezone: 'Asia/Taipei'
+    });
+    this.jobs.push(usOpenReminder);
+
     // 每日清理（每天 03:00）
     const cleanup = cron.schedule('0 3 * * *', () => {
       this.cleanupOldData();
@@ -62,9 +78,11 @@ class Scheduler {
     this.jobs.push(cleanup);
 
     console.log('✅ 排程任務已啟動：');
+    console.log('   🌅 開盤提醒：08:55（台股）');
     console.log('   📊 盤中監控：09:00-13:30 每 5 分鐘');
     console.log('   📋 收盤日報：13:35');
     console.log('   💰 籌碼更新：15:00');
+    console.log('   🇺🇸 美股提醒：21:25（美東 09:25）');
     console.log('   🧹 資料清理：03:00');
   }
 
@@ -515,6 +533,159 @@ class Scheduler {
     `;
     const result = await pool.query(sql);
     return result.rows;
+  }
+
+  /**
+   * 🌅 發送開盤提醒
+   */
+  async sendOpeningReminder() {
+    console.log('\n🌅 發送開盤提醒...');
+
+    try {
+      const watchlist = await this.getWatchlist();
+      
+      if (watchlist.length === 0) {
+        console.log('   沒有監控股票');
+        return;
+      }
+
+      const result = await pool.query(
+        "SELECT value FROM settings WHERE key = 'line_user_id'"
+      );
+      const userId = result.rows[0]?.value || process.env.LINE_USER_ID;
+
+      if (!userId) {
+        console.log('   未設定 LINE User ID');
+        return;
+      }
+
+      // 取得大盤資訊
+      const taiex = await stockService.getRealtimePrice('t00');
+      
+      const stockList = watchlist.slice(0, 10).map(s => s.stock_name || s.stock_id).join('、');
+      
+      const message = {
+        type: 'flex',
+        altText: '🌅 台股開盤提醒',
+        contents: {
+          type: 'bubble',
+          size: 'kilo',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            backgroundColor: '#FF9800',
+            paddingAll: '15px',
+            contents: [
+              { type: 'text', text: '🌅 台股即將開盤', size: 'lg', weight: 'bold', color: '#FFFFFF' },
+              { type: 'text', text: '09:00 開盤', size: 'sm', color: '#FFE0B2', margin: 'sm' }
+            ]
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            paddingAll: '15px',
+            contents: [
+              { type: 'text', text: `📋 監控 ${watchlist.length} 檔`, size: 'md', weight: 'bold', color: '#333333' },
+              { type: 'text', text: stockList, size: 'sm', color: '#666666', wrap: true, margin: 'sm' },
+              { type: 'separator', margin: 'lg' },
+              { 
+                type: 'text', 
+                text: taiex ? `昨收：${taiex.yesterday}` : '祝您投資順利！', 
+                size: 'sm', 
+                color: '#888888',
+                margin: 'lg'
+              }
+            ]
+          }
+        }
+      };
+
+      await lineService.sendFlexMessage(userId, message);
+      console.log('   ✅ 開盤提醒已發送');
+
+    } catch (error) {
+      console.error('❌ 開盤提醒錯誤:', error);
+    }
+  }
+
+  /**
+   * 🇺🇸 發送美股開盤提醒
+   */
+  async sendUSOpeningReminder() {
+    console.log('\n🇺🇸 發送美股開盤提醒...');
+
+    try {
+      const result = await pool.query(
+        "SELECT value FROM settings WHERE key = 'line_user_id'"
+      );
+      const userId = result.rows[0]?.value || process.env.LINE_USER_ID;
+
+      if (!userId) {
+        console.log('   未設定 LINE User ID');
+        return;
+      }
+
+      // 取得美股三大指數
+      const indices = await stockService.getUSIndices();
+      
+      if (!indices || indices.length === 0) {
+        console.log('   無法取得美股指數');
+        return;
+      }
+
+      const createRow = (index) => {
+        const isUp = index.change >= 0;
+        const color = isUp ? '#388E3C' : '#D32F2F';
+        const arrow = isUp ? '▲' : '▼';
+        
+        return {
+          type: 'box',
+          layout: 'horizontal',
+          margin: 'sm',
+          contents: [
+            { type: 'text', text: index.name, size: 'sm', color: '#333333', flex: 2 },
+            { type: 'text', text: `${arrow}${index.changePercent.toFixed(2)}%`, size: 'sm', color: color, weight: 'bold', flex: 1, align: 'end' }
+          ]
+        };
+      };
+
+      const message = {
+        type: 'flex',
+        altText: '🇺🇸 美股開盤提醒',
+        contents: {
+          type: 'bubble',
+          size: 'kilo',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            backgroundColor: '#1565C0',
+            paddingAll: '15px',
+            contents: [
+              { type: 'text', text: '🇺🇸 美股即將開盤', size: 'lg', weight: 'bold', color: '#FFFFFF' },
+              { type: 'text', text: '美東 09:30 開盤', size: 'sm', color: '#BBDEFB', margin: 'sm' }
+            ]
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            paddingAll: '15px',
+            contents: [
+              { type: 'text', text: '📊 三大指數期貨', size: 'md', weight: 'bold', color: '#333333' },
+              { type: 'separator', margin: 'sm' },
+              ...indices.map(createRow),
+              { type: 'separator', margin: 'lg' },
+              { type: 'text', text: '🟢綠漲 🔴紅跌', size: 'xs', color: '#888888', margin: 'md', align: 'center' }
+            ]
+          }
+        }
+      };
+
+      await lineService.sendFlexMessage(userId, message);
+      console.log('   ✅ 美股開盤提醒已發送');
+
+    } catch (error) {
+      console.error('❌ 美股開盤提醒錯誤:', error);
+    }
   }
 
   sleep(ms) {

@@ -1,5 +1,5 @@
 /**
- * 💬 LINE Bot 路由
+ * 💬 LINE Bot 路由 - v3.0 全功能版
  */
 
 const express = require('express');
@@ -7,6 +7,8 @@ const router = express.Router();
 const stockService = require('../services/stockService');
 const technicalService = require('../services/technicalService');
 const lineService = require('../services/lineService');
+const chartService = require('../services/chartService');
+const aiService = require('../services/aiService');
 const { pool } = require('../db');
 
 /**
@@ -162,6 +164,56 @@ async function handleCommand(message, userId) {
     return await searchStock(keyword);
   }
   
+  // 🇺🇸 美股指令
+  if (/^[美uU][股sS]?\s*.+$/i.test(msg)) {
+    const symbol = msg.replace(/^[美uU][股sS]?\s*/i, '').trim().toUpperCase();
+    if (symbol) {
+      return await getUSStockFlex(symbol);
+    }
+  }
+  
+  // 📊 K線圖指令
+  if (/^[kK線圖走勢]\s*\d{4,6}$/.test(msg) || /^\d{4,6}\s*[kK線圖走勢]$/.test(msg)) {
+    const stockId = msg.match(/\d{4,6}/)[0];
+    return await getKLineChartFlex(stockId);
+  }
+  
+  // 📈 技術指標圖
+  if (/^(技術|指標|RSI|KD)\s*\d{4,6}$/i.test(msg) || /^\d{4,6}\s*(技術|指標|RSI|KD)$/i.test(msg)) {
+    const stockId = msg.match(/\d{4,6}/)[0];
+    return await getIndicatorChartFlex(stockId);
+  }
+  
+  // 📰 新聞指令
+  if (/^(新聞|消息)\s*\d{4,6}$/.test(msg) || /^\d{4,6}\s*(新聞|消息)$/.test(msg)) {
+    const stockId = msg.match(/\d{4,6}/)[0];
+    return await getStockNewsFlex(stockId);
+  }
+  
+  // 📊 財報指令
+  if (/^(財報|營收)\s*\d{4,6}$/.test(msg) || /^\d{4,6}\s*(財報|營收)$/.test(msg)) {
+    const stockId = msg.match(/\d{4,6}/)[0];
+    return await getEarningsFlex(stockId);
+  }
+  
+  // 💬 PTT 討論熱度
+  if (/^(PTT|ptt|討論)\s*\d{4,6}$/.test(msg) || /^\d{4,6}\s*(PTT|ptt|討論)$/.test(msg)) {
+    const stockId = msg.match(/\d{4,6}/)[0];
+    return await getPTTSentimentFlex(stockId);
+  }
+  
+  // 🤖 AI 選股
+  if (/^(選股|推薦|AI選股)/.test(msg)) {
+    const criteria = msg.replace(/^(選股|推薦|AI選股)\s*/, '').trim() || '適合長期投資的優質股';
+    return await getAIRecommendationFlex(criteria);
+  }
+  
+  // 🤖 AI 對話（問 開頭）
+  if (/^[問]/.test(msg)) {
+    const question = msg.replace(/^[問]\s*/, '').trim();
+    return await getAIChatReply(question);
+  }
+  
   // 指令列表
   const commands = {
     '持股': () => getPortfolioFlex(),
@@ -170,6 +222,11 @@ async function handleCommand(message, userId) {
     '熱門': () => getHotStocksFlex(),
     '大盤': () => getMarketReply(),
     '指數': () => getMarketReply(),
+    '美股': () => getUSMarketFlex(),
+    '美指': () => getUSMarketFlex(),
+    '熱門美股': () => getHotUSStocksFlex(),
+    'ADR': () => getTSMSpreadFlex(),
+    'adr': () => getTSMSpreadFlex(),
     '說明': () => getHelpReply(),
     'help': () => getHelpReply()
   };
@@ -189,6 +246,19 @@ async function handleCommand(message, userId) {
     }
   }
   
+  // 🇺🇸 直接輸入美股代碼（全英文大寫 1-5 字母）
+  if (/^[A-Z]{1,5}$/.test(msg)) {
+    const usStock = await stockService.getUSStockPrice(msg);
+    if (usStock && usStock.price > 0) {
+      return await getUSStockFlex(msg);
+    }
+  }
+  
+  // 🤖 其他問題交給 AI 回答
+  if (msg.length >= 5 && /[？?]$/.test(msg)) {
+    return await getAIChatReply(msg);
+  }
+  
   // 嘗試用名稱搜尋
   if (msg.length >= 2 && !/^\d+$/.test(msg)) {
     const searchResult = await searchStock(msg);
@@ -201,10 +271,13 @@ async function handleCommand(message, userId) {
   return {
     type: 'text',
     text: `🤔 不認識「${msg}」\n\n` +
-      `📍 查股價：輸入代碼如 2330\n` +
-      `🔍 搜股票：查 台積電\n` +
-      `➕ 加監控：監控 2330\n` +
-      `🎯 目標價：監控 2330 1000 900\n` +
+      `📍 台股：輸入代碼如 2330\n` +
+      `🇺🇸 美股：輸入 AAPL 或「美 AAPL」\n` +
+      `📊 K線：K 2330\n` +
+      `🤖 AI：問 台積電前景如何？\n` +
+      `📋 輸入「說明」看更多`
+  };
+} +
       `📋 輸入「說明」看更多`
   };
 }
@@ -1161,8 +1234,941 @@ async function sendVoiceReport(stockId, userId) {
   }
 }
 
+// ==================== 🇺🇸 美股功能 ====================
+
 /**
- * 取得說明回覆 - Flex Message 卡片
+ * 🇺🇸 美股單檔 Flex Message（綠漲紅跌）
+ */
+async function getUSStockFlex(symbol) {
+  try {
+    const stock = await stockService.getUSStockPrice(symbol);
+    
+    if (!stock || !stock.price) {
+      return { type: 'text', text: `❌ 找不到美股 ${symbol}` };
+    }
+    
+    const price = parseFloat(stock.price) || 0;
+    const change = parseFloat(stock.change) || 0;
+    const changePercent = parseFloat(stock.changePercent) || 0;
+    const open = parseFloat(stock.open) || 0;
+    const high = parseFloat(stock.high) || 0;
+    const low = parseFloat(stock.low) || 0;
+    const yesterday = parseFloat(stock.yesterday) || 0;
+    
+    const isUp = change >= 0;
+    // 🇺🇸 美股：綠漲紅跌（跟台股相反）
+    const color = isUp ? '#388E3C' : '#D32F2F';
+    const bgColor = isUp ? '#E8F5E9' : '#FFEBEE';
+    const arrow = isUp ? '▲' : '▼';
+    const emoji = isUp ? '📈' : '📉';
+    const changeSign = isUp ? '+' : '';
+    
+    // 市場狀態
+    const stateMap = {
+      'PRE': '🌅 盤前',
+      'REGULAR': '🔔 盤中',
+      'POST': '🌙 盤後',
+      'CLOSED': '💤 休市'
+    };
+    const marketState = stateMap[stock.marketState] || '💤 休市';
+    
+    // 盤前盤後價格
+    const extraPrices = [];
+    if (stock.preMarketPrice) {
+      extraPrices.push({
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: '盤前', size: 'sm', color: '#666666', flex: 1 },
+          { type: 'text', text: `$${stock.preMarketPrice.toFixed(2)}`, size: 'sm', align: 'end', flex: 1, color: '#FF9800', weight: 'bold' }
+        ]
+      });
+    }
+    if (stock.postMarketPrice) {
+      extraPrices.push({
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: '盤後', size: 'sm', color: '#666666', flex: 1 },
+          { type: 'text', text: `$${stock.postMarketPrice.toFixed(2)}`, size: 'sm', align: 'end', flex: 1, color: '#9C27B0', weight: 'bold' }
+        ]
+      });
+    }
+    
+    return {
+      type: 'flex',
+      altText: `🇺🇸 ${stock.name} $${price.toFixed(2)} ${arrow}${changePercent}%`,
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                { type: 'text', text: `🇺🇸 ${stock.name}`, color: '#ffffff', size: 'lg', weight: 'bold', flex: 1, wrap: true },
+                { type: 'text', text: symbol, color: '#ffffffcc', size: 'md', align: 'end' }
+              ]
+            },
+            { 
+              type: 'text', 
+              text: `${emoji} ${isUp ? '上漲' : '下跌'} ${Math.abs(changePercent).toFixed(2)}%`, 
+              color: '#ffffff', 
+              size: 'md', 
+              margin: 'sm',
+              weight: 'bold'
+            }
+          ],
+          backgroundColor: color,
+          paddingAll: '20px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: bgColor,
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                { 
+                  type: 'text', 
+                  text: `$${price.toFixed(2)}`, 
+                  size: '3xl', 
+                  weight: 'bold', 
+                  color: color,
+                  align: 'center'
+                },
+                { 
+                  type: 'text', 
+                  text: `${arrow} ${changeSign}$${Math.abs(change).toFixed(2)} (${changeSign}${changePercent.toFixed(2)}%)`, 
+                  size: 'lg', 
+                  color: color, 
+                  align: 'center',
+                  weight: 'bold',
+                  margin: 'sm'
+                }
+              ]
+            },
+            { type: 'separator', margin: 'xl', color: '#DDDDDD' },
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'lg',
+              spacing: 'sm',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '開盤', size: 'md', color: '#666666', flex: 1 },
+                    { type: 'text', text: `$${open.toFixed(2)}`, size: 'md', align: 'end', flex: 1, color: '#333333', weight: 'bold' }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '最高', size: 'md', color: '#666666', flex: 1 },
+                    { type: 'text', text: `$${high.toFixed(2)}`, size: 'md', align: 'end', flex: 1, color: '#388E3C', weight: 'bold' }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '最低', size: 'md', color: '#666666', flex: 1 },
+                    { type: 'text', text: `$${low.toFixed(2)}`, size: 'md', align: 'end', flex: 1, color: '#D32F2F', weight: 'bold' }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '昨收', size: 'md', color: '#666666', flex: 1 },
+                    { type: 'text', text: `$${yesterday.toFixed(2)}`, size: 'md', align: 'end', flex: 1, color: '#333333', weight: 'bold' }
+                  ]
+                },
+                ...extraPrices
+              ]
+            }
+          ],
+          paddingAll: '20px'
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'text', text: marketState, size: 'sm', color: '#666666' },
+            { type: 'text', text: stock.exchange || 'NASDAQ', size: 'sm', color: '#666666', align: 'end' }
+          ],
+          paddingAll: '15px',
+          backgroundColor: '#F5F5F5'
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('美股查詢錯誤:', error);
+    return { type: 'text', text: `⚠️ 查詢美股 ${symbol} 失敗` };
+  }
+}
+
+/**
+ * 🇺🇸 美股三大指數 Flex Message
+ */
+async function getUSMarketFlex() {
+  try {
+    const indices = await stockService.getUSIndices();
+    
+    if (!indices || indices.length === 0) {
+      return { type: 'text', text: '⚠️ 無法取得美股指數' };
+    }
+    
+    const createIndexRow = (index) => {
+      const isUp = index.change >= 0;
+      // 🇺🇸 美股：綠漲紅跌
+      const color = isUp ? '#388E3C' : '#D32F2F';
+      const arrow = isUp ? '▲' : '▼';
+      const changeSign = isUp ? '+' : '';
+      
+      return {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: isUp ? '#E8F5E9' : '#FFEBEE',
+        cornerRadius: '10px',
+        paddingAll: '15px',
+        margin: 'md',
+        contents: [
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: index.name, size: 'md', weight: 'bold', color: '#333333', flex: 1 },
+              { type: 'text', text: index.symbol.replace('^', ''), size: 'xs', color: '#888888', align: 'end' }
+            ]
+          },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            margin: 'sm',
+            contents: [
+              { type: 'text', text: index.price.toFixed(2), size: 'xl', weight: 'bold', color: color, flex: 1 },
+              { 
+                type: 'text', 
+                text: `${arrow} ${changeSign}${index.changePercent.toFixed(2)}%`, 
+                size: 'md', 
+                color: color,
+                weight: 'bold',
+                align: 'end',
+                gravity: 'center'
+              }
+            ]
+          }
+        ]
+      };
+    };
+    
+    return {
+      type: 'flex',
+      altText: '🇺🇸 美股三大指數',
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#1565C0',
+          paddingAll: '20px',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                { type: 'text', text: '🇺🇸', size: 'xxl' },
+                { type: 'text', text: '美股三大指數', size: 'xl', weight: 'bold', color: '#FFFFFF', margin: 'md', gravity: 'center' }
+              ]
+            },
+            { type: 'text', text: '綠漲紅跌', size: 'sm', color: '#BBDEFB', margin: 'sm' }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          paddingAll: '15px',
+          contents: indices.map(createIndexRow)
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'text', text: `⏰ ${getUSTime()}`, size: 'sm', color: '#666666' },
+            { type: 'text', text: '美東時間', size: 'sm', color: '#666666', align: 'end' }
+          ],
+          paddingAll: '15px',
+          backgroundColor: '#F5F5F5'
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('美股指數錯誤:', error);
+    return { type: 'text', text: '⚠️ 取得美股指數失敗' };
+  }
+}
+
+/**
+ * 🇺🇸 熱門美股 Flex Message
+ */
+async function getHotUSStocksFlex() {
+  try {
+    const stocks = await stockService.getHotUSStocks();
+    
+    if (!stocks || stocks.length === 0) {
+      return { type: 'text', text: '⚠️ 無法取得熱門美股' };
+    }
+    
+    const createStockRow = (stock) => {
+      const isUp = stock.change >= 0;
+      // 🇺🇸 美股：綠漲紅跌
+      const color = isUp ? '#388E3C' : '#D32F2F';
+      const arrow = isUp ? '▲' : '▼';
+      
+      return {
+        type: 'box',
+        layout: 'horizontal',
+        margin: 'md',
+        contents: [
+          { type: 'text', text: stock.symbol, size: 'sm', color: '#333333', weight: 'bold', flex: 2 },
+          { type: 'text', text: `$${stock.price.toFixed(2)}`, size: 'sm', color: '#333333', flex: 2, align: 'end' },
+          { 
+            type: 'text', 
+            text: `${arrow}${stock.changePercent.toFixed(2)}%`, 
+            size: 'sm', 
+            color: color,
+            weight: 'bold',
+            flex: 2, 
+            align: 'end' 
+          }
+        ]
+      };
+    };
+    
+    return {
+      type: 'flex',
+      altText: '🔥 熱門美股',
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#FF5722',
+          paddingAll: '20px',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                { type: 'text', text: '🔥', size: 'xxl' },
+                { type: 'text', text: '熱門美股', size: 'xl', weight: 'bold', color: '#FFFFFF', margin: 'md', gravity: 'center' }
+              ]
+            },
+            { type: 'text', text: '🇺🇸 綠漲紅跌', size: 'sm', color: '#FFCCBC', margin: 'sm' }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          paddingAll: '15px',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                { type: 'text', text: '代碼', size: 'xs', color: '#888888', flex: 2 },
+                { type: 'text', text: '股價', size: 'xs', color: '#888888', flex: 2, align: 'end' },
+                { type: 'text', text: '漲跌', size: 'xs', color: '#888888', flex: 2, align: 'end' }
+              ]
+            },
+            { type: 'separator', margin: 'sm', color: '#EEEEEE' },
+            ...stocks.slice(0, 10).map(createStockRow)
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'text', text: `⏰ ${getUSTime()}`, size: 'sm', color: '#666666' }
+          ],
+          paddingAll: '15px',
+          backgroundColor: '#F5F5F5'
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('熱門美股錯誤:', error);
+    return { type: 'text', text: '⚠️ 取得熱門美股失敗' };
+  }
+}
+
+/**
+ * 🇹🇼🇺🇸 台積電 ADR 價差
+ */
+async function getTSMSpreadFlex() {
+  try {
+    const spread = await stockService.getTSMSpread();
+    
+    if (!spread) {
+      return { type: 'text', text: '⚠️ 無法取得 TSM ADR 價差' };
+    }
+    
+    const isPremium = spread.spread >= 0;
+    const spreadColor = isPremium ? '#D32F2F' : '#388E3C';
+    
+    return {
+      type: 'flex',
+      altText: `🔄 台積電 ADR 價差 ${spread.spreadText}`,
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#6A1B9A',
+          paddingAll: '20px',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                { type: 'text', text: '🔄', size: 'xxl' },
+                { type: 'text', text: '台積電 ADR 價差', size: 'lg', weight: 'bold', color: '#FFFFFF', margin: 'md', gravity: 'center' }
+              ]
+            }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          paddingAll: '20px',
+          contents: [
+            // 台股
+            {
+              type: 'box',
+              layout: 'horizontal',
+              backgroundColor: '#FFEBEE',
+              cornerRadius: '10px',
+              paddingAll: '15px',
+              contents: [
+                { type: 'text', text: '🇹🇼 台股 2330', size: 'md', weight: 'bold', color: '#333333', flex: 1 },
+                { type: 'text', text: `NT$${spread.tw.price}`, size: 'lg', weight: 'bold', color: '#D32F2F', align: 'end' }
+              ]
+            },
+            // 美股 ADR
+            {
+              type: 'box',
+              layout: 'horizontal',
+              backgroundColor: '#E8F5E9',
+              cornerRadius: '10px',
+              paddingAll: '15px',
+              margin: 'md',
+              contents: [
+                { type: 'text', text: '🇺🇸 美股 TSM', size: 'md', weight: 'bold', color: '#333333', flex: 1 },
+                { type: 'text', text: `$${spread.us.price.toFixed(2)}`, size: 'lg', weight: 'bold', color: '#388E3C', align: 'end' }
+              ]
+            },
+            { type: 'separator', margin: 'lg', color: '#DDDDDD' },
+            // 換算
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'lg',
+              spacing: 'sm',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '匯率', size: 'sm', color: '#666666', flex: 1 },
+                    { type: 'text', text: `1 USD = ${spread.usdTwd} TWD`, size: 'sm', align: 'end', flex: 2, color: '#333333' }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: 'ADR換算', size: 'sm', color: '#666666', flex: 1 },
+                    { type: 'text', text: `NT$${spread.adrInTwd} (1 ADR=5股)`, size: 'sm', align: 'end', flex: 2, color: '#333333' }
+                  ]
+                }
+              ]
+            },
+            // 價差結果
+            {
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: isPremium ? '#FFEBEE' : '#E8F5E9',
+              cornerRadius: '10px',
+              paddingAll: '15px',
+              margin: 'lg',
+              contents: [
+                { 
+                  type: 'text', 
+                  text: spread.spreadText, 
+                  size: 'xl', 
+                  weight: 'bold', 
+                  color: spreadColor,
+                  align: 'center'
+                }
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'text', text: `⏰ ${getTaiwanTime()}`, size: 'sm', color: '#666666' }
+          ],
+          paddingAll: '15px',
+          backgroundColor: '#F5F5F5'
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('ADR 價差錯誤:', error);
+    return { type: 'text', text: '⚠️ 取得 ADR 價差失敗' };
+  }
+}
+
+/**
+ * 取得美東時間
+ */
+function getUSTime() {
+  return new Date().toLocaleString('en-US', { 
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+}
+
+// ==================== 📊 圖表功能 ====================
+
+/**
+ * 📊 K 線圖 Flex Message
+ */
+async function getKLineChartFlex(stockId) {
+  try {
+    const stock = await stockService.getRealtimePrice(stockId);
+    if (!stock) {
+      return { type: 'text', text: `❌ 找不到股票 ${stockId}` };
+    }
+    
+    const chartUrl = await chartService.generateKLineChart(stockId, 30);
+    
+    if (!chartUrl) {
+      return { type: 'text', text: `⚠️ 無法產生 ${stockId} K線圖（可能缺少歷史資料）` };
+    }
+    
+    return {
+      type: 'flex',
+      altText: `📊 ${stock.name} K線圖`,
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'horizontal',
+          backgroundColor: '#1565C0',
+          paddingAll: '15px',
+          contents: [
+            { type: 'text', text: `📊 ${stock.name}`, size: 'lg', weight: 'bold', color: '#FFFFFF', flex: 1 },
+            { type: 'text', text: stockId, size: 'sm', color: '#BBDEFB', align: 'end' }
+          ]
+        },
+        hero: {
+          type: 'image',
+          url: chartUrl,
+          size: 'full',
+          aspectRatio: '16:9',
+          aspectMode: 'cover'
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          paddingAll: '10px',
+          backgroundColor: '#F5F5F5',
+          contents: [
+            { type: 'text', text: '30日K線 + MA5/MA20', size: 'xs', color: '#888888' }
+          ]
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('K線圖錯誤:', error);
+    return { type: 'text', text: '⚠️ K線圖產生失敗' };
+  }
+}
+
+/**
+ * 📈 技術指標圖 Flex Message
+ */
+async function getIndicatorChartFlex(stockId) {
+  try {
+    const stock = await stockService.getRealtimePrice(stockId);
+    if (!stock) {
+      return { type: 'text', text: `❌ 找不到股票 ${stockId}` };
+    }
+    
+    const chartUrl = await chartService.generateIndicatorChart(stockId, 30);
+    
+    if (!chartUrl) {
+      return { type: 'text', text: `⚠️ 無法產生 ${stockId} 技術指標圖` };
+    }
+    
+    return {
+      type: 'flex',
+      altText: `📈 ${stock.name} 技術指標`,
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'horizontal',
+          backgroundColor: '#7B1FA2',
+          paddingAll: '15px',
+          contents: [
+            { type: 'text', text: `📈 ${stock.name}`, size: 'lg', weight: 'bold', color: '#FFFFFF', flex: 1 },
+            { type: 'text', text: stockId, size: 'sm', color: '#E1BEE7', align: 'end' }
+          ]
+        },
+        hero: {
+          type: 'image',
+          url: chartUrl,
+          size: 'full',
+          aspectRatio: '16:9',
+          aspectMode: 'cover'
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          paddingAll: '10px',
+          backgroundColor: '#F5F5F5',
+          contents: [
+            { type: 'text', text: 'RSI(14) + KD(9)', size: 'xs', color: '#888888' }
+          ]
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('技術指標圖錯誤:', error);
+    return { type: 'text', text: '⚠️ 技術指標圖產生失敗' };
+  }
+}
+
+// ==================== 🤖 AI 功能 ====================
+
+/**
+ * 🤖 AI 對話回覆
+ */
+async function getAIChatReply(question) {
+  try {
+    const answer = await aiService.chat(question);
+    
+    return {
+      type: 'flex',
+      altText: '🤖 AI 回覆',
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'horizontal',
+          backgroundColor: '#00897B',
+          paddingAll: '15px',
+          contents: [
+            { type: 'text', text: '🤖', size: 'xl' },
+            { type: 'text', text: 'AI 股海秘書', size: 'lg', weight: 'bold', color: '#FFFFFF', margin: 'md' }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          paddingAll: '20px',
+          contents: [
+            { type: 'text', text: `Q: ${question}`, size: 'sm', color: '#666666', wrap: true },
+            { type: 'separator', margin: 'lg' },
+            { type: 'text', text: answer, size: 'md', color: '#333333', wrap: true, margin: 'lg' }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          paddingAll: '10px',
+          backgroundColor: '#F5F5F5',
+          contents: [
+            { type: 'text', text: '⚠️ AI 建議僅供參考', size: 'xs', color: '#888888' }
+          ]
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('AI 對話錯誤:', error);
+    return { type: 'text', text: '⚠️ AI 回覆失敗，請稍後再試' };
+  }
+}
+
+/**
+ * 🤖 AI 選股推薦
+ */
+async function getAIRecommendationFlex(criteria) {
+  try {
+    const recommendations = await aiService.getStockRecommendation(criteria);
+    
+    if (!recommendations || recommendations.length === 0) {
+      return { type: 'text', text: '⚠️ AI 選股失敗，請稍後再試' };
+    }
+    
+    const createRow = (stock) => ({
+      type: 'box',
+      layout: 'horizontal',
+      margin: 'md',
+      contents: [
+        { type: 'text', text: stock.code, size: 'sm', color: '#1565C0', weight: 'bold', flex: 1 },
+        { type: 'text', text: stock.name, size: 'sm', color: '#333333', flex: 2 },
+        { type: 'text', text: stock.reason, size: 'xs', color: '#666666', flex: 3, wrap: true }
+      ]
+    });
+    
+    return {
+      type: 'flex',
+      altText: '🤖 AI 選股推薦',
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#FF5722',
+          paddingAll: '15px',
+          contents: [
+            { type: 'text', text: '🤖 AI 選股推薦', size: 'lg', weight: 'bold', color: '#FFFFFF' },
+            { type: 'text', text: `條件：${criteria}`, size: 'xs', color: '#FFCCBC', margin: 'sm', wrap: true }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          paddingAll: '15px',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                { type: 'text', text: '代碼', size: 'xs', color: '#888888', flex: 1 },
+                { type: 'text', text: '名稱', size: 'xs', color: '#888888', flex: 2 },
+                { type: 'text', text: '理由', size: 'xs', color: '#888888', flex: 3 }
+              ]
+            },
+            { type: 'separator', margin: 'sm' },
+            ...recommendations.map(createRow)
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          paddingAll: '10px',
+          backgroundColor: '#F5F5F5',
+          contents: [
+            { type: 'text', text: '⚠️ AI 建議僅供參考，請自行研究', size: 'xs', color: '#888888' }
+          ]
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('AI 選股錯誤:', error);
+    return { type: 'text', text: '⚠️ AI 選股失敗' };
+  }
+}
+
+/**
+ * 📰 股票新聞 Flex
+ */
+async function getStockNewsFlex(stockId) {
+  try {
+    const stock = await stockService.getRealtimePrice(stockId);
+    if (!stock) {
+      return { type: 'text', text: `❌ 找不到股票 ${stockId}` };
+    }
+    
+    const news = await aiService.searchStockNews(stock.name, stockId);
+    
+    return {
+      type: 'flex',
+      altText: `📰 ${stock.name} 新聞`,
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'horizontal',
+          backgroundColor: '#37474F',
+          paddingAll: '15px',
+          contents: [
+            { type: 'text', text: `📰 ${stock.name}`, size: 'lg', weight: 'bold', color: '#FFFFFF', flex: 1 },
+            { type: 'text', text: '新聞', size: 'sm', color: '#B0BEC5', align: 'end' }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          paddingAll: '15px',
+          contents: [
+            { type: 'text', text: news, size: 'sm', color: '#333333', wrap: true }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          paddingAll: '10px',
+          backgroundColor: '#F5F5F5',
+          contents: [
+            { type: 'text', text: '📰 AI 整理', size: 'xs', color: '#888888' }
+          ]
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('新聞查詢錯誤:', error);
+    return { type: 'text', text: '⚠️ 新聞查詢失敗' };
+  }
+}
+
+/**
+ * 📊 財報摘要 Flex
+ */
+async function getEarningsFlex(stockId) {
+  try {
+    const stock = await stockService.getRealtimePrice(stockId);
+    if (!stock) {
+      return { type: 'text', text: `❌ 找不到股票 ${stockId}` };
+    }
+    
+    const earnings = await aiService.summarizeEarnings(stock.name, stockId);
+    
+    return {
+      type: 'flex',
+      altText: `📊 ${stock.name} 財報`,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        header: {
+          type: 'box',
+          layout: 'horizontal',
+          backgroundColor: '#4CAF50',
+          paddingAll: '15px',
+          contents: [
+            { type: 'text', text: `📊 ${stock.name}`, size: 'lg', weight: 'bold', color: '#FFFFFF', flex: 1 },
+            { type: 'text', text: '財報', size: 'sm', color: '#C8E6C9', align: 'end' }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          paddingAll: '15px',
+          contents: [
+            { type: 'text', text: earnings, size: 'sm', color: '#333333', wrap: true }
+          ]
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('財報查詢錯誤:', error);
+    return { type: 'text', text: '⚠️ 財報查詢失敗' };
+  }
+}
+
+/**
+ * 💬 PTT 討論熱度 Flex
+ */
+async function getPTTSentimentFlex(stockId) {
+  try {
+    const stock = await stockService.getRealtimePrice(stockId);
+    if (!stock) {
+      return { type: 'text', text: `❌ 找不到股票 ${stockId}` };
+    }
+    
+    const sentiment = await aiService.analyzePTTSentiment(stock.name);
+    
+    const heatColor = sentiment.heat >= 7 ? '#D32F2F' : sentiment.heat >= 4 ? '#FF9800' : '#9E9E9E';
+    const sentimentColor = sentiment.sentiment >= 6 ? '#D32F2F' : sentiment.sentiment <= 4 ? '#388E3C' : '#9E9E9E';
+    
+    return {
+      type: 'flex',
+      altText: `💬 ${stock.name} PTT討論`,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        header: {
+          type: 'box',
+          layout: 'horizontal',
+          backgroundColor: '#3F51B5',
+          paddingAll: '15px',
+          contents: [
+            { type: 'text', text: `💬 ${stock.name}`, size: 'lg', weight: 'bold', color: '#FFFFFF', flex: 1 },
+            { type: 'text', text: 'PTT', size: 'sm', color: '#C5CAE9', align: 'end' }
+          ]
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          paddingAll: '15px',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                { type: 'text', text: '🔥 討論熱度', size: 'sm', color: '#666666', flex: 1 },
+                { type: 'text', text: `${sentiment.heat}/10`, size: 'lg', weight: 'bold', color: heatColor, align: 'end' }
+              ]
+            },
+            {
+              type: 'box',
+              layout: 'horizontal',
+              margin: 'md',
+              contents: [
+                { type: 'text', text: '📊 多空情緒', size: 'sm', color: '#666666', flex: 1 },
+                { type: 'text', text: `${sentiment.sentiment}/10`, size: 'lg', weight: 'bold', color: sentimentColor, align: 'end' }
+              ]
+            },
+            { type: 'separator', margin: 'lg' },
+            { type: 'text', text: sentiment.summary, size: 'sm', color: '#333333', wrap: true, margin: 'lg' }
+          ]
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('PTT 分析錯誤:', error);
+    return { type: 'text', text: '⚠️ PTT 分析失敗' };
+  }
+}
+
+/**
+ * 取得說明回覆 - Flex Message 卡片（含美股）
  */
 function getHelpReply() {
   return {
@@ -1184,7 +2190,7 @@ function getHelpReply() {
               { type: 'text', text: '📱', size: 'xxl' },
               { 
                 type: 'text', 
-                text: '股海秘書 v2.0', 
+                text: '股海秘書 v3.0', 
                 size: 'xl', 
                 weight: 'bold', 
                 color: '#FFFFFF',
@@ -1195,7 +2201,7 @@ function getHelpReply() {
           },
           { 
             type: 'text', 
-            text: '您的智慧投資助理', 
+            text: '🇹🇼 台股 + 🇺🇸 美股', 
             size: 'sm', 
             color: '#BBDEFB',
             margin: 'sm'
@@ -1205,29 +2211,49 @@ function getHelpReply() {
       body: {
         type: 'box',
         layout: 'vertical',
-        paddingAll: '20px',
-        spacing: 'md',
+        paddingAll: '15px',
+        spacing: 'sm',
         contents: [
-          // 查詢股價
+          // 台股
           {
             type: 'box',
             layout: 'horizontal',
             contents: [
-              { type: 'text', text: '🔍', size: 'lg' },
+              { type: 'text', text: '🇹🇼', size: 'lg' },
               {
                 type: 'box',
                 layout: 'vertical',
                 margin: 'md',
                 contents: [
-                  { type: 'text', text: '查詢股價', weight: 'bold', size: 'md', color: '#333333' },
-                  { type: 'text', text: '輸入代碼如 2330', size: 'sm', color: '#888888' },
-                  { type: 'text', text: '或「查 台積電」搜名稱', size: 'sm', color: '#888888' }
+                  { type: 'text', text: '台股（紅漲綠跌）', weight: 'bold', size: 'sm', color: '#D32F2F' },
+                  { type: 'text', text: '2330 查股價 | 大盤 看指數', size: 'xs', color: '#666666' },
+                  { type: 'text', text: '監控 2330 1000 900', size: 'xs', color: '#666666' }
                 ]
               }
             ]
           },
           { type: 'separator', color: '#EEEEEE' },
-          // 監控管理
+          // 美股
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: '🇺🇸', size: 'lg' },
+              {
+                type: 'box',
+                layout: 'vertical',
+                margin: 'md',
+                contents: [
+                  { type: 'text', text: '美股（綠漲紅跌）', weight: 'bold', size: 'sm', color: '#388E3C' },
+                  { type: 'text', text: 'AAPL 或 美 AAPL 查美股', size: 'xs', color: '#666666' },
+                  { type: 'text', text: '美股 看三大指數 | 熱門美股', size: 'xs', color: '#666666' },
+                  { type: 'text', text: 'ADR 看台積電價差', size: 'xs', color: '#666666' }
+                ]
+              }
+            ]
+          },
+          { type: 'separator', color: '#EEEEEE' },
+          // 監控
           {
             type: 'box',
             layout: 'horizontal',
@@ -1238,29 +2264,27 @@ function getHelpReply() {
                 layout: 'vertical',
                 margin: 'md',
                 contents: [
-                  { type: 'text', text: '監控管理', weight: 'bold', size: 'md', color: '#333333' },
-                  { type: 'text', text: '+2330 加入監控', size: 'sm', color: '#888888' },
-                  { type: 'text', text: '-2330 移除監控', size: 'sm', color: '#888888' },
-                  { type: 'text', text: '監控 2330 1000 900 帶目標價', size: 'sm', color: '#888888' }
+                  { type: 'text', text: '監控管理', weight: 'bold', size: 'sm', color: '#333333' },
+                  { type: 'text', text: '+2330 加入 | -2330 移除', size: 'xs', color: '#666666' },
+                  { type: 'text', text: '漲跌 2330 5 設定±5%提醒', size: 'xs', color: '#666666' }
                 ]
               }
             ]
           },
           { type: 'separator', color: '#EEEEEE' },
-          // 進階設定
+          // 其他
           {
             type: 'box',
             layout: 'horizontal',
             contents: [
-              { type: 'text', text: '🎯', size: 'lg' },
+              { type: 'text', text: '💼', size: 'lg' },
               {
                 type: 'box',
                 layout: 'vertical',
                 margin: 'md',
                 contents: [
-                  { type: 'text', text: '進階設定', weight: 'bold', size: 'md', color: '#333333' },
-                  { type: 'text', text: '目標 2330 1000 900', size: 'sm', color: '#888888' },
-                  { type: 'text', text: '漲跌 2330 5（改±5%）', size: 'sm', color: '#888888' }
+                  { type: 'text', text: '其他功能', weight: 'bold', size: 'sm', color: '#333333' },
+                  { type: 'text', text: '持股 | 熱門 | 語音 2330', size: 'xs', color: '#666666' }
                 ]
               }
             ]
@@ -1271,11 +2295,11 @@ function getHelpReply() {
         type: 'box',
         layout: 'vertical',
         backgroundColor: '#F5F5F5',
-        paddingAll: '15px',
+        paddingAll: '10px',
         contents: [
           { 
             type: 'text', 
-            text: '📊 紅漲綠跌｜台灣股市風格', 
+            text: '🇹🇼紅漲綠跌 🇺🇸綠漲紅跌', 
             size: 'xs', 
             color: '#888888',
             align: 'center'
