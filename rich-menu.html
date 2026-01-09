@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>股海秘書 Rich Menu</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Microsoft JhengHei', sans-serif;
+    }
+    
+    .rich-menu {
+      width: 2500px;
+      height: 1686px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    }
+    
+    .menu-item {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .menu-item::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 100%);
+    }
+    
+    .menu-item:nth-child(1) { background: linear-gradient(135deg, #D32F2F 0%, #f44336 100%); }
+    .menu-item:nth-child(2) { background: linear-gradient(135deg, #1565C0 0%, #42a5f5 100%); }
+    .menu-item:nth-child(3) { background: linear-gradient(135deg, #388E3C 0%, #66bb6a 100%); }
+    .menu-item:nth-child(4) { background: linear-gradient(135deg, #F57C00 0%, #ffb74d 100%); }
+    .menu-item:nth-child(5) { background: linear-gradient(135deg, #7B1FA2 0%, #ba68c8 100%); }
+    .menu-item:nth-child(6) { background: linear-gradient(135deg, #455A64 0%, #78909c 100%); }
+    
+    .menu-icon {
+      font-size: 360px;
+      margin-bottom: 30px;
+      filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3));
+    }
+    
+    .menu-text {
+      font-size: 144px;
+      font-weight: bold;
+      color: #ffffff;
+      text-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      letter-spacing: 8px;
+    }
+    
+    .menu-subtext {
+      font-size: 72px;
+      color: rgba(255,255,255,0.8);
+      margin-top: 15px;
+      letter-spacing: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="rich-menu">
+    <div class="menu-item">
+      <div class="menu-icon">📊</div>
+      <div class="menu-text">大盤</div>
+      <div class="menu-subtext">加權指數</div>
+    </div>
+    <div class="menu-item">
+      <div class="menu-icon">🔍</div>
+      <div class="menu-text">查股</div>
+      <div class="menu-subtext">股價查詢</div>
+    </div>
+    <div class="menu-item">
+      <div class="menu-icon">📋</div>
+      <div class="menu-text">監控</div>
+      <div class="menu-subtext">我的清單</div>
+    </div>
+    <div class="menu-item">
+      <div class="menu-icon">💼</div>
+      <div class="menu-text">持股</div>
+      <div class="menu-subtext">投資組合</div>
+    </div>
+    <div class="menu-item">
+      <div class="menu-icon">🔥</div>
+      <div class="menu-text">熱門</div>
+      <div class="menu-subtext">熱門股票</div>
+    </div>
+    <div class="menu-item">
+      <div class="menu-icon">❓</div>
+      <div class="menu-text">說明</div>
+      <div class="menu-subtext">使用指南</div>
+    </div>
+  </div>
+</body>
+</html>
