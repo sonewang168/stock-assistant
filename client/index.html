@@ -24,11 +24,11 @@
             box-sizing: border-box;
         }
         
-        body {
+        html, body {
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Noto Sans TC', sans-serif;
-            background: #000000;
-            min-height: 100vh;
-            overflow-x: hidden;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100%;
+            height: auto;
         }
         
         /* ========== 開機動畫 ========== */
@@ -48,9 +48,7 @@
         }
         
         .splash-screen.fade-out {
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
+            display: none;
         }
         
         /* Logo 容器 */
@@ -257,22 +255,16 @@
         
         /* ========== 主內容 ========== */
         .main-content {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            display: flex;
+            display: none;
             flex-direction: column;
             align-items: center;
             color: white;
             padding: 20px;
-            padding-bottom: 60px;
-            opacity: 0;
-            transition: opacity 0.5s ease;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
+            padding-bottom: 80px;
         }
         
         .main-content.show {
-            opacity: 1;
+            display: flex;
         }
         
         .container {
