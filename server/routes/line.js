@@ -147,6 +147,26 @@ async function handleCommand(message, userId) {
     'help': () => getHelpReply()
   };
   
+  // 語音聲音選擇
+  if (msg === '語音設定' || msg === '聲音選擇' || msg === '語音選單') {
+    return { type: 'text', text: '🎤 語音聲音選擇\n\n👨 男聲：\n1️⃣ Adam（沉穩）\n2️⃣ Josh（年輕）\n3️⃣ Arnold（渾厚）\n4️⃣ Sam（溫和）\n\n👩 女聲：\n5️⃣ Rachel（專業）\n6️⃣ Bella（甜美）\n7️⃣ Domi（活潑）\n8️⃣ Elli（溫柔）\n\n輸入「語音1」~「語音8」選擇聲音' };
+  }
+  if (/^語音[1-8]$/.test(msg)) {
+    const voices = {
+      '語音1': { id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam（男-沉穩）' },
+      '語音2': { id: 'TxGEqnHWrfWFTfGW9XjX', name: 'Josh（男-年輕）' },
+      '語音3': { id: 'VR6AewLTigWG4xSOukaG', name: 'Arnold（男-渾厚）' },
+      '語音4': { id: 'yoZ06aMxZJJ28mfd3POQ', name: 'Sam（男-溫和）' },
+      '語音5': { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel（女-專業）' },
+      '語音6': { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Bella（女-甜美）' },
+      '語音7': { id: 'AZnzlk1XvdvUeBnXmlld', name: 'Domi（女-活潑）' },
+      '語音8': { id: 'MF3mGyEYCl7XYWbV9V6O', name: 'Elli（女-溫柔）' }
+    };
+    const voice = voices[msg];
+    await pool.query("INSERT INTO settings (key, value) VALUES ('voice_provider', 'elevenlabs') ON CONFLICT (key) DO UPDATE SET value = 'elevenlabs'");
+    await pool.query("INSERT INTO settings (key, value) VALUES ('elevenlabs_voice_id', '" + voice.id + "') ON CONFLICT (key) DO UPDATE SET value = '" + voice.id + "'");
+    return { type: 'text', text: '🎤 已切換為 ' + voice.name };
+  }
   // 語音男女聲切換
   if (msg === '語音男' || msg === '男聲') {
     await pool.query("INSERT INTO settings (key, value) VALUES ('elevenlabs_voice_id', 'pNInz6obpgDQGcFmaJgB') ON CONFLICT (key) DO UPDATE SET value = 'pNInz6obpgDQGcFmaJgB'");
