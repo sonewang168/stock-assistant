@@ -35,7 +35,7 @@ class LineService {
    * 發送 Flex Message
    */
   async sendFlexMessage(userId, flexContent) {
-    const token = process.env.LINE_CHANNEL_TOKEN;
+    const token = process.env.LINE_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_TOKEN;
     if (!token || !userId) {
       console.log('LINE 設定不完整');
       return false;
@@ -66,7 +66,7 @@ class LineService {
    * 回覆訊息
    */
   async replyMessage(replyToken, message) {
-    const token = process.env.LINE_CHANNEL_TOKEN;
+    const token = process.env.LINE_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_TOKEN;
     if (!token) return false;
 
     try {
@@ -343,7 +343,7 @@ class LineService {
    * 🔊 發送語音訊息
    */
   async sendAudioMessage(userId, audioUrl, duration = 10000) {
-    const token = process.env.LINE_CHANNEL_TOKEN;
+    const token = process.env.LINE_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_TOKEN;
     if (!token || !userId) {
       console.log('LINE 設定不完整');
       return false;
@@ -429,7 +429,7 @@ class LineService {
    * 發送純文字訊息
    */
   async sendTextMessage(userId, text) {
-    const token = process.env.LINE_CHANNEL_TOKEN;
+    const token = process.env.LINE_CHANNEL_ACCESS_TOKEN || process.env.LINE_CHANNEL_TOKEN;
     if (!token || !userId) return false;
 
     try {

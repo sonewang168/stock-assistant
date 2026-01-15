@@ -1,158 +1,709 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#0a0a0a">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>股海秘書</title>
-  <link rel="manifest" href="./manifest.json">
-  <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./css/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="股海秘書">
+    <meta name="description" content="台股美股智慧監控 LINE Bot">
+    
+    <title>股海秘書</title>
+    
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/images/icon-192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/images/icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="/images/icon-512.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Noto Sans TC', sans-serif;
+            background: #000000;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* ========== 開機動畫 ========== */
+        .splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.8s ease, visibility 0.8s ease;
+        }
+        
+        .splash-screen.fade-out {
+            opacity: 0;
+            visibility: hidden;
+        }
+        
+        /* Logo 容器 */
+        .logo-container {
+            position: relative;
+            width: 150px;
+            height: 150px;
+        }
+        
+        /* 冷光旋轉環 - 金色股票風格 */
+        .glow-ring {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(
+                from 0deg,
+                transparent 0deg,
+                rgba(255, 200, 100, 0.8) 60deg,
+                rgba(255, 220, 150, 1) 90deg,
+                rgba(255, 200, 100, 0.8) 120deg,
+                transparent 180deg,
+                transparent 360deg
+            );
+            animation: rotate 2s linear infinite;
+            filter: blur(2px);
+        }
+        
+        .glow-ring::before {
+            content: '';
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            bottom: 8px;
+            background: #000000;
+            border-radius: 50%;
+        }
+        
+        /* 內部冷光環 */
+        .inner-glow {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            bottom: 15px;
+            border-radius: 50%;
+            background: conic-gradient(
+                from 180deg,
+                transparent 0deg,
+                rgba(100, 255, 150, 0.6) 30deg,
+                rgba(150, 255, 180, 0.9) 60deg,
+                rgba(100, 255, 150, 0.6) 90deg,
+                transparent 120deg,
+                transparent 360deg
+            );
+            animation: rotate 1.5s linear infinite reverse;
+            filter: blur(1px);
+        }
+        
+        .inner-glow::before {
+            content: '';
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            right: 8px;
+            bottom: 8px;
+            background: #000000;
+            border-radius: 50%;
+        }
+        
+        /* 「股」字 */
+        .logo-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 56px;
+            font-weight: 600;
+            background: linear-gradient(
+                180deg,
+                #ffffff 0%,
+                #ffd700 30%,
+                #ffaa00 50%,
+                #ffd700 70%,
+                #ffffff 100%
+            );
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+        
+        /* 外部光暈 */
+        .outer-glow {
+            position: absolute;
+            top: -20px;
+            left: -20px;
+            right: -20px;
+            bottom: -20px;
+            border-radius: 50%;
+            background: radial-gradient(
+                circle,
+                rgba(255, 200, 100, 0.15) 0%,
+                rgba(255, 200, 100, 0.05) 50%,
+                transparent 70%
+            );
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        /* 股票跳動指標 */
+        .stock-indicator {
+            position: absolute;
+            font-size: 20px;
+            animation: float 1.5s ease-in-out infinite;
+        }
+        .stock-up {
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ff4444;
+        }
+        .stock-down {
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #44ff44;
+        }
+        
+        /* 載入文字 */
+        .loading-text {
+            margin-top: 60px;
+            color: #666666;
+            font-size: 14px;
+            letter-spacing: 3px;
+            animation: fade-in-out 2s ease-in-out infinite;
+        }
+        
+        /* 進度條 */
+        .progress-bar {
+            width: 120px;
+            height: 2px;
+            background: #333333;
+            border-radius: 1px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ffd700, #4ecdc4);
+            background-size: 200% 100%;
+            animation: progress 2s ease-in-out forwards, shimmer 1s linear infinite;
+            width: 0%;
+        }
+        
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { 
+                transform: scale(1);
+                opacity: 0.5;
+            }
+            50% { 
+                transform: scale(1.1);
+                opacity: 0.8;
+            }
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { 
+                filter: drop-shadow(0 0 10px rgba(255, 200, 100, 0.5));
+            }
+            50% { 
+                filter: drop-shadow(0 0 25px rgba(255, 200, 100, 0.8));
+            }
+        }
+        
+        @keyframes fade-in-out {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+        
+        @keyframes progress {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(-5px); }
+        }
+        
+        /* ========== 主內容 ========== */
+        .main-content {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: white;
+            padding: 20px;
+            padding-bottom: 40px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            overflow-y: auto;
+        }
+        
+        .main-content.show {
+            opacity: 1;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        
+        .main-logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, rgba(255, 200, 100, 0.3), rgba(255, 150, 50, 0.2));
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px auto 15px;
+            font-size: 40px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 200, 100, 0.3);
+        }
+        
+        h1 {
+            font-size: 26px;
+            margin-bottom: 5px;
+            font-weight: 600;
+            background: linear-gradient(90deg, #ffd700, #ffaa00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .subtitle {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 20px;
+        }
+        
+        .market-badges {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .badge {
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .badge-tw {
+            background: rgba(255, 68, 68, 0.2);
+            border: 1px solid rgba(255, 68, 68, 0.5);
+            color: #ff6b6b;
+        }
+        
+        .badge-us {
+            background: rgba(68, 255, 68, 0.2);
+            border: 1px solid rgba(68, 255, 68, 0.5);
+            color: #4ecdc4;
+        }
+        
+        /* 主要按鈕 */
+        .line-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: #06C755;
+            color: white;
+            text-decoration: none;
+            padding: 14px 28px;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 600;
+            box-shadow: 0 4px 20px rgba(6, 199, 85, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .line-btn:active {
+            transform: scale(0.98);
+        }
+        
+        .line-btn svg {
+            width: 22px;
+            height: 22px;
+        }
+        
+        /* 功能區塊標題 */
+        .section-title {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+            margin: 25px 0 12px;
+            text-align: left;
+            padding-left: 5px;
+        }
+        
+        /* 快速功能按鈕區 */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px 8px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            text-decoration: none;
+            color: white;
+            transition: transform 0.2s, background 0.2s;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .action-btn:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        .action-btn.highlight {
+            background: rgba(255, 200, 100, 0.15);
+            border-color: rgba(255, 200, 100, 0.3);
+        }
+        
+        .action-btn.tw-stock {
+            background: rgba(255, 68, 68, 0.1);
+            border-color: rgba(255, 68, 68, 0.3);
+        }
+        
+        .action-btn.us-stock {
+            background: rgba(68, 255, 68, 0.1);
+            border-color: rgba(68, 255, 68, 0.3);
+        }
+        
+        .action-icon {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+        
+        .action-text {
+            font-size: 11px;
+            font-weight: 500;
+            text-align: center;
+        }
+        
+        /* 快速查股輸入框 */
+        .quick-search {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .quick-search input {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 15px;
+            outline: none;
+        }
+        
+        .quick-search input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .quick-search button {
+            padding: 12px 20px;
+            border-radius: 25px;
+            border: none;
+            background: linear-gradient(135deg, #ffd700, #ffaa00);
+            color: #1a1a2e;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .quick-search button:active {
+            transform: scale(0.98);
+        }
+        
+        /* 分享按鈕 */
+        .share-section {
+            margin-top: 20px;
+        }
+        
+        .share-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 25px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+        }
+        
+        .share-btn:active {
+            transform: scale(0.98);
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        /* 底部連結 */
+        .footer-links {
+            margin-top: 25px;
+            font-size: 13px;
+        }
+        
+        .footer-link {
+            color: rgba(255, 255, 255, 0.6);
+            text-decoration: none;
+        }
+        
+        .footer-link:active {
+            color: white;
+        }
+        
+        .divider {
+            margin: 0 12px;
+            opacity: 0.3;
+        }
+        
+        .version {
+            margin-top: 15px;
+            font-size: 12px;
+            opacity: 0.4;
+        }
+    </style>
 </head>
 <body>
-  <!-- 開機動畫 -->
-  <div id="splash" class="splash">
-    <div class="splash-container">
-      <div class="splash-outer-glow"></div>
-      <div class="splash-particles">
-        <div class="splash-particle"></div>
-        <div class="splash-particle"></div>
-        <div class="splash-particle"></div>
-        <div class="splash-particle"></div>
-      </div>
-      <div class="splash-glow-ring"></div>
-      <div class="splash-inner-ring"></div>
-      <div class="splash-logo">股</div>
-      <div class="splash-progress">
-        <div class="splash-progress-bar">
-          <div class="splash-progress-fill"></div>
+    <!-- 開機動畫 -->
+    <div class="splash-screen" id="splash">
+        <div class="logo-container">
+            <div class="outer-glow"></div>
+            <div class="glow-ring"></div>
+            <div class="inner-glow"></div>
+            <div class="logo-text">股</div>
+            <div class="stock-indicator stock-up">▲</div>
+            <div class="stock-indicator stock-down">▼</div>
         </div>
-        <div class="splash-loading-text">Loading</div>
-      </div>
-      <div class="splash-title">股海秘書</div>
-      <div class="splash-subtitle">INVESTMENT ASSISTANT</div>
+        <div class="loading-text">LOADING</div>
+        <div class="progress-bar">
+            <div class="progress-fill"></div>
+        </div>
     </div>
-  </div>
-
-  <!-- 主應用程式 -->
-  <div id="app" class="app hidden">
-    <!-- 頂部導航 -->
-    <header class="header">
-      <div class="header-logo">股</div>
-      <h1 class="header-title">股海秘書</h1>
-      <button class="header-btn" id="voiceToggleBtn" onclick="app.toggleVoiceAutoPlay()" title="開啟語音播報" style="color: #888;">🔇</button>
-      <button class="header-btn" onclick="app.openSettings()">⚙️</button>
-    </header>
-
-    <!-- 標籤頁 -->
-    <nav class="tabs">
-      <button class="tab active" data-tab="dashboard">📊 總覽</button>
-      <button class="tab" data-tab="watchlist">👁️ 監控</button>
-      <button class="tab" data-tab="portfolio">💼 持股</button>
-      <button class="tab" data-tab="alerts">🎯 提醒</button>
-    </nav>
-
-    <!-- 內容區 -->
-    <main class="content">
-      <!-- 總覽頁 -->
-      <section id="dashboard" class="page active">
-        <div class="search-box">
-          <input type="text" id="stockSearch" placeholder="輸入股票代碼 (如 2330)" maxlength="6">
-          <button onclick="app.searchStock()">🔍</button>
+    
+    <!-- 主內容 -->
+    <div class="main-content" id="main">
+        <div class="container">
+            <div class="main-logo">📊</div>
+            <h1>股海秘書</h1>
+            <p class="subtitle">台股美股智慧監控 LINE Bot</p>
+            
+            <div class="market-badges">
+                <span class="badge badge-tw">🇹🇼 紅漲綠跌</span>
+                <span class="badge badge-us">🇺🇸 綠漲紅跌</span>
+            </div>
+            
+            <!-- 主要按鈕 -->
+            <a href="https://line.me/R/ti/p/@889fjaut" class="line-btn">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
+                </svg>
+                加入 LINE 好友
+            </a>
+            
+            <!-- 快速查股 -->
+            <div class="quick-search">
+                <input type="text" id="stockCode" placeholder="輸入股票代碼 例: 2330" maxlength="10">
+                <button onclick="searchStock()">查詢</button>
+            </div>
+            
+            <!-- 🇹🇼 台股功能 -->
+            <div class="section-title">🇹🇼 台股查詢</div>
+            <div class="quick-actions">
+                <a href="https://line.me/R/oaMessage/@889fjaut/?大盤" class="action-btn tw-stock">
+                    <span class="action-icon">📈</span>
+                    <span class="action-text">大盤指數</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@889fjaut/?熱門" class="action-btn tw-stock">
+                    <span class="action-icon">🔥</span>
+                    <span class="action-text">熱門台股</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@889fjaut/?2330" class="action-btn tw-stock">
+                    <span class="action-icon">🏭</span>
+                    <span class="action-text">台積電</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@889fjaut/?2317" class="action-btn tw-stock">
+                    <span class="action-icon">💻</span>
+                    <span class="action-text">鴻海</span>
+                </a>
+            </div>
+            
+            <!-- 🇺🇸 美股功能 -->
+            <div class="section-title">🇺🇸 美股查詢</div>
+            <div class="quick-actions">
+                <a href="https://line.me/R/oaMessage/@889fjaut/?美股" class="action-btn us-stock">
+                    <span class="action-icon">🗽</span>
+                    <span class="action-text">美股指數</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@889fjaut/?熱門美股" class="action-btn us-stock">
+                    <span class="action-icon">🔥</span>
+                    <span class="action-text">熱門美股</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@889fjaut/?AAPL" class="action-btn us-stock">
+                    <span class="action-icon">🍎</span>
+                    <span class="action-text">蘋果</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@889fjaut/?TSLA" class="action-btn us-stock">
+                    <span class="action-icon">🚗</span>
+                    <span class="action-text">特斯拉</span>
+                </a>
+            </div>
+            
+            <!-- 📋 監控管理 -->
+            <div class="section-title">📋 監控管理</div>
+            <div class="quick-actions">
+                <a href="https://line.me/R/oaMessage/@889fjaut/?監控" class="action-btn highlight">
+                    <span class="action-icon">👀</span>
+                    <span class="action-text">監控清單</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@889fjaut/?+2330" class="action-btn">
+                    <span class="action-icon">➕</span>
+                    <span class="action-text">加入監控</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@889fjaut/?持股" class="action-btn">
+                    <span class="action-icon">💼</span>
+                    <span class="action-text">我的持股</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@889fjaut/?ADR" class="action-btn">
+                    <span class="action-icon">🔄</span>
+                    <span class="action-text">ADR價差</span>
+                </a>
+            </div>
+            
+            <!-- 📊 技術分析 -->
+            <div class="section-title">📊 技術分析</div>
+            <div class="quick-actions">
+                <a href="https://line.me/R/oaMessage/@889fjaut/?K 2330" class="action-btn">
+                    <span class="action-icon">📉</span>
+                    <span class="action-text">K線圖</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@889fjaut/?技術 2330" class="action-btn">
+                    <span class="action-icon">📐</span>
+                    <span class="action-text">技術指標</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@889fjaut/?問 台積電前景" class="action-btn">
+                    <span class="action-icon">🤖</span>
+                    <span class="action-text">AI分析</span>
+                </a>
+                <a href="https://line.me/R/oaMessage/@889fjaut/?說明" class="action-btn">
+                    <span class="action-icon">❓</span>
+                    <span class="action-text">使用說明</span>
+                </a>
+            </div>
+            
+            <!-- 分享按鈕 -->
+            <div class="share-section">
+                <button class="share-btn" onclick="shareApp()">
+                    <span>📤</span> 分享給股友
+                </button>
+            </div>
+            
+            <!-- 底部連結 -->
+            <div class="footer-links">
+                <a href="https://line.me/R/oaMessage/@889fjaut/?說明" class="footer-link">使用說明</a>
+                <span class="divider">|</span>
+                <a href="https://line.me/R/oaMessage/@889fjaut/?客服" class="footer-link">聯繫客服</a>
+            </div>
+            
+            <div class="version">v3.0.0</div>
         </div>
-
-        <div id="stockResult" class="stock-result hidden"></div>
-
-        <div class="section">
-          <h2 class="section-title">📈 熱門股票</h2>
-          <div id="hotStocks" class="stock-grid">
-            <div class="loading">載入中...</div>
-          </div>
-        </div>
-
-        <div class="section">
-          <h2 class="section-title">📋 最新推播</h2>
-          <div id="recentAlerts" class="alert-list">
-            <div class="loading">載入中...</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 監控頁 -->
-      <section id="watchlist" class="page">
-        <div class="section-header">
-          <h2>監控清單</h2>
-          <button class="btn-add" onclick="app.openAddWatchlist()">+ 新增</button>
-        </div>
-        <div id="watchlistItems" class="watchlist-items">
-          <div class="loading">載入中...</div>
-        </div>
-      </section>
-
-      <!-- 持股頁 -->
-      <section id="portfolio" class="page">
-        <div class="portfolio-summary" id="portfolioSummary">
-          <div class="loading">載入中...</div>
-        </div>
-        <div class="section-header">
-          <h2>持股明細</h2>
-          <button class="btn-add" onclick="app.openAddPortfolio()">+ 新增</button>
-        </div>
-        <div id="portfolioItems" class="portfolio-items">
-          <div class="loading">載入中...</div>
-        </div>
-      </section>
-
-      <!-- 提醒頁 -->
-      <section id="alerts" class="page">
-        <div class="section-header">
-          <h2>到價提醒</h2>
-          <button class="btn-add" onclick="app.openAddAlert()">+ 新增</button>
-        </div>
-        <div id="alertItems" class="alert-items">
-          <div class="loading">載入中...</div>
-        </div>
-      </section>
-    </main>
-
-    <!-- 底部導航（手機用）-->
-    <nav class="bottom-nav">
-      <button class="nav-item active" data-tab="dashboard">
-        <span class="nav-icon">📊</span>
-        <span class="nav-label">總覽</span>
-      </button>
-      <button class="nav-item" data-tab="watchlist">
-        <span class="nav-icon">👁️</span>
-        <span class="nav-label">監控</span>
-      </button>
-      <button class="nav-item" data-tab="portfolio">
-        <span class="nav-icon">💼</span>
-        <span class="nav-label">持股</span>
-      </button>
-      <button class="nav-item" data-tab="alerts">
-        <span class="nav-icon">🎯</span>
-        <span class="nav-label">提醒</span>
-      </button>
-    </nav>
-  </div>
-
-  <!-- Modal -->
-  <div id="modal" class="modal hidden">
-    <div class="modal-backdrop" onclick="app.closeModal()"></div>
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="modalTitle">標題</h3>
-        <button class="modal-close" onclick="app.closeModal()">✕</button>
-      </div>
-      <div class="modal-body" id="modalBody"></div>
     </div>
-  </div>
-
-  <!-- Toast -->
-  <div id="toast" class="toast hidden"></div>
-
-  <script src="./js/app.js"></script>
+    
+    <script>
+        // Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(function(registration) {
+                    console.log('SW registered:', registration.scope);
+                })
+                .catch(function(error) {
+                    console.log('SW error:', error);
+                });
+        }
+        
+        // 開機動畫結束後顯示主內容
+        setTimeout(function() {
+            document.getElementById('splash').classList.add('fade-out');
+            document.getElementById('main').classList.add('show');
+        }, 2500);
+        
+        // 快速查股
+        function searchStock() {
+            var code = document.getElementById('stockCode').value.trim();
+            if (code) {
+                window.location.href = 'https://line.me/R/oaMessage/@889fjaut/?' + encodeURIComponent(code);
+            }
+        }
+        
+        // Enter 鍵查詢
+        document.getElementById('stockCode').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchStock();
+            }
+        });
+        
+        // 分享功能
+        function shareApp() {
+            var shareData = {
+                title: '股海秘書',
+                text: '📊 股海秘書 - 台股美股智慧監控\n\n🇹🇼 台股紅漲綠跌\n🇺🇸 美股綠漲紅跌\n📈 即時報價查詢\n🎯 目標價提醒\n⚡ 漲跌幅警報\n🤖 AI 智能分析\n\n快來加入！',
+                url: 'https://line.me/R/ti/p/@889fjaut'
+            };
+            
+            if (navigator.share) {
+                navigator.share(shareData)
+                    .then(function() { console.log('分享成功'); })
+                    .catch(function(err) { console.log('分享取消', err); });
+            } else {
+                var text = encodeURIComponent(shareData.text + '\n' + shareData.url);
+                window.open('https://line.me/R/msg/text/?' + text, '_blank');
+            }
+        }
+    </script>
 </body>
 </html>

@@ -11,6 +11,9 @@
   --success: #00C851;
   --danger: #ff4444;
   --border: rgba(255, 255, 255, 0.1);
+  /* 台灣股市配色 */
+  --up-color: #D32F2F;
+  --down-color: #388E3C;
 }
 
 * {
@@ -29,11 +32,12 @@ body {
 
 .hidden { display: none !important; }
 
-/* ==================== 開機動畫 ==================== */
+/* ==================== 3D 方塊開機動畫 ==================== */
 .splash {
   position: fixed;
   inset: 0;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
@@ -51,141 +55,110 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  perspective: 1000px;
 }
 
-.splash-logo {
-  font-size: 80px;
-  font-weight: 200;
-  color: #fff;
-  z-index: 10;
-  animation: logoSpin 3s ease-in-out infinite;
-  text-shadow: 
-    0 0 10px rgba(255, 255, 255, 0.5),
-    0 0 20px rgba(100, 200, 255, 0.3);
+/* 3D 旋轉方塊 */
+.cube-container {
+  perspective: 800px;
+  width: 120px;
+  height: 120px;
+  margin-bottom: 40px;
+}
+
+.cube {
+  width: 100%;
+  height: 100%;
+  position: relative;
   transform-style: preserve-3d;
+  animation: rotateCube 3s infinite ease-in-out;
 }
 
-@keyframes logoSpin {
-  0%, 100% { transform: scale(1) rotateY(0deg); filter: brightness(1); }
-  50% { transform: scale(1.05) rotateY(180deg); filter: brightness(1.3); }
-}
-
-.splash-glow-ring {
+.cube-face {
   position: absolute;
-  width: 180px;
-  height: 180px;
+  width: 120px;
+  height: 120px;
+  background: linear-gradient(135deg, #D32F2F 0%, #ff6b6b 100%);
+  border: 3px solid rgba(255,255,255,0.3);
+  border-radius: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 3rem;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+  box-shadow: 0 10px 40px rgba(211, 47, 47, 0.4);
+  backface-visibility: visible;
+}
+
+.cube-face.front  { transform: rotateY(0deg) translateZ(60px); }
+.cube-face.back   { transform: rotateY(180deg) translateZ(60px); background: linear-gradient(135deg, #388E3C 0%, #4ecdc4 100%); box-shadow: 0 10px 40px rgba(56, 142, 60, 0.4); }
+.cube-face.right  { transform: rotateY(90deg) translateZ(60px); background: linear-gradient(135deg, #1565C0 0%, #42a5f5 100%); box-shadow: 0 10px 40px rgba(21, 101, 192, 0.4); }
+.cube-face.left   { transform: rotateY(-90deg) translateZ(60px); background: linear-gradient(135deg, #F57C00 0%, #ffb74d 100%); box-shadow: 0 10px 40px rgba(245, 124, 0, 0.4); }
+.cube-face.top    { transform: rotateX(90deg) translateZ(60px); background: linear-gradient(135deg, #7B1FA2 0%, #ba68c8 100%); box-shadow: 0 10px 40px rgba(123, 31, 162, 0.4); }
+.cube-face.bottom { transform: rotateX(-90deg) translateZ(60px); background: linear-gradient(135deg, #00897B 0%, #4db6ac 100%); box-shadow: 0 10px 40px rgba(0, 137, 123, 0.4); }
+
+@keyframes rotateCube {
+  0%, 100% { transform: rotateX(-20deg) rotateY(0deg); }
+  25% { transform: rotateX(-20deg) rotateY(90deg); }
+  50% { transform: rotateX(-20deg) rotateY(180deg); }
+  75% { transform: rotateX(-20deg) rotateY(270deg); }
+}
+
+/* 閃爍星星 */
+.sparkle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #fff;
   border-radius: 50%;
-  animation: rotate 4s linear infinite;
+  animation: sparkle 1.5s infinite ease-in-out;
 }
 
-.splash-glow-ring::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  padding: 3px;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg, transparent 60deg,
-    rgba(100, 200, 255, 0.8) 120deg,
-    rgba(150, 220, 255, 1) 180deg,
-    rgba(100, 200, 255, 0.8) 240deg,
-    transparent 300deg, transparent 360deg
-  );
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
+.sparkle:nth-child(1) { top: 20%; left: 15%; animation-delay: 0s; }
+.sparkle:nth-child(2) { top: 30%; right: 20%; animation-delay: 0.3s; }
+.sparkle:nth-child(3) { bottom: 35%; left: 25%; animation-delay: 0.6s; }
+.sparkle:nth-child(4) { bottom: 25%; right: 15%; animation-delay: 0.9s; }
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0); }
+  50% { opacity: 1; transform: scale(1); }
 }
 
-.splash-glow-ring::after {
-  content: '';
-  position: absolute;
-  inset: -10px;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg, transparent 60deg,
-    rgba(100, 200, 255, 0.3) 120deg,
-    rgba(150, 220, 255, 0.5) 180deg,
-    rgba(100, 200, 255, 0.3) 240deg,
-    transparent 300deg, transparent 360deg
-  );
-  filter: blur(15px);
-  animation: rotate 4s linear infinite;
+/* Loading 文字 */
+.splash-title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #ff6b6b);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientText 2s linear infinite;
+  margin-bottom: 10px;
 }
 
-@keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+@keyframes gradientText {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
 }
 
-.splash-outer-glow {
-  position: absolute;
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(100, 200, 255, 0.15) 0%, transparent 70%);
-  animation: pulse 3s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 0.5; }
-  50% { transform: scale(1.1); opacity: 0.8; }
-}
-
-.splash-inner-ring {
-  position: absolute;
-  width: 130px;
-  height: 130px;
-  border: 1px solid rgba(150, 220, 255, 0.15);
-  border-radius: 50%;
-  animation: rotateReverse 6s linear infinite;
-}
-
-@keyframes rotateReverse {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(-360deg); }
-}
-
-.splash-particles {
-  position: absolute;
-  width: 250px;
-  height: 250px;
-}
-
-.splash-particle {
-  position: absolute;
-  width: 3px;
-  height: 3px;
-  background: rgba(150, 220, 255, 0.8);
-  border-radius: 50%;
-  top: 50%;
-  left: 50%;
-  box-shadow: 0 0 6px rgba(150, 220, 255, 0.5);
-}
-
-.splash-particle:nth-child(1) { animation: orbit 8s linear infinite; }
-.splash-particle:nth-child(2) { animation: orbit 10s linear infinite 0.5s; }
-.splash-particle:nth-child(3) { animation: orbit 12s linear infinite 1s; }
-.splash-particle:nth-child(4) { animation: orbit 9s linear infinite 1.5s; }
-
-@keyframes orbit {
-  from { transform: rotate(0deg) translateX(110px) rotate(0deg); }
-  to { transform: rotate(360deg) translateX(110px) rotate(-360deg); }
+.splash-subtitle {
+  color: #888;
+  font-size: 1rem;
+  margin-bottom: 30px;
+  letter-spacing: 2px;
 }
 
 .splash-progress {
-  position: absolute;
-  bottom: -60px;
-  width: 140px;
+  width: 200px;
   text-align: center;
 }
 
 .splash-progress-bar {
   width: 100%;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.1);
+  height: 4px;
+  background: rgba(255,255,255,0.1);
   border-radius: 2px;
   overflow: hidden;
   margin-bottom: 10px;
@@ -193,9 +166,27 @@ body {
 
 .splash-progress-fill {
   height: 100%;
+  background: linear-gradient(90deg, #D32F2F, #388E3C, #D32F2F);
+  background-size: 200% auto;
+  animation: loadingBar 2.5s ease-in-out forwards, gradientMove 1s linear infinite;
   width: 0%;
-  background: linear-gradient(90deg, rgba(100, 200, 255, 0.5), rgba(150, 220, 255, 1), rgba(100, 200, 255, 0.5));
-  animation: loading 2s ease-in-out forwards;
+}
+
+@keyframes loadingBar {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+@keyframes gradientMove {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+.splash-loading-text {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 3px;
+  text-transform: uppercase;
 }
 
 @keyframes loading {
