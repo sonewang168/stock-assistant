@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 💬 LINE Bot 路由
  */
 
@@ -147,6 +147,15 @@ async function handleCommand(message, userId) {
     'help': () => getHelpReply()
   };
   
+  // 語音開關指令
+  if (msg === '語音開' || msg === '開啟語音') {
+    await pool.query("INSERT INTO settings (key, value) VALUES ('voice_enabled', 'true') ON CONFLICT (key) DO UPDATE SET value = 'true'");
+    return { type: 'text', text: '🔊 語音播報已開啟！\n\n輸入「語音 2330」即可聽取報價' };
+  }
+  if (msg === '語音關' || msg === '關閉語音') {
+    await pool.query("INSERT INTO settings (key, value) VALUES ('voice_enabled', 'false') ON CONFLICT (key) DO UPDATE SET value = 'false'");
+    return { type: 'text', text: '🔇 語音播報已關閉' };
+  }
   // 語音指令：語音 2330
   if (msg.startsWith('語音') || msg.startsWith('播報')) {
     const stockId = msg.replace(/^(語音|播報)\s*/, '').trim();
