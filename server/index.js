@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 📊 股海秘書 LINE 秘書 - 後端 API Server
  * 
  * 技術棧：Express + PostgreSQL + LINE Bot SDK
@@ -26,6 +26,7 @@ const voiceRoutes = require('./routes/voice');
 const scheduler = require('./cron/scheduler');
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3000;
 
 // ==================== 中間件 ====================
@@ -156,3 +157,4 @@ async function startServer() {
 startServer();
 
 module.exports = app;
+
