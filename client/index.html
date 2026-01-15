@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
@@ -12,189 +12,46 @@
     <link rel="apple-touch-icon" href="/images/icon-192.png">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans TC', sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            color: white;
-            padding: 20px;
-            padding-bottom: 60px;
-        }
-        
-        /* 開機動畫 */
-        #splash {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: #000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460); color: white; padding: 20px 20px 60px; }
+        #splash { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
         #splash.hide { display: none; }
-        
-        .logo-ring {
-            width: 120px; height: 120px;
-            border: 4px solid transparent;
-            border-top-color: #ffd700;
-            border-right-color: #44ff44;
-            border-radius: 50%;
-            animation: spin 1.5s linear infinite;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .logo-ring span {
-            font-size: 48px;
-            color: #ffd700;
-        }
+        .logo-ring { width: 120px; height: 120px; border: 4px solid transparent; border-top-color: #ffd700; border-right-color: #44ff44; border-radius: 50%; animation: spin 1.5s linear infinite; display: flex; align-items: center; justify-content: center; }
+        .logo-ring span { font-size: 48px; color: #ffd700; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        
-        #splash p { margin-top: 30px; color: #666; letter-spacing: 2px; }
-        
-        /* 主內容 */
+        #splash p { margin-top: 30px; color: #666; }
         .container { max-width: 400px; margin: 0 auto; text-align: center; }
-        
-        .header-logo {
-            width: 70px; height: 70px;
-            background: rgba(255,200,100,0.2);
-            border-radius: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 10px auto 15px;
-            font-size: 36px;
-        }
-        
-        h1 {
-            font-size: 24px;
-            background: linear-gradient(90deg, #ffd700, #ffaa00);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        
+        .header-logo { width: 70px; height: 70px; background: rgba(255,200,100,0.2); border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 10px auto 15px; font-size: 36px; }
+        h1 { font-size: 24px; background: linear-gradient(90deg, #ffd700, #ffaa00); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .subtitle { font-size: 14px; opacity: 0.8; margin-bottom: 15px; }
-        
         .badges { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
-        .badge {
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
-        }
+        .badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; }
         .badge-tw { background: rgba(255,68,68,0.2); border: 1px solid rgba(255,68,68,0.5); color: #ff6b6b; }
         .badge-us { background: rgba(68,255,68,0.2); border: 1px solid rgba(68,255,68,0.5); color: #4ecdc4; }
-        
-        .line-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: #06C755;
-            color: white;
-            text-decoration: none;
-            padding: 12px 24px;
-            border-radius: 30px;
-            font-size: 16px;
-            font-weight: 600;
-        }
-        
-        .search-box {
-            display: flex;
-            gap: 10px;
-            margin: 20px 0;
-        }
-        .search-box input {
-            flex: 1;
-            padding: 12px 16px;
-            border-radius: 25px;
-            border: 1px solid rgba(255,255,255,0.2);
-            background: rgba(255,255,255,0.1);
-            color: white;
-            font-size: 15px;
-        }
-        .search-box input::placeholder { color: rgba(255,255,255,0.5); }
-        .search-box button {
-            padding: 12px 20px;
-            border-radius: 25px;
-            border: none;
-            background: #ffd700;
-            color: #1a1a2e;
-            font-weight: 600;
-        }
-        
-        .section-title {
-            font-size: 13px;
-            color: rgba(255,255,255,0.6);
-            margin: 25px 0 10px;
-            text-align: left;
-        }
-        
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-        }
-        
-        .btn {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 12px 6px;
-            background: rgba(255,255,255,0.08);
-            border-radius: 12px;
-            text-decoration: none;
-            color: white;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .btn:active { background: rgba(255,255,255,0.15); }
+        .line-btn { display: inline-flex; background: #06C755; color: white; text-decoration: none; padding: 12px 24px; border-radius: 30px; font-size: 16px; font-weight: 600; }
+        .search-box { display: flex; gap: 10px; margin: 20px 0; }
+        .search-box input { flex: 1; padding: 12px 16px; border-radius: 25px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-size: 15px; }
+        .search-box button { padding: 12px 20px; border-radius: 25px; border: none; background: #ffd700; color: #1a1a2e; font-weight: 600; }
+        .section-title { font-size: 13px; color: rgba(255,255,255,0.6); margin: 25px 0 10px; text-align: left; }
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .btn { display: flex; flex-direction: column; align-items: center; padding: 12px 6px; background: rgba(255,255,255,0.08); border-radius: 12px; text-decoration: none; color: white; border: 1px solid rgba(255,255,255,0.1); }
         .btn.tw { background: rgba(255,68,68,0.1); border-color: rgba(255,68,68,0.3); }
         .btn.us { background: rgba(68,255,68,0.1); border-color: rgba(68,255,68,0.3); }
         .btn.hl { background: rgba(255,200,100,0.15); border-color: rgba(255,200,100,0.3); }
-        
         .btn span:first-child { font-size: 22px; margin-bottom: 4px; }
         .btn span:last-child { font-size: 10px; }
-        
-        .share-btn {
-            margin-top: 25px;
-            padding: 10px 20px;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 20px;
-            color: white;
-            font-size: 14px;
-        }
-        
+        .share-btn { margin-top: 25px; padding: 10px 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; color: white; font-size: 14px; }
         .footer { margin-top: 30px; font-size: 12px; opacity: 0.5; }
     </style>
 </head>
 <body>
-    <!-- 開機動畫 -->
-    <div id="splash">
-        <div class="logo-ring"><span>股</span></div>
-        <p>LOADING...</p>
-    </div>
-    
-    <!-- 主內容 -->
+    <div id="splash"><div class="logo-ring"><span>股</span></div><p>LOADING...</p></div>
     <div class="container">
         <div class="header-logo">📊</div>
         <h1>股海秘書</h1>
         <p class="subtitle">台股美股智慧監控 LINE Bot</p>
-        
-        <div class="badges">
-            <span class="badge badge-tw">🇹🇼 紅漲綠跌</span>
-            <span class="badge badge-us">🇺🇸 綠漲紅跌</span>
-        </div>
-        
-        <a href="https://line.me/R/ti/p/@889fjaut" class="line-btn">
-            LINE 加入好友
-        </a>
-        
-        <div class="search-box">
-            <input type="text" id="stockCode" placeholder="輸入股票代碼 例: 2330">
-            <button onclick="search()">查詢</button>
-        </div>
-        
-        <!-- 台股 -->
+        <div class="badges"><span class="badge badge-tw">🇹🇼 紅漲綠跌</span><span class="badge badge-us">🇺🇸 綠漲紅跌</span></div>
+        <a href="https://line.me/R/ti/p/@889fjaut" class="line-btn">LINE 加入好友</a>
+        <div class="search-box"><input type="text" id="stockCode" placeholder="輸入股票代碼 例: 2330"><button onclick="search()">查詢</button></div>
         <div class="section-title">🇹🇼 台股查詢</div>
         <div class="grid">
             <a href="https://line.me/R/oaMessage/@889fjaut/?大盤" class="btn tw"><span>📈</span><span>大盤指數</span></a>
@@ -202,8 +59,6 @@
             <a href="https://line.me/R/oaMessage/@889fjaut/?2330" class="btn tw"><span>🏭</span><span>台積電</span></a>
             <a href="https://line.me/R/oaMessage/@889fjaut/?2317" class="btn tw"><span>💻</span><span>鴻海</span></a>
         </div>
-        
-        <!-- 美股 -->
         <div class="section-title">🇺🇸 美股查詢</div>
         <div class="grid">
             <a href="https://line.me/R/oaMessage/@889fjaut/?美股" class="btn us"><span>🗽</span><span>美股指數</span></a>
@@ -211,8 +66,6 @@
             <a href="https://line.me/R/oaMessage/@889fjaut/?AAPL" class="btn us"><span>🍎</span><span>蘋果</span></a>
             <a href="https://line.me/R/oaMessage/@889fjaut/?TSLA" class="btn us"><span>🚗</span><span>特斯拉</span></a>
         </div>
-        
-        <!-- 監控 -->
         <div class="section-title">📋 監控管理</div>
         <div class="grid">
             <a href="https://line.me/R/oaMessage/@889fjaut/?監控" class="btn hl"><span>👀</span><span>監控清單</span></a>
@@ -220,8 +73,6 @@
             <a href="https://line.me/R/oaMessage/@889fjaut/?持股" class="btn"><span>💼</span><span>我的持股</span></a>
             <a href="https://line.me/R/oaMessage/@889fjaut/?ADR" class="btn"><span>🔄</span><span>ADR價差</span></a>
         </div>
-        
-        <!-- 技術分析 -->
         <div class="section-title">📊 技術分析</div>
         <div class="grid">
             <a href="https://line.me/R/oaMessage/@889fjaut/?K 2330" class="btn"><span>📉</span><span>K線圖</span></a>
@@ -229,8 +80,6 @@
             <a href="https://line.me/R/oaMessage/@889fjaut/?問 台積電前景" class="btn"><span>🤖</span><span>AI分析</span></a>
             <a href="https://line.me/R/oaMessage/@889fjaut/?新聞 2330" class="btn"><span>📰</span><span>股票新聞</span></a>
         </div>
-        
-        <!-- 語音設定 -->
         <div class="section-title">🎤 語音與設定</div>
         <div class="grid">
             <a href="https://line.me/R/oaMessage/@889fjaut/?語音 2330" class="btn hl"><span>🔊</span><span>語音播報</span></a>
@@ -238,41 +87,15 @@
             <a href="https://line.me/R/oaMessage/@889fjaut/?設定" class="btn"><span>⚙️</span><span>我的設定</span></a>
             <a href="https://line.me/R/oaMessage/@889fjaut/?說明" class="btn"><span>❓</span><span>使用說明</span></a>
         </div>
-        
         <button class="share-btn" onclick="share()">📤 分享給股友</button>
-        
         <div class="footer">v3.0.0</div>
     </div>
-    
     <script>
-        // 2.5秒後隱藏開機動畫
-        setTimeout(function() {
-            document.getElementById('splash').classList.add('hide');
-        }, 2500);
-        
-        // 查詢
-        function search() {
-            var code = document.getElementById('stockCode').value.trim();
-            if (code) location.href = 'https://line.me/R/oaMessage/@889fjaut/?' + code;
-        }
-        document.getElementById('stockCode').onkeypress = function(e) {
-            if (e.key === 'Enter') search();
-        };
-        
-        // 分享
-        function share() {
-            var text = '📊 股海秘書 - 台股美股智慧監控\n🇹🇼 紅漲綠跌 🇺🇸 綠漲紅跌\n📈 即時報價 🎯 目標價提醒\n\n快來加入！\nhttps://line.me/R/ti/p/@889fjaut';
-            if (navigator.share) {
-                navigator.share({ title: '股海秘書', text: text });
-            } else {
-                window.open('https://line.me/R/msg/text/?' + encodeURIComponent(text));
-            }
-        }
-        
-        // Service Worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js');
-        }
+        setTimeout(function(){document.getElementById('splash').classList.add('hide');},2500);
+        function search(){var c=document.getElementById('stockCode').value.trim();if(c)location.href='https://line.me/R/oaMessage/@889fjaut/?'+c;}
+        document.getElementById('stockCode').onkeypress=function(e){if(e.key==='Enter')search();};
+        function share(){var t='📊股海秘書\nhttps://line.me/R/ti/p/@889fjaut';if(navigator.share){navigator.share({title:'股海秘書',text:t});}else{window.open('https://line.me/R/msg/text/?'+encodeURIComponent(t));}}
+        if('serviceWorker'in navigator){navigator.serviceWorker.register('/sw.js');}
     </script>
 </body>
 </html>
