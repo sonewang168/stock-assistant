@@ -94,7 +94,12 @@ app.get('/api/ping', (req, res) => {
 // ==================== 前端路由（SPA）====================
 
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/index.html'));
+  // 只處理非檔案請求（SPA fallback）
+  if (!req.path.includes('.')) {
+    res.sendFile(path.join(__dirname, '../client/index.html'));
+  } else {
+    res.status(404).send('Not found');
+  }
 });
 
 // ==================== 錯誤處理 ====================
@@ -157,4 +162,5 @@ async function startServer() {
 startServer();
 
 module.exports = app;
+
 
