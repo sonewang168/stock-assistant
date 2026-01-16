@@ -9,6 +9,30 @@ const technicalService = require('../services/technicalService');
 const lineService = require('../services/lineService');
 const { pool } = require('../db');
 
+
+// 顏色輔助函數 - 根據設定決定漲跌顏色
+let cachedColorMode = null;
+async function getColors(isUp) {
+  if (!cachedColorMode) {
+    try {
+      const result = await pool.query("SELECT value FROM settings WHERE key = 'color_mode'");
+      cachedColorMode = result.rows[0]?.value || 'tw';
+    } catch (e) { cachedColorMode = 'tw'; }
+  }
+  if (cachedColorMode === 'tw') {
+    return isUp ? '#ff4444' : '#00C851'; // 台灣：紅漲綠跌
+  } else {
+    return isUp ? '#00C851' : '#ff4444'; // 美國：綠漲紅跌
+  }
+}
+function getColorSync(isUp, mode = 'tw') {
+  if (mode === 'tw') {
+    return isUp ? '#ff4444' : '#00C851';
+  } else {
+    return isUp ? '#00C851' : '#ff4444';
+  }
+}
+
 /**
  * POST /webhook
  * LINE Webhook 接收訊息
@@ -257,7 +281,7 @@ async function getStockInfoFlex(stockId) {
   const chip = await stockService.getInstitutionalData(stockId);
   
   const isUp = stockData.change >= 0;
-  const color = isUp ? '#00C851' : '#ff4444';
+  const color = isUp ? '#ff4444' : '#00C851'; // 台灣：紅漲綠跌
   const arrow = isUp ? '▲' : '▼';
   const emoji = isUp ? '📈' : '📉';
   
@@ -339,7 +363,7 @@ async function getStockInfoFlex(stockId) {
               type: 'text', 
               text: `${chip.foreign > 0 ? '+' : ''}${(chip.foreign/1000).toFixed(0)}張`, 
               size: 'sm', 
-              color: chip.foreign >= 0 ? '#00C851' : '#ff4444',
+              color: chip.foreign >= 0 ? '#ff4444' : '#00C851',
               align: 'end', 
               flex: 1 
             },
@@ -348,7 +372,7 @@ async function getStockInfoFlex(stockId) {
               type: 'text', 
               text: `${chip.investment > 0 ? '+' : ''}${(chip.investment/1000).toFixed(0)}張`, 
               size: 'sm', 
-              color: chip.investment >= 0 ? '#00C851' : '#ff4444',
+              color: chip.investment >= 0 ? '#ff4444' : '#00C851',
               align: 'end', 
               flex: 1 
             }
@@ -551,7 +575,7 @@ async function getWatchlistFlex() {
   for (const row of result.rows) {
     const stockData = await stockService.getRealtimePrice(row.stock_id);
     const isUp = stockData?.change >= 0;
-    const color = isUp ? '#00C851' : '#ff4444';
+    const color = isUp ? '#ff4444' : '#00C851'; // 台灣：紅漲綠跌
     const arrow = isUp ? '▲' : '▼';
     
     stockRows.push({
@@ -640,7 +664,7 @@ async function getHotStocksFlex() {
       const data = await stockService.getRealtimePrice(stock.id);
       if (data) {
         const isUp = data.change >= 0;
-        const color = isUp ? '#00C851' : '#ff4444';
+        const color = isUp ? '#ff4444' : '#00C851'; // 台灣：紅漲綠跌
         const arrow = isUp ? '▲' : '▼';
         
         stockRows.push({
@@ -792,7 +816,7 @@ async function getMarketReply() {
     }
     
     const isUp = taiex.change >= 0;
-    const color = isUp ? '#00C851' : '#ff4444';
+    const color = isUp ? '#ff4444' : '#00C851'; // 台灣：紅漲綠跌
     const arrow = isUp ? '▲' : '▼';
     const emoji = isUp ? '📈' : '📉';
     
@@ -1059,3 +1083,5 @@ router.post('/push', async (req, res) => {
 });
 
 module.exports = router;
+
+
