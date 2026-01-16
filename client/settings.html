@@ -1,0 +1,245 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>我的設定 - 股海秘書</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, sans-serif; background: linear-gradient(135deg, #1a1a2e, #16213e); color: white; min-height: 100vh; padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; }
+        .header { display: flex; align-items: center; margin-bottom: 20px; }
+        .back-btn { background: none; border: none; color: white; font-size: 24px; cursor: pointer; margin-right: 10px; }
+        h1 { font-size: 20px; }
+        .section { background: rgba(255,255,255,0.1); border-radius: 15px; padding: 15px; margin-bottom: 15px; }
+        .section-title { font-size: 14px; color: #ffd700; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .setting-row:last-child { border-bottom: none; }
+        .setting-label { font-size: 14px; }
+        .setting-desc { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+        select, input[type="text"] { padding: 10px 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; font-size: 14px; min-width: 140px; }
+        .toggle { position: relative; width: 50px; height: 28px; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.2); border-radius: 28px; transition: 0.3s; }
+        .toggle .slider:before { position: absolute; content: ""; height: 22px; width: 22px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+        .toggle input:checked + .slider { background: #06C755; }
+        .toggle input:checked + .slider:before { transform: translateX(22px); }
+        .voice-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+        .voice-btn { padding: 12px; border-radius: 10px; border: 2px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.2); color: white; font-size: 12px; cursor: pointer; text-align: center; transition: 0.2s; }
+        .voice-btn.active { border-color: #ffd700; background: rgba(255,215,0,0.2); }
+        .voice-btn .icon { font-size: 20px; display: block; margin-bottom: 4px; }
+        .color-preview { display: flex; gap: 10px; margin-top: 10px; }
+        .color-box { flex: 1; padding: 15px; border-radius: 10px; text-align: center; font-size: 14px; font-weight: bold; }
+        .color-box.up-tw { background: rgba(255,68,68,0.3); color: #ff6b6b; border: 1px solid #ff6b6b; }
+        .color-box.down-tw { background: rgba(68,255,68,0.3); color: #4ecdc4; border: 1px solid #4ecdc4; }
+        .color-box.up-us { background: rgba(68,255,68,0.3); color: #4ecdc4; border: 1px solid #4ecdc4; }
+        .color-box.down-us { background: rgba(255,68,68,0.3); color: #ff6b6b; border: 1px solid #ff6b6b; }
+        .save-btn { width: 100%; padding: 15px; border-radius: 12px; border: none; background: #06C755; color: white; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); padding: 12px 24px; border-radius: 25px; font-size: 14px; display: none; z-index: 100; }
+        .toast.show { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .test-btn { padding: 8px 15px; border-radius: 8px; border: 1px solid #ffd700; background: transparent; color: #ffd700; font-size: 12px; cursor: pointer; margin-left: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <button class="back-btn" onclick="location.href='/'">←</button>
+            <h1>⚙️ 我的設定</h1>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">🔊 語音播報設定</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">語音功能</div>
+                    <div class="setting-desc">開啟後可收到語音播報</div>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="voiceEnabled" onchange="saveSetting('voice_enabled', this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">語音引擎</div>
+                    <div class="setting-desc">選擇語音合成引擎</div>
+                </div>
+                <select id="voiceProvider" onchange="saveSetting('voice_provider', this.value)">
+                    <option value="elevenlabs">ElevenLabs (高品質)</option>
+                    <option value="gemini">Google TTS</option>
+                </select>
+            </div>
+            <div class="setting-label" style="margin-top:15px;">選擇語音角色</div>
+            <div class="voice-grid" id="voiceGrid">
+                <button class="voice-btn" data-id="pNInz6obpgDQGcFmaJgB"><span class="icon">👨</span>Adam 沉穩</button>
+                <button class="voice-btn" data-id="TxGEqnHWrfWFTfGW9XjX"><span class="icon">👨</span>Josh 年輕</button>
+                <button class="voice-btn" data-id="VR6AewLTigWG4xSOukaG"><span class="icon">👨</span>Arnold 渾厚</button>
+                <button class="voice-btn" data-id="yoZ06aMxZJJ28mfd3POQ"><span class="icon">👨</span>Sam 溫和</button>
+                <button class="voice-btn" data-id="21m00Tcm4TlvDq8ikWAM"><span class="icon">👩</span>Rachel 專業</button>
+                <button class="voice-btn" data-id="EXAVITQu4vr4xnSDxMaL"><span class="icon">👩</span>Bella 甜美</button>
+                <button class="voice-btn" data-id="AZnzlk1XvdvUeBnXmlld"><span class="icon">👩</span>Domi 活潑</button>
+                <button class="voice-btn" data-id="MF3mGyEYCl7XYWbV9V6O"><span class="icon">👩</span>Elli 溫柔</button>
+            </div>
+            <button class="test-btn" onclick="testVoice()" style="margin-top:15px;width:100%;">🔊 測試語音</button>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">🎨 顏色設定</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">漲跌顏色模式</div>
+                    <div class="setting-desc">影響 LINE 卡片和數據顯示</div>
+                </div>
+                <select id="colorMode" onchange="updateColorPreview(); saveSetting('color_mode', this.value)">
+                    <option value="tw">🇹🇼 台灣 (紅漲綠跌)</option>
+                    <option value="us">🇺🇸 美國 (綠漲紅跌)</option>
+                </select>
+            </div>
+            <div class="color-preview" id="colorPreview">
+                <div class="color-box up-tw">▲ 上漲</div>
+                <div class="color-box down-tw">▼ 下跌</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">📱 LINE Bot 設定</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">卡片樣式</div>
+                    <div class="setting-desc">LINE 訊息卡片外觀</div>
+                </div>
+                <select id="cardStyle" onchange="saveSetting('card_style', this.value)">
+                    <option value="modern">現代風格</option>
+                    <option value="classic">經典風格</option>
+                    <option value="minimal">簡約風格</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">自動播報</div>
+                    <div class="setting-desc">監控股票觸發時自動語音播報</div>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="autoVoice" onchange="saveSetting('auto_voice', this.checked)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">⚡ 警報設定</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">預設漲幅警報</div>
+                    <div class="setting-desc">新增監控時的預設值</div>
+                </div>
+                <input type="text" id="defaultAlertUp" placeholder="5%" style="width:80px;text-align:center;" onchange="saveSetting('default_alert_up', this.value)">
+            </div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">預設跌幅警報</div>
+                    <div class="setting-desc">新增監控時的預設值</div>
+                </div>
+                <input type="text" id="defaultAlertDown" placeholder="5%" style="width:80px;text-align:center;" onchange="saveSetting('default_alert_down', this.value)">
+            </div>
+        </div>
+        
+        <div style="text-align:center;margin-top:20px;font-size:12px;opacity:0.5;">
+            設定會即時同步到 LINE Bot
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script>
+        const API = '/api/settings';
+        let currentSettings = {};
+        
+        async function loadSettings() {
+            try {
+                const res = await fetch(API);
+                currentSettings = await res.json();
+                applySettings();
+            } catch (e) { console.error(e); }
+        }
+        
+        function applySettings() {
+            document.getElementById('voiceEnabled').checked = currentSettings.voice_enabled === 'true';
+            document.getElementById('voiceProvider').value = currentSettings.voice_provider || 'elevenlabs';
+            document.getElementById('colorMode').value = currentSettings.color_mode || 'tw';
+            document.getElementById('cardStyle').value = currentSettings.card_style || 'modern';
+            document.getElementById('autoVoice').checked = currentSettings.auto_voice === 'true';
+            document.getElementById('defaultAlertUp').value = currentSettings.default_alert_up || '';
+            document.getElementById('defaultAlertDown').value = currentSettings.default_alert_down || '';
+            
+            // 語音角色
+            const voiceId = currentSettings.elevenlabs_voice_id || 'pNInz6obpgDQGcFmaJgB';
+            document.querySelectorAll('.voice-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.id === voiceId);
+            });
+            
+            updateColorPreview();
+        }
+        
+        async function saveSetting(key, value) {
+            if (typeof value === 'boolean') value = value.toString();
+            try {
+                await fetch(API + '/' + key, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ value })
+                });
+                currentSettings[key] = value;
+                showToast('✅ 已儲存');
+            } catch (e) {
+                showToast('❌ 儲存失敗');
+            }
+        }
+        
+        function updateColorPreview() {
+            const mode = document.getElementById('colorMode').value;
+            const preview = document.getElementById('colorPreview');
+            if (mode === 'tw') {
+                preview.innerHTML = '<div class="color-box up-tw">▲ 上漲 紅色</div><div class="color-box down-tw">▼ 下跌 綠色</div>';
+            } else {
+                preview.innerHTML = '<div class="color-box up-us">▲ 上漲 綠色</div><div class="color-box down-us">▼ 下跌 紅色</div>';
+            }
+        }
+        
+        // 語音角色選擇
+        document.querySelectorAll('.voice-btn').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.voice-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                saveSetting('elevenlabs_voice_id', btn.dataset.id);
+                saveSetting('voice_provider', 'elevenlabs');
+            };
+        });
+        
+        async function testVoice() {
+            showToast('🔊 正在生成測試語音...');
+            try {
+                const res = await fetch('/api/voice/test');
+                const data = await res.json();
+                if (data.audio) {
+                    const audio = new Audio(data.audio);
+                    audio.play();
+                } else {
+                    showToast('請先在 LINE 輸入「語音 2330」測試');
+                }
+            } catch (e) {
+                showToast('請在 LINE 輸入「語音 2330」測試');
+            }
+        }
+        
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+        
+        loadSettings();
+    </script>
+</body>
+</html>
