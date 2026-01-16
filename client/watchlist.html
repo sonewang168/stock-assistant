@@ -1,0 +1,168 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>監控管理 - 股海秘書</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, sans-serif; background: linear-gradient(135deg, #1a1a2e, #16213e); color: white; min-height: 100vh; padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; }
+        .header { display: flex; align-items: center; margin-bottom: 20px; }
+        .back-btn { background: none; border: none; color: white; font-size: 24px; cursor: pointer; margin-right: 10px; }
+        h1 { font-size: 20px; }
+        .add-section { background: rgba(255,255,255,0.1); border-radius: 15px; padding: 15px; margin-bottom: 20px; }
+        .add-section h2 { font-size: 14px; margin-bottom: 10px; color: #ffd700; }
+        .input-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .input-row input { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; font-size: 14px; }
+        .input-row input::placeholder { color: rgba(255,255,255,0.5); }
+        .add-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #06C755; color: white; font-size: 16px; font-weight: bold; cursor: pointer; }
+        .add-btn:disabled { background: #666; }
+        .watchlist { margin-top: 20px; }
+        .watchlist h2 { font-size: 14px; color: rgba(255,255,255,0.6); margin-bottom: 10px; }
+        .stock-card { background: rgba(255,255,255,0.08); border-radius: 12px; padding: 15px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1); }
+        .stock-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .stock-name { font-size: 16px; font-weight: bold; }
+        .stock-id { font-size: 12px; color: rgba(255,255,255,0.6); }
+        .stock-price { text-align: right; }
+        .stock-price .price { font-size: 18px; font-weight: bold; }
+        .stock-price .change { font-size: 12px; }
+        .stock-price .up { color: #ff6b6b; }
+        .stock-price .down { color: #4ecdc4; }
+        .stock-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .setting-item { display: flex; flex-direction: column; }
+        .setting-item label { font-size: 10px; color: rgba(255,255,255,0.5); margin-bottom: 4px; }
+        .setting-item input { padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: white; font-size: 12px; }
+        .stock-actions { display: flex; gap: 8px; margin-top: 10px; }
+        .stock-actions button { flex: 1; padding: 8px; border-radius: 8px; border: none; font-size: 12px; cursor: pointer; }
+        .save-btn { background: #ffd700; color: #1a1a2e; }
+        .delete-btn { background: rgba(255,68,68,0.3); color: #ff6b6b; }
+        .empty-msg { text-align: center; padding: 40px; color: rgba(255,255,255,0.5); }
+        .loading { text-align: center; padding: 20px; }
+        .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); padding: 12px 24px; border-radius: 25px; font-size: 14px; display: none; z-index: 100; }
+        .toast.show { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <button class="back-btn" onclick="location.href='/'">←</button>
+            <h1>📋 監控管理</h1>
+        </div>
+        <div class="add-section">
+            <h2>➕ 新增監控股票</h2>
+            <div class="input-row">
+                <input type="text" id="newStockId" placeholder="股票代碼 (如: 2330, AAPL)">
+            </div>
+            <div class="input-row">
+                <input type="number" id="targetHigh" placeholder="目標高價">
+                <input type="number" id="targetLow" placeholder="目標低價">
+            </div>
+            <div class="input-row">
+                <input type="number" id="alertUp" placeholder="漲幅警報 %" step="0.1">
+                <input type="number" id="alertDown" placeholder="跌幅警報 %" step="0.1">
+            </div>
+            <button class="add-btn" onclick="addStock()">加入監控</button>
+        </div>
+        <div class="watchlist">
+            <h2>📊 監控清單 (與 LINE Bot 同步)</h2>
+            <div id="stockList"><div class="loading">載入中...</div></div>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script>
+        const API = '/api/watchlist';
+        async function loadWatchlist() {
+            try {
+                const res = await fetch(API);
+                const data = await res.json();
+                renderList(data);
+            } catch (e) {
+                document.getElementById('stockList').innerHTML = '<div class="empty-msg">載入失敗</div>';
+            }
+        }
+        function renderList(stocks) {
+            const el = document.getElementById('stockList');
+            if (!stocks.length) {
+                el.innerHTML = '<div class="empty-msg">尚無監控股票<br>輸入代碼新增！</div>';
+                return;
+            }
+            el.innerHTML = stocks.map(s => `
+                <div class="stock-card" data-id="${s.stock_id}">
+                    <div class="stock-header">
+                        <div><div class="stock-name">${s.stock_name || s.stock_id}</div><div class="stock-id">${s.stock_id}</div></div>
+                    </div>
+                    <div class="stock-settings">
+                        <div class="setting-item"><label>目標高價</label><input type="number" class="th" value="${s.target_price_high||''}" placeholder="未設定"></div>
+                        <div class="setting-item"><label>目標低價</label><input type="number" class="tl" value="${s.target_price_low||''}" placeholder="未設定"></div>
+                        <div class="setting-item"><label>漲幅警報%</label><input type="number" class="au" value="${s.alert_percent_up||''}" placeholder="未設定" step="0.1"></div>
+                        <div class="setting-item"><label>跌幅警報%</label><input type="number" class="ad" value="${s.alert_percent_down||''}" placeholder="未設定" step="0.1"></div>
+                    </div>
+                    <div class="stock-actions">
+                        <button class="save-btn" onclick="saveStock('${s.stock_id}')">💾 儲存設定</button>
+                        <button class="delete-btn" onclick="deleteStock('${s.stock_id}')">🗑️ 移除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        async function addStock() {
+            const id = document.getElementById('newStockId').value.trim().toUpperCase();
+            if (!id) return showToast('請輸入股票代碼');
+            const body = {
+                stock_id: id,
+                target_price_high: document.getElementById('targetHigh').value || null,
+                target_price_low: document.getElementById('targetLow').value || null,
+                alert_percent_up: document.getElementById('alertUp').value || null,
+                alert_percent_down: document.getElementById('alertDown').value || null
+            };
+            try {
+                const res = await fetch(API, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('✅ 已加入監控：' + (data.stock?.name || id));
+                    document.getElementById('newStockId').value = '';
+                    document.getElementById('targetHigh').value = '';
+                    document.getElementById('targetLow').value = '';
+                    document.getElementById('alertUp').value = '';
+                    document.getElementById('alertDown').value = '';
+                    loadWatchlist();
+                } else {
+                    showToast('❌ ' + (data.error || '加入失敗'));
+                }
+            } catch (e) { showToast('❌ 網路錯誤'); }
+        }
+        async function saveStock(stockId) {
+            const card = document.querySelector(`[data-id="${stockId}"]`);
+            const body = {
+                target_price_high: card.querySelector('.th').value || null,
+                target_price_low: card.querySelector('.tl').value || null,
+                alert_percent_up: card.querySelector('.au').value || null,
+                alert_percent_down: card.querySelector('.ad').value || null
+            };
+            try {
+                const res = await fetch(API + '/' + stockId, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                const data = await res.json();
+                showToast(data.success ? '✅ 設定已儲存' : '❌ 儲存失敗');
+            } catch (e) { showToast('❌ 網路錯誤'); }
+        }
+        async function deleteStock(stockId) {
+            if (!confirm('確定移除此監控？')) return;
+            try {
+                const res = await fetch(API + '/' + stockId, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) { showToast('✅ 已移除'); loadWatchlist(); }
+            } catch (e) { showToast('❌ 網路錯誤'); }
+        }
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+        document.getElementById('newStockId').onkeypress = e => { if (e.key === 'Enter') addStock(); };
+        loadWatchlist();
+    </script>
+</body>
+</html>

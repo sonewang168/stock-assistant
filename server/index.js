@@ -19,6 +19,7 @@ const watchlistRoutes = require('./routes/watchlist');
 const portfolioRoutes = require('./routes/portfolio');
 const alertRoutes = require('./routes/alert');
 const lineRoutes = require('./routes/line');
+
 const settingsRoutes = require('./routes/settings');
 const voiceRoutes = require('./routes/voice');
 
@@ -59,6 +60,7 @@ app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/alert', alertRoutes);
 app.use('/api/line', lineRoutes);
+
 app.use('/api/settings', settingsRoutes);
 app.use('/api/voice', voiceRoutes);
 
@@ -162,5 +164,7 @@ async function startServer() {
 startServer();
 
 module.exports = app;
+
+
 
 
