@@ -844,8 +844,8 @@ async function getMarketReply() {
               type: 'box',
               layout: 'horizontal',
               contents: [
-                { type: 'text', text: `${taiex.price}`, size: '3xl', weight: 'bold', color: color },
-                { type: 'text', text: `${arrow} ${taiex.change}`, size: 'xl', color: color, align: 'end', gravity: 'bottom' }
+                { type: 'text', text: `${Math.round(taiex.price).toLocaleString()}`, size: '3xl', weight: 'bold', color: color },
+                { type: 'text', text: `${arrow} ${Math.round(taiex.change)}`, size: 'xl', color: color, align: 'end', gravity: 'bottom' }
               ]
             },
             { type: 'separator', margin: 'lg' },
@@ -855,9 +855,9 @@ async function getMarketReply() {
               margin: 'lg',
               contents: [
                 { type: 'text', text: '開盤', size: 'sm', color: '#888888', flex: 1 },
-                { type: 'text', text: `${taiex.open}`, size: 'sm', align: 'end', flex: 1 },
+                { type: 'text', text: `${Math.round(taiex.open).toLocaleString()}`, size: 'sm', align: 'end', flex: 1 },
                 { type: 'text', text: '最高', size: 'sm', color: '#888888', flex: 1 },
-                { type: 'text', text: `${taiex.high}`, size: 'sm', align: 'end', flex: 1 }
+                { type: 'text', text: `${Math.round(taiex.high).toLocaleString()}`, size: 'sm', align: 'end', flex: 1 }
               ]
             },
             {
@@ -866,9 +866,9 @@ async function getMarketReply() {
               margin: 'sm',
               contents: [
                 { type: 'text', text: '昨收', size: 'sm', color: '#888888', flex: 1 },
-                { type: 'text', text: `${taiex.yesterday}`, size: 'sm', align: 'end', flex: 1 },
+                { type: 'text', text: `${Math.round(taiex.yesterday).toLocaleString()}`, size: 'sm', align: 'end', flex: 1 },
                 { type: 'text', text: '最低', size: 'sm', color: '#888888', flex: 1 },
-                { type: 'text', text: `${taiex.low}`, size: 'sm', align: 'end', flex: 1 }
+                { type: 'text', text: `${Math.round(taiex.low).toLocaleString()}`, size: 'sm', align: 'end', flex: 1 }
               ]
             }
           ],
@@ -1083,5 +1083,7 @@ router.post('/push', async (req, res) => {
 });
 
 module.exports = router;
+
+
 
 
