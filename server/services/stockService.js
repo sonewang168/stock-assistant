@@ -176,16 +176,29 @@ class StockService {
   async savePriceHistory(stockData) {
     if (!stockData) return;
 
-    const sql = `
-      INSERT INTO price_history (stock_id, date, open_price, high_price, low_price, close_price, volume)
-      VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6)
-      ON CONFLICT (stock_id, date) 
-      DO UPDATE SET 
-        open_price = $2, high_price = $3, low_price = $4, 
-        close_price = $5, volume = $6
-    `;
-
     try {
+      // 先確保股票存在於 stocks 表中（解決外鍵約束問題）
+      const ensureStockSQL = `
+        INSERT INTO stocks (id, name, market) 
+        VALUES ($1, $2, $3) 
+        ON CONFLICT (id) DO UPDATE SET name = $2, market = $3
+      `;
+      await pool.query(ensureStockSQL, [
+        stockData.id,
+        stockData.name || stockData.id,
+        stockData.market || 'TSE'
+      ]);
+
+      // 儲存價格歷史
+      const sql = `
+        INSERT INTO price_history (stock_id, date, open_price, high_price, low_price, close_price, volume)
+        VALUES ($1, CURRENT_DATE, $2, $3, $4, $5, $6)
+        ON CONFLICT (stock_id, date) 
+        DO UPDATE SET 
+          open_price = $2, high_price = $3, low_price = $4, 
+          close_price = $5, volume = $6
+      `;
+
       await pool.query(sql, [
         stockData.id,
         stockData.open,
@@ -194,6 +207,8 @@ class StockService {
         stockData.price,
         stockData.volume
       ]);
+      
+      console.log(`✅ 已更新 ${stockData.id} ${stockData.name} 價格歷史`);
     } catch (error) {
       console.error('儲存價格歷史失敗:', error.message);
     }
