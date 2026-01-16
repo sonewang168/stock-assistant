@@ -92,7 +92,8 @@ class LineService {
   createStockAlertFlex(alert, aiComment) {
     const stock = alert.stock;
     const isUp = stock.change >= 0;
-    const color = isUp ? '#00C851' : '#ff4444';
+    // 台灣股市：紅漲綠跌
+    const color = isUp ? '#ff4444' : '#00C851';
     const arrow = isUp ? '▲' : '▼';
 
     return {
@@ -186,7 +187,8 @@ class LineService {
 
     const stockRows = stockDataList.slice(0, 10).map(stock => {
       const isUp = stock.change >= 0;
-      const color = isUp ? '#00C851' : '#ff4444';
+      // 台灣股市：紅漲綠跌
+      const color = isUp ? '#ff4444' : '#00C851';
       const arrow = isUp ? '▲' : '▼';
 
       return {
@@ -254,10 +256,12 @@ class LineService {
    */
   createPortfolioFlex(portfolio) {
     const isProfit = portfolio.totalProfit >= 0;
-    const color = isProfit ? '#00C851' : '#ff4444';
+    // 台灣股市：紅漲綠跌（獲利紅色、虧損綠色）
+    const color = isProfit ? '#ff4444' : '#00C851';
 
     const holdingRows = portfolio.holdings.slice(0, 8).map(h => {
-      const hColor = h.profit >= 0 ? '#00C851' : '#ff4444';
+      // 台灣股市：紅漲綠跌
+      const hColor = h.profit >= 0 ? '#ff4444' : '#00C851';
       return {
         type: 'box',
         layout: 'horizontal',
