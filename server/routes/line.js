@@ -316,8 +316,8 @@ async function getStockInfoFlex(stockId) {
       type: 'box',
       layout: 'horizontal',
       contents: [
-        { type: 'text', text: `${isUS ? '$' : ''}${formatPrice(stockData.price)}`, size: '3xl', weight: 'bold', color: color },
-        { type: 'text', text: `${arrow} ${stockData.changePercent}%`, size: 'xl', color: color, align: 'end', gravity: 'bottom' }
+        { type: 'text', text: `${isUS ? '$' : ''}${formatPrice(stockData.price)}`, size: isUS ? 'xxl' : '3xl', weight: 'bold', color: color },
+        { type: 'text', text: `${arrow} ${stockData.changePercent}%`, size: 'lg', color: color, align: 'end', gravity: 'bottom' }
       ]
     },
     { type: 'separator', margin: 'lg' },
