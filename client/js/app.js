@@ -143,10 +143,11 @@ class StockApp {
 
   async searchStock() {
     const input = document.getElementById('stockSearch');
-    const stockId = input.value.trim();
+    const stockId = input.value.trim().toUpperCase();
     
-    if (!stockId || !/^\d{4,6}$/.test(stockId)) {
-      this.showToast('請輸入有效的股票代碼');
+    // 支援台股（4-6位數字）和美股（1-5位英文）
+    if (!stockId || !(/^\d{4,6}$/.test(stockId) || /^[A-Z]{1,5}$/.test(stockId))) {
+      this.showToast('請輸入股票代碼（台股如2330，美股如AAPL）');
       return;
     }
     
@@ -169,14 +170,21 @@ class StockApp {
       const stock = data.price;
       const tech = data.technical;
       
-      const changeClass = stock.change >= 0 ? 'up' : 'down';
-      const arrow = stock.change >= 0 ? '▲' : '▼';
+      // 根據市場決定顏色：台灣紅漲綠跌，美國綠漲紅跌
+      const isUS = stock.market === 'US';
+      const isUp = stock.change >= 0;
+      const changeClass = isUS 
+        ? (isUp ? 'us-up' : 'us-down')   // 美股：綠漲紅跌
+        : (isUp ? 'up' : 'down');         // 台股：紅漲綠跌
+      const arrow = isUp ? '▲' : '▼';
+      const marketFlag = isUS ? '🇺🇸' : '🇹🇼';
+      const currencySymbol = isUS ? '$' : '';
       
       container.innerHTML = `
         <div class="stock-header">
           <div>
-            <div class="stock-name">${stock.name}</div>
-            <div class="stock-id">${stock.id} | ${stock.market}</div>
+            <div class="stock-name">${marketFlag} ${stock.name}</div>
+            <div class="stock-id">${stock.id} | ${stock.market} ${isUS ? '(綠漲紅跌)' : '(紅漲綠跌)'}</div>
           </div>
           <div style="display: flex; gap: 8px;">
             <button class="item-btn" onclick="app.speakStock('${stock.id}')">🔊</button>
@@ -186,7 +194,7 @@ class StockApp {
           </div>
         </div>
         <div>
-          <span class="stock-price">${stock.price}</span>
+          <span class="stock-price">${currencySymbol}${stock.price}</span>
           <span class="stock-change ${changeClass}">${arrow} ${stock.change} (${stock.changePercent}%)</span>
         </div>
         <div class="stock-details">

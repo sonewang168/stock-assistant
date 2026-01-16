@@ -1,5 +1,5 @@
 /**
- * 📊 股票服務 - 即時股價抓取
+ * 📊 股票服務 - 即時股價抓取（台股 + 美股）
  */
 
 const axios = require('axios');
@@ -8,11 +8,24 @@ const { pool } = require('../db');
 class StockService {
   
   /**
-   * 取得即時股價（台股）
+   * 判斷是否為美股代碼
+   */
+  isUSStock(stockId) {
+    // 美股代碼：全英文字母，1-5個字元
+    return /^[A-Za-z]{1,5}$/.test(stockId);
+  }
+
+  /**
+   * 取得即時股價（自動判斷台股/美股）
    */
   async getRealtimePrice(stockId) {
     try {
-      // 先嘗試上市
+      // 判斷是美股還是台股
+      if (this.isUSStock(stockId)) {
+        return await this.getUSStockPrice(stockId.toUpperCase());
+      }
+      
+      // 台股：先嘗試上市
       let data = await this.fetchTWSE(stockId);
       
       // 如果失敗，嘗試上櫃
@@ -22,12 +35,134 @@ class StockService {
       
       if (data) {
         data = this.calculateChange(data);
+        data.colorMode = 'tw'; // 台灣：紅漲綠跌
       }
       
       return data;
     } catch (error) {
       console.error(`取得 ${stockId} 股價失敗:`, error.message);
       return null;
+    }
+  }
+
+  /**
+   * 🇺🇸 取得美股即時股價（使用 Yahoo Finance）
+   */
+  async getUSStockPrice(symbol) {
+    try {
+      // 使用 Yahoo Finance API
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
+      
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        timeout: 10000
+      });
+
+      const result = response.data?.chart?.result?.[0];
+      if (!result) return null;
+
+      const meta = result.meta;
+      const quote = result.indicators?.quote?.[0];
+      
+      if (!meta || !quote) return null;
+
+      const price = meta.regularMarketPrice || 0;
+      const previousClose = meta.previousClose || meta.chartPreviousClose || 0;
+      const change = price - previousClose;
+      const changePercent = previousClose > 0 ? ((change / previousClose) * 100).toFixed(2) : 0;
+
+      // 美股名稱對照
+      const usStockNames = {
+        'AAPL': '蘋果', 'TSLA': '特斯拉', 'NVDA': '輝達', 'MSFT': '微軟',
+        'GOOGL': '谷歌', 'GOOG': '谷歌', 'AMZN': '亞馬遜', 'META': 'Meta',
+        'AMD': '超微', 'INTC': '英特爾', 'TSM': '台積電ADR', 'BABA': '阿里巴巴',
+        'JD': '京東', 'PDD': '拼多多', 'NIO': '蔚來', 'XPEV': '小鵬',
+        'LI': '理想', 'PLTR': 'Palantir', 'COIN': 'Coinbase', 'ROKU': 'Roku',
+        'SQ': 'Block', 'PYPL': 'PayPal', 'NFLX': 'Netflix', 'DIS': '迪士尼',
+        'BA': '波音', 'F': '福特', 'GM': '通用', 'JPM': '摩根大通',
+        'V': 'Visa', 'MA': 'Mastercard', 'WMT': '沃爾瑪', 'COST': '好市多',
+        'SPY': 'S&P500 ETF', 'QQQ': '納指100 ETF', 'VOO': 'Vanguard S&P500'
+      };
+
+      const stockData = {
+        id: symbol,
+        name: usStockNames[symbol] || meta.shortName || symbol,
+        price: parseFloat(price.toFixed(2)),
+        open: quote.open?.[quote.open.length - 1] || 0,
+        high: quote.high?.[quote.high.length - 1] || 0,
+        low: quote.low?.[quote.low.length - 1] || 0,
+        yesterday: previousClose,
+        volume: quote.volume?.[quote.volume.length - 1] || 0,
+        change: parseFloat(change.toFixed(2)),
+        changePercent: changePercent,
+        market: 'US',
+        colorMode: 'us', // 美國：綠漲紅跌
+        currency: meta.currency || 'USD',
+        time: new Date().toLocaleTimeString('zh-TW', { timeZone: 'America/New_York' })
+      };
+
+      return stockData;
+
+    } catch (error) {
+      console.error(`取得美股 ${symbol} 失敗:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * 🇺🇸 取得美股指數
+   */
+  async getUSIndices() {
+    try {
+      const indices = [
+        { symbol: '^DJI', name: '道瓊工業' },
+        { symbol: '^GSPC', name: 'S&P 500' },
+        { symbol: '^IXIC', name: '納斯達克' },
+        { symbol: '^SOX', name: '費城半導體' }
+      ];
+
+      const results = [];
+      
+      for (const index of indices) {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(index.symbol)}?interval=1d&range=1d`;
+        
+        try {
+          const response = await axios.get(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            timeout: 8000
+          });
+
+          const result = response.data?.chart?.result?.[0];
+          if (result) {
+            const meta = result.meta;
+            const price = meta.regularMarketPrice || 0;
+            const previousClose = meta.previousClose || 0;
+            const change = price - previousClose;
+            const changePercent = previousClose > 0 ? ((change / previousClose) * 100).toFixed(2) : 0;
+
+            results.push({
+              symbol: index.symbol,
+              name: index.name,
+              price: parseFloat(price.toFixed(2)),
+              change: parseFloat(change.toFixed(2)),
+              changePercent: changePercent,
+              colorMode: 'us'
+            });
+          }
+        } catch (e) {
+          console.error(`取得 ${index.name} 失敗`);
+        }
+        
+        await this.sleep(300);
+      }
+
+      return results;
+
+    } catch (error) {
+      console.error('取得美股指數失敗:', error.message);
+      return [];
     }
   }
 

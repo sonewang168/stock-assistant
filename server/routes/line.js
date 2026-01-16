@@ -160,6 +160,11 @@ async function handleCommand(message, userId) {
     return await searchStock(keyword);
   }
   
+  // 美股查詢：AAPL、TSLA 等（1-5個英文字母）
+  if (/^[A-Za-z]{1,5}$/.test(msg)) {
+    return await getStockInfoFlex(msg.toUpperCase());
+  }
+  
   // 指令列表
   const commands = {
     '持股': () => getPortfolioFlex(),
@@ -167,6 +172,9 @@ async function handleCommand(message, userId) {
     '熱門': () => getHotStocksFlex(),
     '大盤': () => getMarketReply(),
     '指數': () => getMarketReply(),
+    '美股': () => getUSMarketReply(),
+    '美股指數': () => getUSMarketReply(),
+    '熱門美股': () => getHotUSStocksFlex(),
     '說明': () => getHelpReply(),
     'help': () => getHelpReply()
   };
@@ -277,13 +285,24 @@ async function getStockInfoFlex(stockId) {
     return { type: 'text', text: `❌ 找不到股票 ${stockId}` };
   }
   
-  const indicators = await technicalService.getFullIndicators(stockId);
-  const chip = await stockService.getInstitutionalData(stockId);
+  // 台股才抓技術指標和籌碼
+  let indicators = null;
+  let chip = null;
+  if (stockData.market !== 'US') {
+    indicators = await technicalService.getFullIndicators(stockId);
+    chip = await stockService.getInstitutionalData(stockId);
+  }
   
   const isUp = stockData.change >= 0;
-  const color = isUp ? '#ff4444' : '#00C851'; // 台灣：紅漲綠跌
+  // 根據市場決定顏色：台灣紅漲綠跌，美國綠漲紅跌
+  const isUS = stockData.market === 'US';
+  const color = isUS 
+    ? (isUp ? '#00C851' : '#ff4444')  // 美股：綠漲紅跌
+    : (isUp ? '#ff4444' : '#00C851'); // 台股：紅漲綠跌
   const arrow = isUp ? '▲' : '▼';
   const emoji = isUp ? '📈' : '📉';
+  const marketFlag = isUS ? '🇺🇸' : '🇹🇼';
+  const colorHint = isUS ? '綠漲紅跌' : '紅漲綠跌';
   
   // 基本資訊
   const bodyContents = [
@@ -291,7 +310,7 @@ async function getStockInfoFlex(stockId) {
       type: 'box',
       layout: 'horizontal',
       contents: [
-        { type: 'text', text: `${stockData.price}`, size: '3xl', weight: 'bold', color: color },
+        { type: 'text', text: `${isUS ? '$' : ''}${stockData.price}`, size: '3xl', weight: 'bold', color: color },
         { type: 'text', text: `${arrow} ${stockData.changePercent}%`, size: 'xl', color: color, align: 'end', gravity: 'bottom' }
       ]
     },
@@ -1020,11 +1039,14 @@ function getHelpReply() {
   const help = `📱 股海秘書指令說明\n` +
     `━━━━━━━━━━━━━━\n` +
     `🔍 查詢股價\n` +
-    `   2330（輸入代碼）\n` +
+    `   2330（台股代碼）\n` +
+    `   AAPL（美股代碼）\n` +
     `   查 台積電（搜名稱）\n\n` +
     `📈 大盤/熱門\n` +
-    `   「大盤」看加權指數\n` +
-    `   「熱門」看熱門股\n\n` +
+    `   「大盤」看台股指數\n` +
+    `   「美股」看美股指數\n` +
+    `   「熱門」看熱門台股\n` +
+    `   「熱門美股」看熱門美股\n\n` +
     `➕ 監控管理\n` +
     `   +2330（加入監控）\n` +
     `   -2330（移除監控）\n` +
@@ -1035,6 +1057,175 @@ function getHelpReply() {
     `❓「說明」顯示此訊息`;
 
   return { type: 'text', text: help };
+}
+
+/**
+ * 🇺🇸 取得美股指數
+ */
+async function getUSMarketReply() {
+  try {
+    const indices = await stockService.getUSIndices();
+    
+    if (!indices || indices.length === 0) {
+      return { type: 'text', text: '⚠️ 無法取得美股指數，請稍後再試' };
+    }
+
+    const indexRows = indices.map(idx => {
+      const isUp = idx.change >= 0;
+      // 美股：綠漲紅跌
+      const color = isUp ? '#00C851' : '#ff4444';
+      const arrow = isUp ? '▲' : '▼';
+      
+      return {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: idx.name, size: 'sm', flex: 3 },
+          { type: 'text', text: `${idx.price.toLocaleString()}`, size: 'sm', align: 'end', flex: 2 },
+          { type: 'text', text: `${arrow}${idx.changePercent}%`, size: 'sm', color: color, align: 'end', flex: 2 }
+        ],
+        margin: 'sm'
+      };
+    });
+
+    return {
+      type: 'flex',
+      altText: '🇺🇸 美股指數',
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '🇺🇸 美股指數', size: 'xl', weight: 'bold', color: '#ffffff' },
+            { type: 'text', text: '綠漲紅跌', size: 'xs', color: '#ffffffaa', margin: 'sm' }
+          ],
+          backgroundColor: '#1a1a2e',
+          paddingAll: '20px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                { type: 'text', text: '指數', size: 'xs', color: '#888888', flex: 3 },
+                { type: 'text', text: '點數', size: 'xs', color: '#888888', align: 'end', flex: 2 },
+                { type: 'text', text: '漲跌', size: 'xs', color: '#888888', align: 'end', flex: 2 }
+              ]
+            },
+            { type: 'separator', margin: 'md' },
+            ...indexRows
+          ],
+          paddingAll: '20px'
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'text', text: `⏰ ${getTaiwanTime()}`, size: 'xs', color: '#888888' }
+          ],
+          paddingAll: '15px'
+        }
+      }
+    };
+
+  } catch (error) {
+    console.error('取得美股指數錯誤:', error);
+    return { type: 'text', text: '⚠️ 取得美股指數失敗' };
+  }
+}
+
+/**
+ * 🇺🇸 取得熱門美股
+ */
+async function getHotUSStocksFlex() {
+  try {
+    const hotUS = ['AAPL', 'TSLA', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'AMD', 'TSM'];
+    const stocks = [];
+    
+    for (const symbol of hotUS) {
+      const data = await stockService.getUSStockPrice(symbol);
+      if (data) {
+        stocks.push(data);
+      }
+      await new Promise(r => setTimeout(r, 200));
+    }
+
+    if (stocks.length === 0) {
+      return { type: 'text', text: '⚠️ 無法取得美股資料' };
+    }
+
+    const stockRows = stocks.map(stock => {
+      const isUp = stock.change >= 0;
+      // 美股：綠漲紅跌
+      const color = isUp ? '#00C851' : '#ff4444';
+      const arrow = isUp ? '▲' : '▼';
+      
+      return {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: `${stock.name}`, size: 'sm', flex: 3 },
+          { type: 'text', text: `$${stock.price}`, size: 'sm', align: 'end', flex: 2 },
+          { type: 'text', text: `${arrow}${stock.changePercent}%`, size: 'sm', color: color, align: 'end', flex: 2 }
+        ],
+        margin: 'sm'
+      };
+    });
+
+    return {
+      type: 'flex',
+      altText: '🔥 熱門美股',
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '🔥 熱門美股', size: 'xl', weight: 'bold', color: '#ffffff' },
+            { type: 'text', text: '🇺🇸 綠漲紅跌', size: 'xs', color: '#ffffffaa', margin: 'sm' }
+          ],
+          backgroundColor: '#2C3E50',
+          paddingAll: '20px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                { type: 'text', text: '股票', size: 'xs', color: '#888888', flex: 3 },
+                { type: 'text', text: '股價', size: 'xs', color: '#888888', align: 'end', flex: 2 },
+                { type: 'text', text: '漲跌', size: 'xs', color: '#888888', align: 'end', flex: 2 }
+              ]
+            },
+            { type: 'separator', margin: 'md' },
+            ...stockRows
+          ],
+          paddingAll: '20px'
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'text', text: `⏰ ${getTaiwanTime()}`, size: 'xs', color: '#888888' }
+          ],
+          paddingAll: '15px'
+        }
+      }
+    };
+
+  } catch (error) {
+    console.error('取得熱門美股錯誤:', error);
+    return { type: 'text', text: '⚠️ 取得熱門美股失敗' };
+  }
 }
 
 /**

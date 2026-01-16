@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
@@ -12,14 +12,21 @@
     <link rel="apple-touch-icon" href="/images/icon-192.png">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460); color: white; padding: 20px 20px 60px; }
-        #splash { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
-        #splash.hide { display: none; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460); 
+            color: white; 
+            min-height: 100vh;
+            padding: 20px 20px 80px; 
+        }
+        #splash { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; transition: opacity 0.5s; }
+        #splash.hide { opacity: 0; pointer-events: none; }
         .logo-ring { width: 120px; height: 120px; border: 4px solid transparent; border-top-color: #ffd700; border-right-color: #44ff44; border-radius: 50%; animation: spin 1.5s linear infinite; display: flex; align-items: center; justify-content: center; }
         .logo-ring span { font-size: 48px; color: #ffd700; }
         @keyframes spin { to { transform: rotate(360deg); } }
         #splash p { margin-top: 30px; color: #666; }
-        .container { max-width: 400px; margin: 0 auto; text-align: center; }
+        .container { max-width: 500px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 20px; }
         .header-logo { width: 70px; height: 70px; background: rgba(255,200,100,0.2); border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 10px auto 15px; font-size: 36px; }
         h1 { font-size: 24px; background: linear-gradient(90deg, #ffd700, #ffaa00); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .subtitle { font-size: 14px; opacity: 0.8; margin-bottom: 15px; }
@@ -27,77 +34,391 @@
         .badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; }
         .badge-tw { background: rgba(255,68,68,0.2); border: 1px solid rgba(255,68,68,0.5); color: #ff6b6b; }
         .badge-us { background: rgba(68,255,68,0.2); border: 1px solid rgba(68,255,68,0.5); color: #4ecdc4; }
-        .line-btn { display: inline-flex; background: #06C755; color: white; text-decoration: none; padding: 12px 24px; border-radius: 30px; font-size: 16px; font-weight: 600; }
+        
+        /* 搜尋框 */
         .search-box { display: flex; gap: 10px; margin: 20px 0; }
-        .search-box input { flex: 1; padding: 12px 16px; border-radius: 25px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-size: 15px; }
-        .search-box button { padding: 12px 20px; border-radius: 25px; border: none; background: #ffd700; color: #1a1a2e; font-weight: 600; }
-        .section-title { font-size: 13px; color: rgba(255,255,255,0.6); margin: 25px 0 10px; text-align: left; }
+        .search-box input { flex: 1; padding: 14px 18px; border-radius: 25px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-size: 16px; }
+        .search-box input::placeholder { color: rgba(255,255,255,0.5); }
+        .search-box button { padding: 14px 24px; border-radius: 25px; border: none; background: #ffd700; color: #1a1a2e; font-weight: 600; cursor: pointer; }
+        
+        /* 區塊標題 */
+        .section-title { font-size: 13px; color: rgba(255,255,255,0.6); margin: 25px 0 10px; display: flex; align-items: center; gap: 8px; }
+        
+        /* 股票卡片網格 */
+        .stock-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
+        .stock-card { 
+            background: rgba(255,255,255,0.08); 
+            border-radius: 16px; 
+            padding: 16px; 
+            cursor: pointer; 
+            transition: transform 0.2s, background 0.2s;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .stock-card:hover { transform: translateY(-2px); background: rgba(255,255,255,0.12); }
+        .stock-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .stock-card-name { font-weight: 600; font-size: 15px; }
+        .stock-card-id { font-size: 11px; opacity: 0.6; }
+        .stock-card-price { font-size: 22px; font-weight: bold; margin: 8px 0; }
+        .stock-card-change { font-size: 14px; font-weight: 500; }
+        .stock-card-change.up { color: #ff4444; }
+        .stock-card-change.down { color: #00C851; }
+        .stock-card-change.us-up { color: #00C851; }
+        .stock-card-change.us-down { color: #ff4444; }
+        
+        /* 功能按鈕網格 */
         .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-        .btn { display: flex; flex-direction: column; align-items: center; padding: 12px 6px; background: rgba(255,255,255,0.08); border-radius: 12px; text-decoration: none; color: white; border: 1px solid rgba(255,255,255,0.1); }
+        .btn { 
+            display: flex; flex-direction: column; align-items: center; 
+            padding: 14px 6px; background: rgba(255,255,255,0.08); 
+            border-radius: 14px; color: white; border: 1px solid rgba(255,255,255,0.1); 
+            cursor: pointer; transition: all 0.2s; text-decoration: none;
+        }
+        .btn:hover { background: rgba(255,255,255,0.15); transform: translateY(-2px); }
         .btn.tw { background: rgba(255,68,68,0.1); border-color: rgba(255,68,68,0.3); }
         .btn.us { background: rgba(68,255,68,0.1); border-color: rgba(68,255,68,0.3); }
         .btn.hl { background: rgba(255,200,100,0.15); border-color: rgba(255,200,100,0.3); }
-        .btn span:first-child { font-size: 22px; margin-bottom: 4px; }
-        .btn span:last-child { font-size: 10px; }
-        .share-btn { margin-top: 25px; padding: 10px 20px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; color: white; font-size: 14px; }
-        .footer { margin-top: 30px; font-size: 12px; opacity: 0.5; }
+        .btn span:first-child { font-size: 24px; margin-bottom: 6px; }
+        .btn span:last-child { font-size: 11px; }
+        
+        /* 股票詳情 */
+        #stockResult { 
+            background: rgba(255,255,255,0.08); 
+            border-radius: 16px; 
+            padding: 20px; 
+            margin: 20px 0;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        #stockResult.hidden { display: none; }
+        .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .result-name { font-size: 20px; font-weight: bold; }
+        .result-id { font-size: 12px; opacity: 0.6; }
+        .result-price { font-size: 32px; font-weight: bold; }
+        .result-change { font-size: 16px; margin-left: 10px; }
+        .result-change.up { color: #ff4444; }
+        .result-change.down { color: #00C851; }
+        .result-change.us-up { color: #00C851; }
+        .result-change.us-down { color: #ff4444; }
+        .result-details { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .result-detail { display: flex; justify-content: space-between; }
+        .result-detail-label { opacity: 0.6; font-size: 13px; }
+        .result-detail-value { font-weight: 500; font-size: 13px; }
+        .result-btn { margin-top: 16px; padding: 12px; background: #ffd700; color: #1a1a2e; border: none; border-radius: 12px; font-weight: 600; width: 100%; cursor: pointer; }
+        
+        /* LINE 按鈕 */
+        .line-section { text-align: center; margin: 30px 0; }
+        .line-btn { display: inline-flex; background: #06C755; color: white; text-decoration: none; padding: 14px 28px; border-radius: 30px; font-size: 16px; font-weight: 600; }
+        
+        /* Toast */
+        #toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); color: white; padding: 12px 24px; border-radius: 25px; font-size: 14px; z-index: 1000; transition: opacity 0.3s; }
+        #toast.hidden { opacity: 0; pointer-events: none; }
+        
+        /* 載入中 */
+        .loading { text-align: center; padding: 30px; opacity: 0.6; }
+        
+        /* 底部導航 */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(26,26,46,0.95); backdrop-filter: blur(10px); display: flex; justify-content: space-around; padding: 12px 0 20px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .nav-item { display: flex; flex-direction: column; align-items: center; color: rgba(255,255,255,0.5); font-size: 10px; cursor: pointer; padding: 5px 15px; text-decoration: none; }
+        .nav-item.active { color: #ffd700; }
+        .nav-item span:first-child { font-size: 22px; margin-bottom: 4px; }
+        
+        .footer { margin-top: 30px; text-align: center; font-size: 12px; opacity: 0.5; }
     </style>
 </head>
 <body>
     <div id="splash"><div class="logo-ring"><span>股</span></div><p>LOADING...</p></div>
+    
     <div class="container">
-        <div class="header-logo">📊</div>
-        <h1>股海秘書</h1>
-        <p class="subtitle">台股美股智慧監控 LINE Bot</p>
-        <div class="badges"><span class="badge badge-tw">🇹🇼 紅漲綠跌</span><span class="badge badge-us">🇺🇸 綠漲紅跌</span></div>
-        <a href="https://line.me/R/ti/p/@889fjaut" class="line-btn">LINE 加入好友</a>
-        <div class="search-box"><input type="text" id="stockCode" placeholder="輸入股票代碼 例: 2330"><button onclick="search()">查詢</button></div>
-        <div class="section-title">🇹🇼 台股查詢</div>
-        <div class="grid">
-            <a href="https://line.me/R/oaMessage/@889fjaut/?大盤" class="btn tw"><span>📈</span><span>大盤指數</span></a>
-            <a href="https://line.me/R/oaMessage/@889fjaut/?熱門" class="btn tw"><span>🔥</span><span>熱門台股</span></a>
-            <a href="https://line.me/R/oaMessage/@889fjaut/?2330" class="btn tw"><span>🏭</span><span>台積電</span></a>
-            <a href="https://line.me/R/oaMessage/@889fjaut/?2317" class="btn tw"><span>💻</span><span>鴻海</span></a>
+        <div class="header">
+            <div class="header-logo">📊</div>
+            <h1>股海秘書</h1>
+            <p class="subtitle">台股美股智慧監控</p>
+            <div class="badges">
+                <span class="badge badge-tw">🇹🇼 紅漲綠跌</span>
+                <span class="badge badge-us">🇺🇸 綠漲紅跌</span>
+            </div>
         </div>
-        <div class="section-title">🇺🇸 美股查詢</div>
-        <div class="grid">
-            <a href="https://line.me/R/oaMessage/@889fjaut/?美股" class="btn us"><span>🗽</span><span>美股指數</span></a>
-            <a href="https://line.me/R/oaMessage/@889fjaut/?熱門美股" class="btn us"><span>🔥</span><span>熱門美股</span></a>
-            <a href="https://line.me/R/oaMessage/@889fjaut/?AAPL" class="btn us"><span>🍎</span><span>蘋果</span></a>
-            <a href="https://line.me/R/oaMessage/@889fjaut/?TSLA" class="btn us"><span>🚗</span><span>特斯拉</span></a>
+        
+        <div class="search-box">
+            <input type="text" id="stockCode" placeholder="輸入代碼 (台股2330/美股AAPL)">
+            <button onclick="searchStock()">查詢</button>
         </div>
-        <div class="section-title">📋 監控管理</div>
+        
+        <div id="stockResult" class="hidden"></div>
+        
+        <div class="section-title">🔥 熱門台股</div>
+        <div class="stock-grid" id="twStocks">
+            <div class="loading">載入中...</div>
+        </div>
+        
+        <div class="section-title">🇺🇸 熱門美股</div>
+        <div class="stock-grid" id="usStocks">
+            <div class="loading">載入中...</div>
+        </div>
+        
+        <div class="section-title">📋 快速功能</div>
+        <div class="grid">
+            <div class="btn tw" onclick="searchStock('2330')"><span>🏭</span><span>台積電</span></div>
+            <div class="btn tw" onclick="searchStock('0050')"><span>📈</span><span>0050</span></div>
+            <div class="btn us" onclick="searchStock('AAPL')"><span>🍎</span><span>蘋果</span></div>
+            <div class="btn us" onclick="searchStock('TSLA')"><span>🚗</span><span>特斯拉</span></div>
+        </div>
+        
+        <div class="section-title">🛠️ 管理功能</div>
         <div class="grid">
             <a href="/watchlist.html" class="btn hl"><span>👀</span><span>監控清單</span></a>
-            <a href="/watchlist.html" class="btn"><span>➕</span><span>加入監控</span></a>
-            <a href="https://line.me/R/oaMessage/@889fjaut/?持股" class="btn"><span>💼</span><span>我的持股</span></a>
-            <a href="https://line.me/R/oaMessage/@889fjaut/?ADR" class="btn"><span>🔄</span><span>ADR價差</span></a>
+            <a href="/settings.html" class="btn"><span>⚙️</span><span>設定</span></a>
+            <div class="btn us" onclick="showUSIndices()"><span>📊</span><span>美股指數</span></div>
+            <div class="btn tw" onclick="showTWIndex()"><span>📈</span><span>台股大盤</span></div>
         </div>
-        <div class="section-title">📊 技術分析</div>
-        <div class="grid">
-            <a href="https://line.me/R/oaMessage/@889fjaut/?K 2330" class="btn"><span>📉</span><span>K線圖</span></a>
-            <a href="https://line.me/R/oaMessage/@889fjaut/?技術 2330" class="btn"><span>📐</span><span>技術指標</span></a>
-            <a href="https://line.me/R/oaMessage/@889fjaut/?問 台積電前景" class="btn"><span>🤖</span><span>AI分析</span></a>
-            <a href="https://line.me/R/oaMessage/@889fjaut/?新聞 2330" class="btn"><span>📰</span><span>股票新聞</span></a>
+        
+        <div class="line-section">
+            <a href="https://line.me/R/ti/p/@889fjaut" class="line-btn">💬 LINE 機器人</a>
         </div>
-        <div class="section-title">🎤 語音與設定</div>
-        <div class="grid">
-            <a href="https://line.me/R/oaMessage/@889fjaut/?語音 2330" class="btn hl"><span>🔊</span><span>語音播報</span></a>
-            <a href="https://line.me/R/oaMessage/@889fjaut/?漲跌 2330 5" class="btn"><span>⚡</span><span>漲跌設定</span></a>
-            <a href="/settings.html" class="btn"><span>⚙️</span><span>我的設定</span></a>
-            <a href="https://line.me/R/oaMessage/@889fjaut/?說明" class="btn"><span>❓</span><span>使用說明</span></a>
-        </div>
-        <button class="share-btn" onclick="share()">📤 分享給股友</button>
-        <div class="footer">v3.0.0</div>
+        
+        <div class="footer">v3.1.0 | PWA 版本</div>
     </div>
+    
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="location.reload()"><span>🏠</span><span>首頁</span></div>
+        <a href="/watchlist.html" class="nav-item"><span>👀</span><span>監控</span></a>
+        <a href="/settings.html" class="nav-item"><span>⚙️</span><span>設定</span></a>
+    </div>
+    
+    <div id="toast" class="hidden"></div>
+    
     <script>
-        setTimeout(function(){document.getElementById('splash').classList.add('hide');},2500);
-        function search(){var c=document.getElementById('stockCode').value.trim();if(c)location.href='https://line.me/R/oaMessage/@889fjaut/?'+c;}
-        document.getElementById('stockCode').onkeypress=function(e){if(e.key==='Enter')search();};
-        function share(){var t='📊股海秘書\nhttps://line.me/R/ti/p/@889fjaut';if(navigator.share){navigator.share({title:'股海秘書',text:t});}else{window.open('https://line.me/R/msg/text/?'+encodeURIComponent(t));}}
-        if('serviceWorker'in navigator){navigator.serviceWorker.register('/sw.js');}
+        const API_BASE = '/api';
+        
+        // 開機動畫
+        setTimeout(() => document.getElementById('splash').classList.add('hide'), 2000);
+        
+        // 載入熱門股票
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTWStocks();
+            loadUSStocks();
+        });
+        
+        // 載入台股
+        async function loadTWStocks() {
+            const container = document.getElementById('twStocks');
+            try {
+                const ids = ['2330', '2317', '2454', '0050', '0056', '00878'];
+                const response = await fetch(`${API_BASE}/stock/batch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stockIds: ids })
+                });
+                const stocks = await response.json();
+                
+                container.innerHTML = stocks.map(s => {
+                    const isUp = s.change >= 0;
+                    return `
+                        <div class="stock-card" onclick="searchStock('${s.id}')">
+                            <div class="stock-card-header">
+                                <span class="stock-card-name">${s.name}</span>
+                                <span class="stock-card-id">${s.id}</span>
+                            </div>
+                            <div class="stock-card-price">${s.price}</div>
+                            <div class="stock-card-change ${isUp ? 'up' : 'down'}">
+                                ${isUp ? '▲' : '▼'} ${s.changePercent}%
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = '<div class="loading">載入失敗</div>';
+            }
+        }
+        
+        // 載入美股
+        async function loadUSStocks() {
+            const container = document.getElementById('usStocks');
+            try {
+                const ids = ['AAPL', 'TSLA', 'NVDA', 'MSFT'];
+                const response = await fetch(`${API_BASE}/stock/batch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stockIds: ids })
+                });
+                const stocks = await response.json();
+                
+                container.innerHTML = stocks.map(s => {
+                    const isUp = s.change >= 0;
+                    return `
+                        <div class="stock-card" onclick="searchStock('${s.id}')">
+                            <div class="stock-card-header">
+                                <span class="stock-card-name">${s.name}</span>
+                                <span class="stock-card-id">${s.id}</span>
+                            </div>
+                            <div class="stock-card-price">$${s.price}</div>
+                            <div class="stock-card-change ${isUp ? 'us-up' : 'us-down'}">
+                                ${isUp ? '▲' : '▼'} ${s.changePercent}%
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = '<div class="loading">載入失敗</div>';
+            }
+        }
+        
+        // 搜尋股票
+        async function searchStock(code) {
+            const stockId = code || document.getElementById('stockCode').value.trim().toUpperCase();
+            if (!stockId) {
+                showToast('請輸入股票代碼');
+                return;
+            }
+            
+            const container = document.getElementById('stockResult');
+            container.classList.remove('hidden');
+            container.innerHTML = '<div class="loading">查詢中...</div>';
+            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            try {
+                const response = await fetch(`${API_BASE}/stock/${stockId}/full`);
+                if (!response.ok) throw new Error('找不到股票');
+                
+                const data = await response.json();
+                const s = data.price;
+                const isUS = s.market === 'US';
+                const isUp = s.change >= 0;
+                const changeClass = isUS ? (isUp ? 'us-up' : 'us-down') : (isUp ? 'up' : 'down');
+                const flag = isUS ? '🇺🇸' : '🇹🇼';
+                const hint = isUS ? '綠漲紅跌' : '紅漲綠跌';
+                const currency = isUS ? '$' : '';
+                
+                container.innerHTML = `
+                    <div class="result-header">
+                        <div>
+                            <div class="result-name">${flag} ${s.name}</div>
+                            <div class="result-id">${s.id} | ${s.market} (${hint})</div>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="result-price">${currency}${s.price}</span>
+                        <span class="result-change ${changeClass}">${isUp ? '▲' : '▼'} ${s.change} (${s.changePercent}%)</span>
+                    </div>
+                    <div class="result-details">
+                        <div class="result-detail"><span class="result-detail-label">開盤</span><span class="result-detail-value">${s.open}</span></div>
+                        <div class="result-detail"><span class="result-detail-label">最高</span><span class="result-detail-value">${s.high}</span></div>
+                        <div class="result-detail"><span class="result-detail-label">昨收</span><span class="result-detail-value">${s.yesterday}</span></div>
+                        <div class="result-detail"><span class="result-detail-label">最低</span><span class="result-detail-value">${s.low}</span></div>
+                    </div>
+                    <button class="result-btn" onclick="addToWatchlist('${s.id}', '${s.name}')">➕ 加入監控</button>
+                `;
+            } catch (e) {
+                container.innerHTML = `<div class="loading">❌ ${e.message}</div>`;
+            }
+        }
+        
+        // 加入監控
+        async function addToWatchlist(stockId, stockName) {
+            try {
+                await fetch(`${API_BASE}/watchlist`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stockId, stockName })
+                });
+                showToast(`✅ ${stockName} 已加入監控`);
+            } catch (e) {
+                showToast('❌ 加入失敗');
+            }
+        }
+        
+        // 美股指數
+        async function showUSIndices() {
+            const container = document.getElementById('stockResult');
+            container.classList.remove('hidden');
+            container.innerHTML = '<div class="loading">查詢美股指數...</div>';
+            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            try {
+                const indices = [
+                    { symbol: '^DJI', name: '道瓊工業' },
+                    { symbol: '^GSPC', name: 'S&P 500' },
+                    { symbol: '^IXIC', name: '納斯達克' },
+                    { symbol: '^SOX', name: '費城半導體' }
+                ];
+                
+                let html = '<div class="result-name">🇺🇸 美股指數</div><div class="result-id">綠漲紅跌</div><div class="result-details" style="grid-template-columns: 1fr; margin-top: 16px;">';
+                
+                for (const idx of indices) {
+                    try {
+                        const res = await fetch(`${API_BASE}/stock/${encodeURIComponent(idx.symbol)}`);
+                        if (res.ok) {
+                            const d = await res.json();
+                            const isUp = d.change >= 0;
+                            html += `<div class="result-detail" style="padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                <span style="font-weight: 500;">${idx.name}</span>
+                                <span style="color: ${isUp ? '#00C851' : '#ff4444'}; font-weight: 600;">${d.price?.toLocaleString()} ${isUp ? '▲' : '▼'}${d.changePercent}%</span>
+                            </div>`;
+                        }
+                    } catch (e) {
+                        html += `<div class="result-detail" style="padding: 12px 0;"><span>${idx.name}</span><span style="opacity: 0.5;">載入失敗</span></div>`;
+                    }
+                }
+                html += '</div>';
+                container.innerHTML = html;
+            } catch (e) {
+                container.innerHTML = '<div class="loading">❌ 查詢失敗</div>';
+            }
+        }
+        
+        // 台股大盤
+        async function showTWIndex() {
+            const container = document.getElementById('stockResult');
+            container.classList.remove('hidden');
+            container.innerHTML = '<div class="loading">查詢台股大盤...</div>';
+            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            try {
+                const res = await fetch(`${API_BASE}/stock/t00`);
+                if (!res.ok) throw new Error('查詢失敗');
+                
+                const s = await res.json();
+                const isUp = s.change >= 0;
+                
+                container.innerHTML = `
+                    <div class="result-header">
+                        <div>
+                            <div class="result-name">🇹🇼 加權指數</div>
+                            <div class="result-id">TAIEX (紅漲綠跌)</div>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="result-price">${Math.round(s.price).toLocaleString()}</span>
+                        <span class="result-change ${isUp ? 'up' : 'down'}">${isUp ? '▲' : '▼'} ${Math.round(s.change)} (${s.changePercent}%)</span>
+                    </div>
+                    <div class="result-details">
+                        <div class="result-detail"><span class="result-detail-label">開盤</span><span class="result-detail-value">${Math.round(s.open).toLocaleString()}</span></div>
+                        <div class="result-detail"><span class="result-detail-label">最高</span><span class="result-detail-value">${Math.round(s.high).toLocaleString()}</span></div>
+                        <div class="result-detail"><span class="result-detail-label">昨收</span><span class="result-detail-value">${Math.round(s.yesterday).toLocaleString()}</span></div>
+                        <div class="result-detail"><span class="result-detail-label">最低</span><span class="result-detail-value">${Math.round(s.low).toLocaleString()}</span></div>
+                    </div>
+                `;
+            } catch (e) {
+                container.innerHTML = '<div class="loading">❌ 查詢失敗</div>';
+            }
+        }
+        
+        // Enter 鍵搜尋
+        document.getElementById('stockCode').onkeypress = (e) => {
+            if (e.key === 'Enter') searchStock();
+        };
+        
+        // Toast
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+        
+        // PWA Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
     </script>
 </body>
 </html>
-
-

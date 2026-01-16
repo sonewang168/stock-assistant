@@ -369,8 +369,10 @@ body {
   margin-left: 10px;
 }
 
-.stock-change.up { color: var(--success); }
-.stock-change.down { color: var(--danger); }
+.stock-change.up { color: #ff4444; }   /* 台股漲=紅 */
+.stock-change.down { color: #00C851; } /* 台股跌=綠 */
+.stock-change.us-up { color: #00C851; }   /* 美股漲=綠 */
+.stock-change.us-down { color: #ff4444; } /* 美股跌=紅 */
 
 .stock-details {
   display: grid;
@@ -457,8 +459,10 @@ body {
   margin-top: 5px;
 }
 
-.stock-card-change.up { color: var(--success); }
-.stock-card-change.down { color: var(--danger); }
+.stock-card-change.up { color: #ff4444; }   /* 台股漲=紅 */
+.stock-card-change.down { color: #00C851; } /* 台股跌=綠 */
+.stock-card-change.us-up { color: #00C851; }   /* 美股漲=綠 */
+.stock-card-change.us-down { color: #ff4444; } /* 美股跌=紅 */
 
 /* Watchlist & Portfolio Items */
 .watchlist-items,
@@ -504,8 +508,10 @@ body {
   font-size: 14px;
 }
 
-.item-change.up { color: var(--success); }
-.item-change.down { color: var(--danger); }
+.item-change.up { color: #ff4444; }   /* 台股漲=紅 */
+.item-change.down { color: #00C851; } /* 台股跌=綠 */
+.item-change.us-up { color: #00C851; }   /* 美股漲=綠 */
+.item-change.us-down { color: #ff4444; } /* 美股跌=紅 */
 
 .item-actions {
   display: flex;
