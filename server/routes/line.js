@@ -165,16 +165,16 @@ async function handleCommand(message, userId) {
     return await getStockInfoFlex(msg.toUpperCase());
   }
   
-  // 指令列表
+  // 指令列表（長的關鍵字放前面，避免誤匹配）
   const commands = {
+    '熱門美股': () => getHotUSStocksFlex(),
+    '美股指數': () => getUSMarketReply(),
+    '熱門': () => getHotStocksFlex(),
+    '美股': () => getUSMarketReply(),
     '持股': () => getPortfolioFlex(),
     '監控': () => getWatchlistFlex(),
-    '熱門': () => getHotStocksFlex(),
     '大盤': () => getMarketReply(),
     '指數': () => getMarketReply(),
-    '美股': () => getUSMarketReply(),
-    '美股指數': () => getUSMarketReply(),
-    '熱門美股': () => getHotUSStocksFlex(),
     '說明': () => getHelpReply(),
     'help': () => getHelpReply()
   };
@@ -304,13 +304,19 @@ async function getStockInfoFlex(stockId) {
   const marketFlag = isUS ? '🇺🇸' : '🇹🇼';
   const colorHint = isUS ? '綠漲紅跌' : '紅漲綠跌';
   
+  // 格式化價格（美股保留2位小數）
+  const formatPrice = (p) => {
+    if (p === null || p === undefined) return 'N/A';
+    return isUS ? parseFloat(p).toFixed(2) : p;
+  };
+  
   // 基本資訊
   const bodyContents = [
     {
       type: 'box',
       layout: 'horizontal',
       contents: [
-        { type: 'text', text: `${isUS ? '$' : ''}${stockData.price}`, size: '3xl', weight: 'bold', color: color },
+        { type: 'text', text: `${isUS ? '$' : ''}${formatPrice(stockData.price)}`, size: '3xl', weight: 'bold', color: color },
         { type: 'text', text: `${arrow} ${stockData.changePercent}%`, size: 'xl', color: color, align: 'end', gravity: 'bottom' }
       ]
     },
@@ -321,9 +327,9 @@ async function getStockInfoFlex(stockId) {
       margin: 'lg',
       contents: [
         { type: 'text', text: '開盤', size: 'sm', color: '#888888', flex: 1 },
-        { type: 'text', text: `${stockData.open}`, size: 'sm', align: 'end', flex: 1 },
+        { type: 'text', text: `${formatPrice(stockData.open)}`, size: 'sm', align: 'end', flex: 1 },
         { type: 'text', text: '最高', size: 'sm', color: '#888888', flex: 1 },
-        { type: 'text', text: `${stockData.high}`, size: 'sm', align: 'end', flex: 1 }
+        { type: 'text', text: `${formatPrice(stockData.high)}`, size: 'sm', align: 'end', flex: 1 }
       ]
     },
     {
@@ -332,9 +338,9 @@ async function getStockInfoFlex(stockId) {
       margin: 'sm',
       contents: [
         { type: 'text', text: '昨收', size: 'sm', color: '#888888', flex: 1 },
-        { type: 'text', text: `${stockData.yesterday}`, size: 'sm', align: 'end', flex: 1 },
+        { type: 'text', text: `${formatPrice(stockData.yesterday)}`, size: 'sm', align: 'end', flex: 1 },
         { type: 'text', text: '最低', size: 'sm', color: '#888888', flex: 1 },
-        { type: 'text', text: `${stockData.low}`, size: 'sm', align: 'end', flex: 1 }
+        { type: 'text', text: `${formatPrice(stockData.low)}`, size: 'sm', align: 'end', flex: 1 }
       ]
     }
   ];
