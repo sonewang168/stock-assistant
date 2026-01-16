@@ -66,6 +66,254 @@ class Scheduler {
     console.log('   📋 收盤日報：13:35');
     console.log('   💰 籌碼更新：15:00');
     console.log('   🧹 資料清理：03:00');
+    console.log('   🇺🇸 美股開盤提示：21:30');
+    console.log('   🇺🇸 美股盤中監控：22:00-05:00 每 30 分鐘');
+
+    // 🇺🇸 美股開盤提示（週一到週五 21:30 台灣時間，對應美東 08:30 盤前）
+    const usMarketOpen = cron.schedule('30 21 * * 1-5', () => {
+      this.sendUSMarketOpenAlert();
+    }, {
+      timezone: 'Asia/Taipei'
+    });
+    this.jobs.push(usMarketOpen);
+
+    // 🇺🇸 美股盤中監控（週二到週六 22:00-05:00，每 30 分鐘）
+    // 注意：台灣週二凌晨 = 美國週一晚上
+    const usMarketCheck = cron.schedule('*/30 22-23,0-5 * * 2-6', () => {
+      this.checkUSStocks();
+    }, {
+      timezone: 'Asia/Taipei'
+    });
+    this.jobs.push(usMarketCheck);
+  }
+
+  /**
+   * 🇺🇸 發送美股開盤提示
+   */
+  async sendUSMarketOpenAlert() {
+    console.log('\n🇺🇸 美股即將開盤提示...');
+
+    try {
+      // 取得美股指數
+      const indices = await stockService.getUSIndices();
+      
+      if (!indices || indices.length === 0) {
+        console.log('   ⚠️ 無法取得美股指數');
+        return;
+      }
+
+      // 取得 LINE User ID
+      const result = await pool.query(
+        "SELECT value FROM settings WHERE key = 'line_user_id'"
+      );
+      const userId = result.rows[0]?.value || process.env.LINE_USER_ID;
+
+      if (!userId) {
+        console.log('   ⚠️ 未設定 LINE User ID');
+        return;
+      }
+
+      // 建立美股開盤提示 Flex Message
+      const indexRows = indices.map(idx => {
+        const isUp = idx.change >= 0;
+        const color = isUp ? '#00C851' : '#ff4444'; // 美股：綠漲紅跌
+        const arrow = isUp ? '▲' : '▼';
+        
+        return {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'text', text: idx.name, size: 'sm', flex: 3 },
+            { type: 'text', text: `${idx.price.toLocaleString()}`, size: 'sm', align: 'end', flex: 2 },
+            { type: 'text', text: `${arrow}${idx.changePercent}%`, size: 'sm', color: color, align: 'end', flex: 2 }
+          ],
+          margin: 'sm'
+        };
+      });
+
+      const flexMessage = {
+        type: 'flex',
+        altText: '🇺🇸 美股即將開盤',
+        contents: {
+          type: 'bubble',
+          size: 'mega',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              { type: 'text', text: '🇺🇸 美股即將開盤', size: 'xl', weight: 'bold', color: '#ffffff' },
+              { type: 'text', text: '22:30 正式開盤（冬令時間）', size: 'xs', color: '#ffffffaa', margin: 'sm' }
+            ],
+            backgroundColor: '#1a1a2e',
+            paddingAll: '20px'
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              { type: 'text', text: '📊 盤前指數（綠漲紅跌）', size: 'sm', color: '#888888', weight: 'bold' },
+              { type: 'separator', margin: 'md' },
+              ...indexRows,
+              { type: 'separator', margin: 'lg' },
+              { type: 'text', text: '💡 輸入美股代碼如 AAPL 查詢', size: 'xs', color: '#888888', margin: 'lg' }
+            ],
+            paddingAll: '20px'
+          },
+          footer: {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: `⏰ ${new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei' })}`, size: 'xs', color: '#888888' }
+            ],
+            paddingAll: '15px'
+          }
+        }
+      };
+
+      await lineService.sendFlexMessage(userId, flexMessage);
+      console.log('   ✅ 美股開盤提示已發送');
+
+    } catch (error) {
+      console.error('❌ 美股開盤提示錯誤:', error);
+    }
+  }
+
+  /**
+   * 🇺🇸 檢查美股（盤中監控）
+   */
+  async checkUSStocks() {
+    console.log(`\n🇺🇸 檢查美股 ${new Date().toLocaleString('zh-TW')}`);
+
+    try {
+      // 取得監控清單中的美股
+      const watchlist = await this.getWatchlist();
+      const usStocks = watchlist.filter(w => /^[A-Za-z]{1,5}$/.test(w.stock_id));
+      
+      if (usStocks.length === 0) {
+        console.log('   沒有監控美股');
+        return;
+      }
+
+      console.log(`   監控 ${usStocks.length} 檔美股`);
+
+      const settings = await this.getSettings();
+      const threshold = parseFloat(settings.us_price_threshold) || parseFloat(settings.price_threshold) || 3;
+      const alerts = [];
+
+      for (const stock of usStocks) {
+        const stockData = await stockService.getUSStockPrice(stock.stock_id);
+        
+        if (!stockData) continue;
+
+        // 儲存價格歷史
+        await stockService.savePriceHistory(stockData);
+
+        const customThreshold = stock.custom_threshold 
+          ? parseFloat(stock.custom_threshold) 
+          : threshold;
+
+        const absChange = Math.abs(parseFloat(stockData.changePercent));
+
+        // 檢查漲跌幅
+        if (absChange >= customThreshold) {
+          alerts.push({
+            type: 'US_PRICE_CHANGE',
+            stock: stockData,
+            message: `${stockData.changePercent > 0 ? '🚀 大漲' : '📉 大跌'} ${absChange}%`
+          });
+        }
+
+        await this.sleep(500);
+      }
+
+      // 發送警報
+      if (alerts.length > 0) {
+        console.log(`   🚨 ${alerts.length} 個美股警報`);
+        await this.sendUSAlerts(alerts);
+      } else {
+        console.log('   ✅ 沒有美股警報');
+      }
+
+    } catch (error) {
+      console.error('❌ 檢查美股錯誤:', error);
+    }
+  }
+
+  /**
+   * 🇺🇸 發送美股警報
+   */
+  async sendUSAlerts(alerts) {
+    const result = await pool.query(
+      "SELECT value FROM settings WHERE key = 'line_user_id'"
+    );
+    const userId = result.rows[0]?.value || process.env.LINE_USER_ID;
+
+    if (!userId) {
+      console.log('⚠️ 未設定 LINE User ID，無法推播');
+      return;
+    }
+
+    for (const alert of alerts) {
+      const stock = alert.stock;
+      const isUp = stock.change >= 0;
+      // 美股：綠漲紅跌
+      const color = isUp ? '#00C851' : '#ff4444';
+      const arrow = isUp ? '▲' : '▼';
+
+      const flexMessage = {
+        type: 'flex',
+        altText: `🇺🇸 ${stock.name} ${alert.message}`,
+        contents: {
+          type: 'bubble',
+          size: 'mega',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'box',
+                layout: 'horizontal',
+                contents: [
+                  { type: 'text', text: `🇺🇸 ${stock.name}`, color: '#ffffff', size: 'xl', weight: 'bold', flex: 1 },
+                  { type: 'text', text: stock.id, color: '#ffffffaa', size: 'sm', align: 'end' }
+                ]
+              },
+              { type: 'text', text: alert.message, color: '#ffffff', size: 'sm', margin: 'md' }
+            ],
+            backgroundColor: color,
+            paddingAll: '20px'
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'box',
+                layout: 'horizontal',
+                contents: [
+                  { type: 'text', text: `$${stock.price.toFixed(2)}`, size: 'xxl', weight: 'bold', color: color },
+                  { type: 'text', text: `${arrow} ${stock.changePercent}%`, size: 'lg', color: color, align: 'end', gravity: 'bottom' }
+                ]
+              },
+              { type: 'separator', margin: 'lg' },
+              { type: 'text', text: '💡 美股綠漲紅跌', size: 'xs', color: '#888888', margin: 'lg' }
+            ],
+            paddingAll: '20px'
+          },
+          footer: {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: `⏰ ${new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei' })}`, size: 'xs', color: '#888888' }
+            ],
+            paddingAll: '15px'
+          }
+        }
+      };
+
+      await lineService.sendFlexMessage(userId, flexMessage);
+      await this.sleep(1000);
+    }
   }
 
   /**
