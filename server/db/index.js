@@ -59,6 +59,27 @@ CREATE TABLE IF NOT EXISTS portfolio (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 競標持股（新版）
+CREATE TABLE IF NOT EXISTS holdings (
+  id SERIAL PRIMARY KEY,
+  user_id VARCHAR(100) DEFAULT 'default',
+  stock_id VARCHAR(10) NOT NULL,
+  stock_name VARCHAR(50),
+  lots INTEGER DEFAULT 0,
+  odd_shares INTEGER DEFAULT 0,
+  shares INTEGER DEFAULT 0,
+  bid_price DECIMAL(10,2),
+  won_price DECIMAL(10,2),
+  is_won BOOLEAN DEFAULT false,
+  target_price_high DECIMAL(10,2),
+  target_price_low DECIMAL(10,2),
+  notify_enabled BOOLEAN DEFAULT true,
+  notes TEXT,
+  bid_date DATE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- 到價提醒
 CREATE TABLE IF NOT EXISTS price_alerts (
   id SERIAL PRIMARY KEY,
@@ -122,6 +143,60 @@ CREATE INDEX IF NOT EXISTS idx_price_history_stock_date ON price_history(stock_i
 CREATE INDEX IF NOT EXISTS idx_chip_data_stock_date ON chip_data(stock_id, date DESC);
 CREATE INDEX IF NOT EXISTS idx_watchlist_user ON watchlist(user_id);
 CREATE INDEX IF NOT EXISTS idx_portfolio_user ON portfolio(user_id);
+
+-- ==================== v4.0 新增資料表 ====================
+
+-- 智能通知設定
+CREATE TABLE IF NOT EXISTS smart_alerts (
+  id SERIAL PRIMARY KEY,
+  user_id VARCHAR(100) DEFAULT 'default',
+  stock_id VARCHAR(10) NOT NULL,
+  alert_type VARCHAR(50) NOT NULL,
+  condition_operator VARCHAR(10),
+  condition_value DECIMAL(10,2),
+  is_active BOOLEAN DEFAULT true,
+  last_triggered TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 三大法人每日籌碼
+CREATE TABLE IF NOT EXISTS institutional_trading (
+  id SERIAL PRIMARY KEY,
+  stock_id VARCHAR(10) NOT NULL,
+  trade_date DATE NOT NULL,
+  foreign_buy BIGINT DEFAULT 0,
+  foreign_sell BIGINT DEFAULT 0,
+  foreign_net BIGINT DEFAULT 0,
+  trust_buy BIGINT DEFAULT 0,
+  trust_sell BIGINT DEFAULT 0,
+  trust_net BIGINT DEFAULT 0,
+  dealer_buy BIGINT DEFAULT 0,
+  dealer_sell BIGINT DEFAULT 0,
+  dealer_net BIGINT DEFAULT 0,
+  total_net BIGINT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(stock_id, trade_date)
+);
+
+-- 績效快照
+CREATE TABLE IF NOT EXISTS performance_snapshots (
+  id SERIAL PRIMARY KEY,
+  user_id VARCHAR(100) DEFAULT 'default',
+  snapshot_date DATE NOT NULL,
+  total_cost DECIMAL(15,2),
+  total_value DECIMAL(15,2),
+  total_profit DECIMAL(15,2),
+  profit_percent DECIMAL(8,4),
+  holdings_count INTEGER,
+  snapshot_data JSONB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, snapshot_date)
+);
+
+-- 建立新索引
+CREATE INDEX IF NOT EXISTS idx_smart_alerts_user ON smart_alerts(user_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_institutional_stock ON institutional_trading(stock_id, trade_date DESC);
+CREATE INDEX IF NOT EXISTS idx_performance_user ON performance_snapshots(user_id, snapshot_date DESC);
 `;
 
 // 初始化資料庫

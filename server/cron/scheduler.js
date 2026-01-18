@@ -8,6 +8,9 @@ const stockService = require('../services/stockService');
 const technicalService = require('../services/technicalService');
 const aiService = require('../services/aiService');
 const lineService = require('../services/lineService');
+const chipService = require('../services/chipService');
+const smartAlertService = require('../services/smartAlertService');
+const performanceService = require('../services/performanceService');
 
 class Scheduler {
 
@@ -37,16 +40,46 @@ class Scheduler {
     });
     this.jobs.push(marketCheck);
 
-    // 收盤日報（週一到週五 13:35）
-    const dailyReport = cron.schedule('35 13 * * 1-5', () => {
+    // 🔔 智能通知檢查（週一到週五 09:30-13:30，每 15 分鐘）
+    const smartAlertCheck = cron.schedule('*/15 9-13 * * 1-5', () => {
+      const now = new Date();
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      if (hour === 9 && minute < 30) return;
+      if (hour === 13 && minute > 30) return;
+      
+      this.checkSmartAlerts();
+    }, {
+      timezone: 'Asia/Taipei'
+    });
+    this.jobs.push(smartAlertCheck);
+
+    // 📊 每日績效報告（週一到週五 13:35）
+    const dailyPerformance = cron.schedule('35 13 * * 1-5', () => {
+      this.sendPerformanceReport();
+    }, {
+      timezone: 'Asia/Taipei'
+    });
+    this.jobs.push(dailyPerformance);
+
+    // 收盤日報（週一到週五 13:40）
+    const dailyReport = cron.schedule('40 13 * * 1-5', () => {
       this.sendDailyReport();
     }, {
       timezone: 'Asia/Taipei'
     });
     this.jobs.push(dailyReport);
 
-    // 籌碼更新（週一到週五 15:00）
-    const chipUpdate = cron.schedule('0 15 * * 1-5', () => {
+    // 🏦 三大法人更新（週一到週五 15:30）- TWSE 資料約 15:00 後更新
+    const institutionalUpdate = cron.schedule('30 15 * * 1-5', () => {
+      this.updateInstitutionalData();
+    }, {
+      timezone: 'Asia/Taipei'
+    });
+    this.jobs.push(institutionalUpdate);
+
+    // 籌碼更新（週一到週五 16:00）
+    const chipUpdate = cron.schedule('0 16 * * 1-5', () => {
       this.updateChipData();
     }, {
       timezone: 'Asia/Taipei'
@@ -61,15 +94,7 @@ class Scheduler {
     });
     this.jobs.push(cleanup);
 
-    console.log('✅ 排程任務已啟動：');
-    console.log('   📊 盤中監控：09:00-13:30 每 5 分鐘');
-    console.log('   📋 收盤日報：13:35');
-    console.log('   💰 籌碼更新：15:00');
-    console.log('   🧹 資料清理：03:00');
-    console.log('   🇺🇸 美股開盤提示：21:30');
-    console.log('   🇺🇸 美股盤中監控：22:00-05:00 每 30 分鐘');
-
-    // 🇺🇸 美股開盤提示（週一到週五 21:30 台灣時間，對應美東 08:30 盤前）
+    // 🇺🇸 美股開盤提示（週一到週五 21:30 台灣時間）
     const usMarketOpen = cron.schedule('30 21 * * 1-5', () => {
       this.sendUSMarketOpenAlert();
     }, {
@@ -78,13 +103,112 @@ class Scheduler {
     this.jobs.push(usMarketOpen);
 
     // 🇺🇸 美股盤中監控（週二到週六 22:00-05:00，每 30 分鐘）
-    // 注意：台灣週二凌晨 = 美國週一晚上
     const usMarketCheck = cron.schedule('*/30 22-23,0-5 * * 2-6', () => {
       this.checkUSStocks();
     }, {
       timezone: 'Asia/Taipei'
     });
     this.jobs.push(usMarketCheck);
+
+    console.log('✅ 排程任務已啟動：');
+    console.log('   📊 盤中監控：09:00-13:30 每 5 分鐘');
+    console.log('   🔔 智能通知：09:30-13:30 每 15 分鐘');
+    console.log('   📈 績效報告：13:35');
+    console.log('   📋 收盤日報：13:40');
+    console.log('   🏦 三大法人：15:30');
+    console.log('   💰 籌碼更新：16:00');
+    console.log('   🧹 資料清理：03:00');
+    console.log('   🇺🇸 美股開盤：21:30');
+    console.log('   🇺🇸 美股監控：22:00-05:00');
+  }
+
+  /**
+   * 🔔 檢查智能通知
+   */
+  async checkSmartAlerts() {
+    console.log(`\n🔔 檢查智能通知 ${new Date().toLocaleString('zh-TW')}`);
+    try {
+      await smartAlertService.checkAllAlerts();
+    } catch (error) {
+      console.error('❌ 智能通知檢查錯誤:', error.message);
+    }
+  }
+
+  /**
+   * 📈 發送績效報告
+   */
+  async sendPerformanceReport() {
+    console.log(`\n📈 發送績效報告 ${new Date().toLocaleString('zh-TW')}`);
+    try {
+      await performanceService.sendDailyReport('default');
+    } catch (error) {
+      console.error('❌ 績效報告錯誤:', error.message);
+    }
+  }
+
+  /**
+   * 🏦 更新三大法人資料
+   */
+  async updateInstitutionalData() {
+    console.log(`\n🏦 更新三大法人資料 ${new Date().toLocaleString('zh-TW')}`);
+    try {
+      const results = await chipService.updateWatchlistInstitutional();
+      console.log(`   ✅ 更新 ${results.length} 檔股票的三大法人資料`);
+      
+      // 發送三大法人異動通知（外資/投信大買或大賣）
+      await this.sendInstitutionalAlerts(results);
+    } catch (error) {
+      console.error('❌ 三大法人更新錯誤:', error.message);
+    }
+  }
+
+  /**
+   * 發送三大法人異動通知
+   */
+  async sendInstitutionalAlerts(dataList) {
+    if (!dataList || dataList.length === 0) return;
+
+    const alerts = [];
+    
+    for (const data of dataList) {
+      // 外資單日買超 5000 張以上
+      if (data.foreign.net >= 5000000) {
+        alerts.push({
+          stockId: data.stockId,
+          stockName: data.stockName,
+          type: 'foreign_buy',
+          message: `🏦 外資大買 ${Math.round(data.foreign.net / 1000)} 張`
+        });
+      }
+      // 外資單日賣超 5000 張以上
+      if (data.foreign.net <= -5000000) {
+        alerts.push({
+          stockId: data.stockId,
+          stockName: data.stockName,
+          type: 'foreign_sell',
+          message: `🏦 外資大賣 ${Math.round(Math.abs(data.foreign.net) / 1000)} 張`
+        });
+      }
+      // 投信單日買超 1000 張以上
+      if (data.trust.net >= 1000000) {
+        alerts.push({
+          stockId: data.stockId,
+          stockName: data.stockName,
+          type: 'trust_buy',
+          message: `🏛️ 投信大買 ${Math.round(data.trust.net / 1000)} 張`
+        });
+      }
+    }
+
+    if (alerts.length > 0) {
+      // 建立通知訊息
+      const message = `🏦 三大法人異動通知\n` +
+        `━━━━━━━━━━━━\n` +
+        alerts.map(a => `${a.stockName}(${a.stockId})\n${a.message}`).join('\n\n');
+      
+      await lineService.broadcastMessage({ type: 'text', text: message });
+      console.log(`   📤 發送 ${alerts.length} 個三大法人異動通知`);
+    }
   }
 
   /**

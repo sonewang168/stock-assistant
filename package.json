@@ -1,6 +1,6 @@
 {
   "name": "stock-assistant",
-  "version": "1.0.0",
+  "version": "4.0.0",
   "description": "股海秘書 LINE 秘書 - 全端應用",
   "main": "server/index.js",
   "scripts": {

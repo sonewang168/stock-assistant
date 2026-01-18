@@ -17,8 +17,13 @@ const { pool, initDatabase, seedStocks, seedSettings } = require('./db');
 const stockRoutes = require('./routes/stock');
 const watchlistRoutes = require('./routes/watchlist');
 const portfolioRoutes = require('./routes/portfolio');
+const holdingsRoutes = require('./routes/holdings');
 const alertRoutes = require('./routes/alert');
 const lineRoutes = require('./routes/line');
+const aiRoutes = require('./routes/ai');
+const chipRoutes = require('./routes/chip');
+const performanceRoutes = require('./routes/performance');
+const smartAlertsRoutes = require('./routes/smartAlerts');
 
 const settingsRoutes = require('./routes/settings');
 const voiceRoutes = require('./routes/voice');
@@ -58,11 +63,16 @@ app.use(express.static(path.join(__dirname, '../client')));
 app.use('/api/stock', stockRoutes);
 app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/portfolio', portfolioRoutes);
+app.use('/api/holdings', holdingsRoutes);
 app.use('/api/alert', alertRoutes);
 app.use('/api/line', lineRoutes);
 
 app.use('/api/settings', settingsRoutes);
 app.use('/api/voice', voiceRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/chip', chipRoutes);
+app.use('/api/performance', performanceRoutes);
+app.use('/api/smart-alerts', smartAlertsRoutes);
 
 // LINE Webhook（需要原始 body）
 app.use('/webhook', express.raw({ type: 'application/json' }), lineRoutes);
