@@ -13,46 +13,123 @@
     .header h1 { font-size: 1.4rem; color: #f85149; }
     .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
     .btn { padding: 8px 16px; border-radius: 6px; border: none; background: #21262d; color: #c9d1d9; cursor: pointer; }
-    .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+    .btn:hover { background: #30363d; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
     .tab { padding: 10px 20px; border-radius: 8px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; cursor: pointer; }
     .tab.active { background: #f85149; border-color: #f85149; color: white; }
     .stock-list { display: flex; flex-direction: column; gap: 8px; }
-    .stock-item { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 14px 20px; display: grid; grid-template-columns: 40px 1fr auto auto; gap: 16px; align-items: center; cursor: pointer; }
-    .stock-item:hover { border-color: #58a6ff; }
+    .stock-item { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 14px 20px; display: grid; grid-template-columns: 40px 1fr auto auto; gap: 16px; align-items: center; cursor: pointer; transition: all 0.2s; }
+    .stock-item:hover { border-color: #58a6ff; transform: translateX(4px); }
     .stock-item .rank { font-size: 1.2rem; font-weight: 700; color: #d29922; }
+    .stock-item .rank.gold { color: #ffd700; }
+    .stock-item .rank.silver { color: #c0c0c0; }
+    .stock-item .rank.bronze { color: #cd7f32; }
     .stock-item .info .name { font-weight: 600; color: #c9d1d9; }
     .stock-item .info .code { font-size: 0.8rem; color: #8b949e; }
     .stock-item .price { font-size: 1.1rem; font-weight: 600; text-align: right; }
-    .stock-item .change { font-weight: 600; }
+    .stock-item .change { font-weight: 600; min-width: 80px; text-align: right; }
     .stock-item .change.up { color: #f85149; }
     .stock-item .change.down { color: #3fb950; }
+    .loading { text-align: center; padding: 40px; color: #8b949e; }
+    .spinner { width: 30px; height: 30px; border: 3px solid #30363d; border-top-color: #f85149; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
   <div class="container">
     <header class="header">
       <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🔥 熱門股票</h1></div>
-      <button class="btn" onclick="refresh()">🔄 更新</button>
+      <button class="btn" onclick="loadData()">🔄 更新</button>
     </header>
     <div class="tabs">
-      <div class="tab active">成交量</div>
-      <div class="tab">漲幅</div>
-      <div class="tab">跌幅</div>
-      <div class="tab">振幅</div>
+      <div class="tab active" data-type="volume">成交量</div>
+      <div class="tab" data-type="up">漲幅榜</div>
+      <div class="tab" data-type="down">跌幅榜</div>
     </div>
-    <div class="stock-list">
-      <div class="stock-item" onclick="location.href='wave.html?stock=2330'"><div class="rank">1</div><div class="info"><div class="name">台積電</div><div class="code">2330</div></div><div class="price">$695.00</div><div class="change up">▲ +1.52%</div></div>
-      <div class="stock-item" onclick="location.href='wave.html?stock=2317'"><div class="rank">2</div><div class="info"><div class="name">鴻海</div><div class="code">2317</div></div><div class="price">$178.50</div><div class="change up">▲ +2.31%</div></div>
-      <div class="stock-item" onclick="location.href='wave.html?stock=2454'"><div class="rank">3</div><div class="info"><div class="name">聯發科</div><div class="code">2454</div></div><div class="price">$1,285.00</div><div class="change down">▼ -0.85%</div></div>
-      <div class="stock-item" onclick="location.href='wave.html?stock=2603'"><div class="rank">4</div><div class="info"><div class="name">長榮</div><div class="code">2603</div></div><div class="price">$185.00</div><div class="change up">▲ +3.25%</div></div>
-      <div class="stock-item" onclick="location.href='wave.html?stock=2881'"><div class="rank">5</div><div class="info"><div class="name">富邦金</div><div class="code">2881</div></div><div class="price">$68.20</div><div class="change up">▲ +0.88%</div></div>
-      <div class="stock-item" onclick="location.href='wave.html?stock=2303'"><div class="rank">6</div><div class="info"><div class="name">聯電</div><div class="code">2303</div></div><div class="price">$52.80</div><div class="change down">▼ -1.12%</div></div>
-      <div class="stock-item" onclick="location.href='wave.html?stock=2882'"><div class="rank">7</div><div class="info"><div class="name">國泰金</div><div class="code">2882</div></div><div class="price">$53.10</div><div class="change up">▲ +0.57%</div></div>
-      <div class="stock-item" onclick="location.href='wave.html?stock=2412'"><div class="rank">8</div><div class="info"><div class="name">中華電</div><div class="code">2412</div></div><div class="price">$132.50</div><div class="change up">▲ +0.38%</div></div>
-      <div class="stock-item" onclick="location.href='wave.html?stock=2891'"><div class="rank">9</div><div class="info"><div class="name">中信金</div><div class="code">2891</div></div><div class="price">$32.15</div><div class="change up">▲ +0.94%</div></div>
-      <div class="stock-item" onclick="location.href='wave.html?stock=3711'"><div class="rank">10</div><div class="info"><div class="name">日月光投控</div><div class="code">3711</div></div><div class="price">$158.00</div><div class="change up">▲ +1.28%</div></div>
+    <div id="stockList" class="stock-list">
+      <div class="loading"><div class="spinner"></div><p>載入中...</p></div>
     </div>
   </div>
-  <script>function refresh() { location.reload(); }</script>
+  <script>
+    const hotStocks = [
+      { id: '2330', name: '台積電' },
+      { id: '2317', name: '鴻海' },
+      { id: '2454', name: '聯發科' },
+      { id: '2603', name: '長榮' },
+      { id: '2881', name: '富邦金' },
+      { id: '2303', name: '聯電' },
+      { id: '2882', name: '國泰金' },
+      { id: '2412', name: '中華電' },
+      { id: '2891', name: '中信金' },
+      { id: '3711', name: '日月光投控' }
+    ];
+    
+    let currentType = 'volume';
+    let stockData = [];
+    
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentType = tab.dataset.type;
+        renderList();
+      });
+    });
+    
+    async function loadData() {
+      document.getElementById('stockList').innerHTML = '<div class="loading"><div class="spinner"></div><p>載入中...</p></div>';
+      stockData = [];
+      
+      for (const stock of hotStocks) {
+        try {
+          const res = await fetch(`/api/line/wave/analyze/${stock.id}`);
+          const data = await res.json();
+          if (!data.error) {
+            stockData.push({
+              id: stock.id,
+              name: data.stockName || stock.name,
+              price: data.currentPrice,
+              change: data.changePercent,
+              volume: data.history?.[data.history.length - 1]?.volume || 0
+            });
+          }
+        } catch (e) {
+          console.log(`載入 ${stock.id} 失敗`);
+        }
+      }
+      renderList();
+    }
+    
+    function renderList() {
+      let sorted = [...stockData];
+      if (currentType === 'volume') {
+        sorted.sort((a, b) => b.volume - a.volume);
+      } else if (currentType === 'up') {
+        sorted.sort((a, b) => b.change - a.change);
+      } else {
+        sorted.sort((a, b) => a.change - b.change);
+      }
+      
+      if (sorted.length === 0) {
+        document.getElementById('stockList').innerHTML = '<div class="loading">暫無資料</div>';
+        return;
+      }
+      
+      document.getElementById('stockList').innerHTML = sorted.map((s, i) => {
+        const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+        const isUp = s.change >= 0;
+        return `
+          <div class="stock-item" onclick="location.href='wave.html?stock=${s.id}'">
+            <div class="rank ${rankClass}">${i + 1}</div>
+            <div class="info"><div class="name">${s.name}</div><div class="code">${s.id}</div></div>
+            <div class="price" style="color:${isUp ? '#f85149' : '#3fb950'};">$${s.price?.toFixed(2) || '--'}</div>
+            <div class="change ${isUp ? 'up' : 'down'}">${isUp ? '▲' : '▼'} ${Math.abs(s.change).toFixed(2)}%</div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    loadData();
+  </script>
 </body>
 </html>

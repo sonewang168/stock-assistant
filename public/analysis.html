@@ -246,7 +246,7 @@
         <div class="feature-name">AI 專家建議</div>
         <span class="feature-badge ai">3 AI</span>
       </a>
-      <a href="ai-ai-pattern.html" class="feature-card">
+      <a href="ai-pattern.html" class="feature-card">
         <div class="feature-icon">👁️</div>
         <div class="feature-name">AI K線型態</div>
         <span class="feature-badge ai">AI</span>
@@ -441,20 +441,16 @@
       const urls = {
         'wave': `wave.html?stock=${param || '2330'}`,
         'holdings': 'holdings.html',
-        'hotstock': '#',
-        'ranking': '#',
+        'hotstock': 'hot.html',
+        'ranking': 'rank.html',
         'ai-analysis': 'ai-expert.html'
       };
-      if (urls[page] === '#') {
-        alert('功能開發中，敬請期待！');
-      } else {
-        window.location.href = urls[page];
-      }
+      window.location.href = urls[page];
     }
     
     // 匯出 CSV
     function exportCSV() {
-      alert('CSV 匯出功能開發中');
+      window.location.href = 'overview.html?stock=' + (document.getElementById('stockInput').value.trim() || '2330');
     }
     
     // 載入大盤資訊
