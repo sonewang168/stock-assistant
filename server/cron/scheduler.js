@@ -222,7 +222,7 @@ class Scheduler {
         FROM watchlist w
         LEFT JOIN stocks s ON w.stock_id = s.id
         WHERE w.user_id = 'default' AND w.is_active = true
-        LIMIT 10
+        LIMIT 20
       `);
 
       // 建立訊息內容

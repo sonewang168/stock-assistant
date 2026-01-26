@@ -8437,7 +8437,7 @@ async function getWatchlistFlex() {
     LEFT JOIN stocks s ON w.stock_id = s.id
     WHERE w.user_id = 'default' AND w.is_active = true
     ORDER BY w.created_at DESC
-    LIMIT 10
+    LIMIT 20
   `;
   
   // 取得持股清單（用於標記）
@@ -8668,6 +8668,20 @@ async function getHotStocksFlex() {
  */
 async function addToWatchlist(stockId) {
   try {
+    // 檢查監控數量是否已達上限（20支）
+    const countResult = await pool.query(`
+      SELECT COUNT(*) as count FROM watchlist 
+      WHERE user_id = 'default' AND is_active = true
+    `);
+    const currentCount = parseInt(countResult.rows[0].count) || 0;
+    
+    if (currentCount >= 20) {
+      return { 
+        type: 'text', 
+        text: `⚠️ 監控清單已滿（${currentCount}/20 支）\n\n請先移除部分股票後再新增\n輸入「-股票代碼」移除監控` 
+      };
+    }
+    
     // 先確認股票存在
     const stockData = await stockService.getRealtimePrice(stockId);
     
@@ -8691,9 +8705,16 @@ async function addToWatchlist(stockId) {
     
     await pool.query(sql, [stockId, stockData.name]);
     
+    // 取得目前監控數量
+    const newCountResult = await pool.query(`
+      SELECT COUNT(*) as count FROM watchlist 
+      WHERE user_id = 'default' AND is_active = true
+    `);
+    const newCount = parseInt(newCountResult.rows[0].count) || 0;
+    
     return { 
       type: 'text', 
-      text: `✅ 已加入監控：${stockData.name}（${stockId}）\n\n輸入「監控」查看清單` 
+      text: `✅ 已加入監控：${stockData.name}（${stockId}）\n📊 目前監控 ${newCount}/20 支\n\n輸入「監控」查看清單` 
     };
     
   } catch (error) {
