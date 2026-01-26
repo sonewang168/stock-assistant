@@ -1,34 +1,252 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🛡️ 停損停利 - 股海秘書</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
-    *{margin:0;padding:0;box-sizing:border-box;font-family:'Noto Sans TC',sans-serif}body{background:#0d1117;min-height:100vh;color:#e6edf3}.container{max-width:1000px;margin:0 auto;padding:20px}.header{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;background:#161b22;border-radius:12px;margin-bottom:20px;border:1px solid #30363d}.header h1{font-size:1.4rem;color:#58a6ff}.back-link{color:#58a6ff;text-decoration:none;font-size:0.9rem}.btn{padding:10px 20px;border-radius:8px;border:none;font-weight:600;cursor:pointer;background:#238636;color:white}.stock-list{display:flex;flex-direction:column;gap:16px}.stock-card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px}.stock-card .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.stock-card .name{font-size:1.1rem;font-weight:600;color:#c9d1d9}.stock-card .price{color:#58a6ff;font-weight:600}.levels{display:flex;gap:24px;flex-wrap:wrap}.level{flex:1;min-width:200px;background:#0d1117;border-radius:8px;padding:16px}.level .label{color:#8b949e;font-size:0.85rem;margin-bottom:8px}.level .value{font-size:1.3rem;font-weight:700}.level .value.profit{color:#f85149}.level .value.loss{color:#3fb950}.level input{width:100%;padding:8px;border-radius:6px;border:1px solid #30363d;background:#161b22;color:#e6edf3;margin-top:8px}
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; flex-wrap: wrap; gap: 12px; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #238636; color: white; }
+    .btn:hover { background: #2ea043; }
+    .btn-danger { background: #da3633; }
+    .btn-small { padding: 6px 12px; font-size: 0.85rem; }
+    
+    .add-form { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .add-form h3 { color: #58a6ff; margin-bottom: 16px; font-size: 1rem; }
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .form-row input { padding: 10px 14px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; width: 100px; }
+    .form-row label { color: #8b949e; font-size: 0.9rem; }
+    
+    .stock-list { display: flex; flex-direction: column; gap: 16px; }
+    .stock-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; }
+    .stock-card.warning { border-color: #d29922; }
+    .stock-card.danger { border-color: #f85149; }
+    .stock-card .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+    .stock-card .name { font-size: 1.1rem; font-weight: 600; color: #c9d1d9; }
+    .stock-card .name a { color: #58a6ff; text-decoration: none; }
+    .stock-card .price-info { color: #8b949e; font-size: 0.9rem; }
+    .stock-card .price-info .current { color: #58a6ff; font-weight: 600; }
+    .stock-card .price-info .profit { color: #f85149; }
+    .stock-card .price-info .loss { color: #3fb950; }
+    
+    .levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+    .level { background: #0d1117; border-radius: 8px; padding: 16px; }
+    .level .label { color: #8b949e; font-size: 0.85rem; margin-bottom: 8px; }
+    .level .value { font-size: 1.3rem; font-weight: 700; }
+    .level .value.profit { color: #f85149; }
+    .level .value.loss { color: #3fb950; }
+    .level .value.neutral { color: #d29922; }
+    .level .percent { font-size: 0.9rem; margin-top: 4px; }
+    
+    .progress-bar { height: 8px; background: #21262d; border-radius: 4px; margin-top: 12px; overflow: hidden; position: relative; }
+    .progress-fill { height: 100%; border-radius: 4px; position: absolute; }
+    .progress-fill.profit { background: linear-gradient(90deg, #238636, #3fb950); }
+    .progress-fill.loss { background: linear-gradient(90deg, #da3633, #f85149); }
+    .progress-marker { position: absolute; width: 3px; height: 100%; background: #58a6ff; }
+    
+    .empty-state { text-align: center; padding: 60px 20px; color: #8b949e; }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 16px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <header class="header"><div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🛡️ 停損停利設定</h1></div><button class="btn">💾 儲存全部</button></header>
-    <div class="stock-list">
-      <div class="stock-card">
-        <div class="header"><span class="name">2330 台積電</span><span class="price">現價 $695 | 成本 $650</span></div>
-        <div class="levels">
-          <div class="level"><div class="label">🎯 停利價</div><div class="value profit">$750</div><input type="number" placeholder="設定停利價"></div>
-          <div class="level"><div class="label">🛡️ 停損價</div><div class="value loss">$600</div><input type="number" placeholder="設定停損價"></div>
-          <div class="level"><div class="label">📊 距離停利</div><div class="value" style="color:#d29922;">+7.9%</div></div>
-          <div class="level"><div class="label">📊 距離停損</div><div class="value" style="color:#c9d1d9;">-13.7%</div></div>
-        </div>
-      </div>
-      <div class="stock-card">
-        <div class="header"><span class="name">2454 聯發科</span><span class="price">現價 $1280 | 成本 $1100</span></div>
-        <div class="levels">
-          <div class="level"><div class="label">🎯 停利價</div><div class="value profit">$1500</div><input type="number" placeholder="設定停利價"></div>
-          <div class="level"><div class="label">🛡️ 停損價</div><div class="value loss">$1000</div><input type="number" placeholder="設定停損價"></div>
-        </div>
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🛡️ 停損停利設定</h1></div>
+      <button class="btn" onclick="checkAllPrices()">🔄 更新報價</button>
+    </header>
+    
+    <div class="add-form">
+      <h3>➕ 新增持股停損停利</h3>
+      <div class="form-row">
+        <input type="text" id="inputStock" placeholder="股票代碼">
+        <label>成本</label>
+        <input type="number" id="inputCost" placeholder="成本價">
+        <label>停利</label>
+        <input type="number" id="inputProfit" placeholder="停利價">
+        <label>停損</label>
+        <input type="number" id="inputLoss" placeholder="停損價">
+        <button class="btn" onclick="addStock()">➕ 新增</button>
       </div>
     </div>
+    
+    <div id="stockList" class="stock-list"></div>
   </div>
+  
+  <script>
+    function getStocks() {
+      const data = localStorage.getItem('stoploss_stocks');
+      return data ? JSON.parse(data) : [];
+    }
+    
+    function saveStocks(stocks) {
+      localStorage.setItem('stoploss_stocks', JSON.stringify(stocks));
+    }
+    
+    async function addStock() {
+      const stockId = document.getElementById('inputStock').value.trim();
+      const cost = parseFloat(document.getElementById('inputCost').value);
+      const profitPrice = parseFloat(document.getElementById('inputProfit').value);
+      const lossPrice = parseFloat(document.getElementById('inputLoss').value);
+      
+      if (!stockId) return alert('請輸入股票代碼');
+      if (isNaN(cost)) return alert('請輸入成本價');
+      
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        
+        const stocks = getStocks();
+        
+        // 檢查是否已存在
+        const existing = stocks.find(s => s.stockId === stockId);
+        if (existing) {
+          existing.cost = cost;
+          existing.profitPrice = profitPrice || existing.profitPrice;
+          existing.lossPrice = lossPrice || existing.lossPrice;
+        } else {
+          stocks.push({
+            id: Date.now(),
+            stockId,
+            stockName: data.stockName,
+            cost,
+            profitPrice: profitPrice || cost * 1.1,  // 預設 +10%
+            lossPrice: lossPrice || cost * 0.9,     // 預設 -10%
+            currentPrice: data.currentPrice
+          });
+        }
+        
+        saveStocks(stocks);
+        renderStocks();
+        
+        // 清空輸入
+        document.getElementById('inputStock').value = '';
+        document.getElementById('inputCost').value = '';
+        document.getElementById('inputProfit').value = '';
+        document.getElementById('inputLoss').value = '';
+        
+      } catch (e) {
+        alert('新增失敗: ' + e.message);
+      }
+    }
+    
+    function deleteStock(id) {
+      if (!confirm('確定刪除？')) return;
+      const stocks = getStocks().filter(s => s.id !== id);
+      saveStocks(stocks);
+      renderStocks();
+    }
+    
+    async function checkAllPrices() {
+      const stocks = getStocks();
+      if (stocks.length === 0) return;
+      
+      for (const stock of stocks) {
+        try {
+          const res = await fetch(`/api/line/wave/analyze/${stock.stockId}`);
+          const data = await res.json();
+          if (!data.error) {
+            stock.currentPrice = data.currentPrice;
+          }
+        } catch (e) {}
+      }
+      
+      saveStocks(stocks);
+      renderStocks();
+    }
+    
+    function renderStocks() {
+      const stocks = getStocks();
+      const container = document.getElementById('stockList');
+      
+      if (stocks.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">🛡️</div>
+            <div>尚未設定任何停損停利</div>
+            <div style="margin-top:8px;font-size:0.9rem;">在上方新增持股並設定停損停利價格</div>
+          </div>
+        `;
+        return;
+      }
+      
+      container.innerHTML = stocks.map(stock => {
+        const { stockId, stockName, cost, profitPrice, lossPrice, currentPrice } = stock;
+        const price = currentPrice || cost;
+        
+        const profitPct = ((profitPrice - price) / price * 100);
+        const lossPct = ((price - lossPrice) / price * 100);
+        const currentPct = ((price - cost) / cost * 100);
+        
+        // 判斷狀態
+        let cardClass = '';
+        let status = '';
+        if (price >= profitPrice) {
+          cardClass = 'warning';
+          status = '🎯 已達停利！';
+        } else if (price <= lossPrice) {
+          cardClass = 'danger';
+          status = '⚠️ 已達停損！';
+        }
+        
+        // 進度條計算
+        const range = profitPrice - lossPrice;
+        const position = Math.max(0, Math.min(100, (price - lossPrice) / range * 100));
+        
+        return `
+          <div class="stock-card ${cardClass}">
+            <div class="card-header">
+              <div>
+                <div class="name"><a href="wave.html?stock=${stockId}">${stockId} ${stockName}</a></div>
+                <div class="price-info">
+                  現價 <span class="current">$${price.toFixed(2)}</span> | 
+                  成本 $${cost.toFixed(2)} | 
+                  損益 <span class="${currentPct >= 0 ? 'profit' : 'loss'}">${currentPct >= 0 ? '+' : ''}${currentPct.toFixed(1)}%</span>
+                  ${status ? `<strong style="margin-left:12px;">${status}</strong>` : ''}
+                </div>
+              </div>
+              <button class="btn btn-danger btn-small" onclick="deleteStock(${stock.id})">✕ 刪除</button>
+            </div>
+            
+            <div class="levels">
+              <div class="level">
+                <div class="label">🎯 停利價</div>
+                <div class="value profit">$${profitPrice.toFixed(0)}</div>
+                <div class="percent" style="color:#8b949e;">距離 ${profitPct >= 0 ? '+' : ''}${profitPct.toFixed(1)}%</div>
+              </div>
+              <div class="level">
+                <div class="label">🛡️ 停損價</div>
+                <div class="value loss">$${lossPrice.toFixed(0)}</div>
+                <div class="percent" style="color:#8b949e;">距離 -${lossPct.toFixed(1)}%</div>
+              </div>
+              <div class="level">
+                <div class="label">📊 風險報酬比</div>
+                <div class="value neutral">${(profitPct / lossPct).toFixed(2)}</div>
+                <div class="percent" style="color:#8b949e;">潛在獲利/潛在損失</div>
+              </div>
+            </div>
+            
+            <div class="progress-bar">
+              <div class="progress-fill loss" style="width:100%;"></div>
+              <div class="progress-fill profit" style="width:${position}%;"></div>
+              <div class="progress-marker" style="left:${position}%;"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    // 初始化
+    renderStocks();
+    if (getStocks().length > 0) {
+      checkAllPrices();
+    }
+  </script>
 </body>
 </html>

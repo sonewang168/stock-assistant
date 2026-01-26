@@ -1,30 +1,285 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🔔 智能警示 - 股海秘書</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
-    *{margin:0;padding:0;box-sizing:border-box;font-family:'Noto Sans TC',sans-serif}body{background:#0d1117;min-height:100vh;color:#e6edf3}.container{max-width:1000px;margin:0 auto;padding:20px}.header{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;background:#161b22;border-radius:12px;margin-bottom:20px;border:1px solid #30363d}.header h1{font-size:1.4rem;color:#f85149}.back-link{color:#58a6ff;text-decoration:none;font-size:0.9rem}.btn{padding:10px 20px;border-radius:8px;border:none;font-weight:600;cursor:pointer;background:#238636;color:white}.alert-list{display:flex;flex-direction:column;gap:12px}.alert-item{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center}.alert-item.triggered{border-color:#f85149;background:rgba(248,81,73,0.05)}.alert-info .stock{font-weight:600;color:#c9d1d9}.alert-info .condition{font-size:0.85rem;color:#8b949e;margin-top:4px}.alert-status{padding:6px 12px;border-radius:6px;font-size:0.8rem;font-weight:600}.alert-status.active{background:rgba(63,185,80,0.2);color:#3fb950}.alert-status.triggered{background:rgba(248,81,73,0.2);color:#f85149}.add-form{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px;margin-bottom:20px}.add-form h3{color:#58a6ff;margin-bottom:16px}.form-row{display:flex;gap:12px;flex-wrap:wrap}.form-row input,.form-row select{padding:10px 14px;border-radius:8px;border:1px solid #30363d;background:#0d1117;color:#e6edf3;flex:1;min-width:120px}
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; flex-wrap: wrap; gap: 12px; }
+    .header h1 { font-size: 1.4rem; color: #f85149; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #238636; color: white; }
+    .btn:hover { background: #2ea043; }
+    .btn-danger { background: #da3633; }
+    .btn-danger:hover { background: #f85149; }
+    .btn-small { padding: 6px 12px; font-size: 0.85rem; }
+    
+    .stats-bar { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+    .stat-item { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 20px; flex: 1; min-width: 120px; text-align: center; }
+    .stat-item .label { color: #8b949e; font-size: 0.85rem; }
+    .stat-item .value { font-size: 1.5rem; font-weight: 700; margin-top: 4px; }
+    
+    .add-form { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .add-form h3 { color: #58a6ff; margin-bottom: 16px; font-size: 1rem; }
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .form-row input, .form-row select { padding: 10px 14px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; }
+    .form-row input { width: 100px; }
+    .form-row select { min-width: 120px; }
+    
+    .alert-list { display: flex; flex-direction: column; gap: 12px; }
+    .alert-item { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    .alert-item.triggered { border-color: #f85149; background: rgba(248,81,73,0.08); }
+    .alert-info { flex: 1; }
+    .alert-info .stock { font-weight: 600; color: #c9d1d9; }
+    .alert-info .stock a { color: #58a6ff; text-decoration: none; }
+    .alert-info .stock a:hover { text-decoration: underline; }
+    .alert-info .condition { font-size: 0.9rem; color: #8b949e; margin-top: 4px; }
+    .alert-info .price-info { font-size: 0.85rem; color: #d29922; margin-top: 4px; }
+    .alert-actions { display: flex; gap: 8px; align-items: center; }
+    .alert-status { padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+    .alert-status.active { background: rgba(63,185,80,0.2); color: #3fb950; }
+    .alert-status.triggered { background: rgba(248,81,73,0.2); color: #f85149; }
+    
+    .empty-state { text-align: center; padding: 60px 20px; color: #8b949e; }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 16px; }
+    
+    .loading { text-align: center; padding: 20px; color: #8b949e; }
+    .spinner { width: 24px; height: 24px; border: 2px solid #30363d; border-top-color: #f85149; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
   <div class="container">
-    <header class="header"><div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🔔 智能警示</h1></div></header>
-    <div class="add-form">
-      <h3>➕ 新增警示</h3>
-      <div class="form-row">
-        <input type="text" placeholder="股票代碼" value="2330">
-        <select><option>價格 ></option><option>價格 <</option><option>漲幅 ></option><option>跌幅 ></option></select>
-        <input type="number" placeholder="數值" value="700">
-        <button class="btn">新增</button>
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🔔 智能警示</h1></div>
+      <button class="btn" onclick="checkAllAlerts()">🔄 檢查全部</button>
+    </header>
+    
+    <div class="stats-bar">
+      <div class="stat-item">
+        <div class="label">監控中</div>
+        <div class="value" style="color:#3fb950;" id="activeCount">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="label">已觸發</div>
+        <div class="value" style="color:#f85149;" id="triggeredCount">0</div>
+      </div>
+      <div class="stat-item">
+        <div class="label">總警示</div>
+        <div class="value" style="color:#58a6ff;" id="totalCount">0</div>
       </div>
     </div>
-    <div class="alert-list">
-      <div class="alert-item triggered"><div class="alert-info"><div class="stock">2330 台積電</div><div class="condition">價格 > 680 元（已觸發！現價 695）</div></div><span class="alert-status triggered">已觸發</span></div>
-      <div class="alert-item"><div class="alert-info"><div class="stock">2454 聯發科</div><div class="condition">價格 < 1200 元</div></div><span class="alert-status active">監控中</span></div>
-      <div class="alert-item"><div class="alert-info"><div class="stock">0050 台灣50</div><div class="condition">跌幅 > 3%</div></div><span class="alert-status active">監控中</span></div>
+    
+    <div class="add-form">
+      <h3>➕ 新增警示條件</h3>
+      <div class="form-row">
+        <input type="text" id="inputStock" placeholder="股票代碼" value="">
+        <select id="inputCondition">
+          <option value="price_above">價格 ></option>
+          <option value="price_below">價格 <</option>
+          <option value="change_above">漲幅 ></option>
+          <option value="change_below">跌幅 ></option>
+        </select>
+        <input type="number" id="inputValue" placeholder="數值" value="">
+        <button class="btn" onclick="addAlert()">➕ 新增</button>
+      </div>
+    </div>
+    
+    <div id="alertList" class="alert-list">
+      <div class="loading"><div class="spinner"></div>載入中...</div>
     </div>
   </div>
+  
+  <script>
+    // 從 localStorage 讀取警示
+    function getAlerts() {
+      const data = localStorage.getItem('stock_alerts');
+      return data ? JSON.parse(data) : [];
+    }
+    
+    // 儲存警示到 localStorage
+    function saveAlerts(alerts) {
+      localStorage.setItem('stock_alerts', JSON.stringify(alerts));
+    }
+    
+    // 新增警示
+    async function addAlert() {
+      const stockId = document.getElementById('inputStock').value.trim();
+      const condition = document.getElementById('inputCondition').value;
+      const value = parseFloat(document.getElementById('inputValue').value);
+      
+      if (!stockId) return alert('請輸入股票代碼');
+      if (isNaN(value)) return alert('請輸入數值');
+      
+      // 先查詢股票名稱
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        const data = await res.json();
+        
+        if (data.error) {
+          alert('找不到此股票: ' + stockId);
+          return;
+        }
+        
+        const alerts = getAlerts();
+        alerts.push({
+          id: Date.now(),
+          stockId,
+          stockName: data.stockName,
+          condition,
+          value,
+          triggered: false,
+          currentPrice: data.currentPrice,
+          lastCheck: new Date().toISOString()
+        });
+        
+        saveAlerts(alerts);
+        renderAlerts();
+        
+        // 清空輸入
+        document.getElementById('inputStock').value = '';
+        document.getElementById('inputValue').value = '';
+        
+      } catch (e) {
+        alert('新增失敗: ' + e.message);
+      }
+    }
+    
+    // 刪除警示
+    function deleteAlert(id) {
+      if (!confirm('確定要刪除此警示？')) return;
+      const alerts = getAlerts().filter(a => a.id !== id);
+      saveAlerts(alerts);
+      renderAlerts();
+    }
+    
+    // 檢查單一警示
+    async function checkAlert(alert) {
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${alert.stockId}`);
+        const data = await res.json();
+        if (data.error) return alert;
+        
+        const price = data.currentPrice;
+        const change = data.changePercent;
+        
+        let triggered = false;
+        switch (alert.condition) {
+          case 'price_above': triggered = price > alert.value; break;
+          case 'price_below': triggered = price < alert.value; break;
+          case 'change_above': triggered = change > alert.value; break;
+          case 'change_below': triggered = change < -alert.value; break;
+        }
+        
+        return {
+          ...alert,
+          triggered,
+          currentPrice: price,
+          currentChange: change,
+          lastCheck: new Date().toISOString()
+        };
+      } catch (e) {
+        return alert;
+      }
+    }
+    
+    // 檢查所有警示
+    async function checkAllAlerts() {
+      const alerts = getAlerts();
+      if (alerts.length === 0) return;
+      
+      document.getElementById('alertList').innerHTML = '<div class="loading"><div class="spinner"></div>檢查中...</div>';
+      
+      const updated = await Promise.all(alerts.map(a => checkAlert(a)));
+      saveAlerts(updated);
+      renderAlerts();
+    }
+    
+    // 條件文字
+    function getConditionText(condition, value) {
+      switch (condition) {
+        case 'price_above': return `價格 > ${value} 元`;
+        case 'price_below': return `價格 < ${value} 元`;
+        case 'change_above': return `漲幅 > ${value}%`;
+        case 'change_below': return `跌幅 > ${value}%`;
+        default: return condition;
+      }
+    }
+    
+    // 渲染警示列表
+    function renderAlerts() {
+      const alerts = getAlerts();
+      const container = document.getElementById('alertList');
+      
+      // 更新統計
+      const triggered = alerts.filter(a => a.triggered).length;
+      const active = alerts.length - triggered;
+      document.getElementById('activeCount').textContent = active;
+      document.getElementById('triggeredCount').textContent = triggered;
+      document.getElementById('totalCount').textContent = alerts.length;
+      
+      if (alerts.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">🔔</div>
+            <div>尚未設定任何警示</div>
+            <div style="margin-top:8px;font-size:0.9rem;">在上方新增股票價格或漲跌幅警示</div>
+          </div>
+        `;
+        return;
+      }
+      
+      // 排序：已觸發的在前
+      const sorted = [...alerts].sort((a, b) => {
+        if (a.triggered && !b.triggered) return -1;
+        if (!a.triggered && b.triggered) return 1;
+        return b.id - a.id;
+      });
+      
+      container.innerHTML = sorted.map(alert => {
+        const conditionText = getConditionText(alert.condition, alert.value);
+        const priceInfo = alert.currentPrice ? `現價 $${alert.currentPrice.toFixed(2)}` : '';
+        const changeInfo = alert.currentChange !== undefined ? ` (${alert.currentChange >= 0 ? '+' : ''}${alert.currentChange.toFixed(2)}%)` : '';
+        
+        return `
+          <div class="alert-item ${alert.triggered ? 'triggered' : ''}">
+            <div class="alert-info">
+              <div class="stock">
+                <a href="wave.html?stock=${alert.stockId}">${alert.stockId} ${alert.stockName}</a>
+              </div>
+              <div class="condition">${conditionText}</div>
+              <div class="price-info">${priceInfo}${changeInfo}</div>
+            </div>
+            <div class="alert-actions">
+              <span class="alert-status ${alert.triggered ? 'triggered' : 'active'}">
+                ${alert.triggered ? '🔴 已觸發' : '🟢 監控中'}
+              </span>
+              <button class="btn btn-danger btn-small" onclick="deleteAlert(${alert.id})">✕</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    // 初始化
+    renderAlerts();
+    
+    // 如果有警示，自動檢查一次
+    if (getAlerts().length > 0) {
+      checkAllAlerts();
+    }
+    
+    // Enter 鍵新增
+    document.getElementById('inputStock').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') addAlert();
+    });
+    document.getElementById('inputValue').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') addAlert();
+    });
+  </script>
 </body>
 </html>
