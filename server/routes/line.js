@@ -3049,12 +3049,21 @@ async function getKLineChart(stockId) {
     // 反轉順序（從舊到新）
     history.reverse();
     
+    // 限制圖表數據點數量（最多 30 個點，避免 URL 過長）
+    const maxPoints = 30;
+    let chartHistory = history;
+    if (history.length > maxPoints) {
+      // 採樣：每隔 N 筆取一筆，保留最後一筆
+      const step = Math.ceil(history.length / maxPoints);
+      chartHistory = history.filter((_, i) => i % step === 0 || i === history.length - 1);
+    }
+    
     // 使用 QuickChart 生成圖表
-    const labels = history.map(h => {
+    const labels = chartHistory.map(h => {
       const d = new Date(h.date);
       return `${d.getMonth() + 1}/${d.getDate()}`;
     });
-    const prices = history.map(h => h.close);
+    const prices = chartHistory.map(h => h.close);
     
     const chartConfig = {
       type: 'line',
@@ -3090,9 +3099,9 @@ async function getKLineChart(stockId) {
     
     const chartUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chartConfig))}&w=600&h=400&bkg=white`;
     
-    // 計算漲跌幅
-    const firstPrice = prices[0];
-    const lastPrice = prices[prices.length - 1];
+    // 計算漲跌幅（使用原始完整數據）
+    const firstPrice = history[0].close;
+    const lastPrice = history[history.length - 1].close;
     const periodChange = ((lastPrice - firstPrice) / firstPrice * 100).toFixed(2);
     const isUp = parseFloat(periodChange) >= 0;
     
