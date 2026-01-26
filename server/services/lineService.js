@@ -87,7 +87,7 @@ class LineService {
   }
 
   /**
-   * 建立股票警報 Flex Message
+   * 建立股票警報 Flex Message（🔥 雙 AI 各自獨立卡片）
    */
   createStockAlertFlex(alert, aiComment) {
     const stock = alert.stock;
@@ -96,87 +96,241 @@ class LineService {
     const color = isUp ? '#ff4444' : '#00C851';
     const arrow = isUp ? '▲' : '▼';
 
+    // 解析雙 AI 分析結果
+    const { bullish, bearish, summary, aiSource1, aiSource2 } = this.parseAIComment(aiComment);
+
+    // 📊 卡片 1：股價資訊
+    const card1 = {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: stock.name, color: '#ffffff', size: 'xl', weight: 'bold', flex: 1 },
+              { type: 'text', text: stock.id, color: '#ffffffaa', size: 'sm', align: 'end' }
+            ]
+          },
+          { type: 'text', text: alert.message, color: '#ffffff', size: 'sm', margin: 'md' }
+        ],
+        backgroundColor: color,
+        paddingAll: '20px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: `${stock.price}`, size: '3xl', weight: 'bold', color: color },
+              { type: 'text', text: `${arrow} ${stock.changePercent}%`, size: 'xl', color: color, align: 'end', gravity: 'bottom' }
+            ]
+          },
+          { type: 'separator', margin: 'lg' },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            margin: 'lg',
+            contents: [
+              { type: 'text', text: '開盤', size: 'sm', color: '#888888', flex: 1 },
+              { type: 'text', text: `${stock.open}`, size: 'sm', align: 'end', flex: 1 },
+              { type: 'text', text: '最高', size: 'sm', color: '#888888', flex: 1 },
+              { type: 'text', text: `${stock.high}`, size: 'sm', align: 'end', flex: 1 }
+            ]
+          },
+          {
+            type: 'box',
+            layout: 'horizontal',
+            margin: 'sm',
+            contents: [
+              { type: 'text', text: '昨收', size: 'sm', color: '#888888', flex: 1 },
+              { type: 'text', text: `${stock.yesterday}`, size: 'sm', align: 'end', flex: 1 },
+              { type: 'text', text: '最低', size: 'sm', color: '#888888', flex: 1 },
+              { type: 'text', text: `${stock.low}`, size: 'sm', align: 'end', flex: 1 }
+            ]
+          }
+        ],
+        paddingAll: '20px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: '👉 滑動看雙 AI 分析', size: 'xs', color: '#888888', align: 'center' }
+        ],
+        paddingAll: '10px'
+      }
+    };
+
+    // 🟢 卡片 2：Gemini 樂觀派（獨立完整卡片）
+    const card2 = {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: `🟢 ${aiSource1} 樂觀派`, color: '#ffffff', size: 'lg', weight: 'bold' },
+          { type: 'text', text: `${stock.name} 多頭觀點`, color: '#ffffffcc', size: 'sm', margin: 'sm' }
+        ],
+        backgroundColor: '#2E7D32',
+        paddingAll: '20px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: bullish, size: 'md', wrap: true }
+        ],
+        paddingAll: '20px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: '👉 滑動看風險分析', size: 'xs', color: '#888888', align: 'center' }
+        ],
+        paddingAll: '10px'
+      }
+    };
+
+    // 🔴 卡片 3：GPT-4o 謹慎派（獨立完整卡片）
+    const card3 = {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: `🔴 ${aiSource2} 謹慎派`, color: '#ffffff', size: 'lg', weight: 'bold' },
+          { type: 'text', text: `${stock.name} 風控觀點`, color: '#ffffffcc', size: 'sm', margin: 'sm' }
+        ],
+        backgroundColor: '#C62828',
+        paddingAll: '20px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: bearish, size: 'md', wrap: true }
+        ],
+        paddingAll: '20px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: '👉 滑動看操作建議', size: 'xs', color: '#888888', align: 'center' }
+        ],
+        paddingAll: '10px'
+      }
+    };
+
+    // 📊 卡片 4：綜合策略
+    const card4 = {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: '📊 綜合操作策略', color: '#ffffff', size: 'lg', weight: 'bold' },
+          { type: 'text', text: `${stock.name} 投資建議`, color: '#ffffffcc', size: 'sm', margin: 'sm' }
+        ],
+        backgroundColor: '#1565C0',
+        paddingAll: '20px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: summary, size: 'md', wrap: true }
+        ],
+        paddingAll: '20px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: `⏰ ${this.getTaiwanTime()}`, size: 'xs', color: '#888888', align: 'center' }
+        ],
+        paddingAll: '10px'
+      }
+    };
+
     return {
       type: 'flex',
       altText: `${stock.name} ${alert.message}`,
       contents: {
-        type: 'bubble',
-        size: 'mega',
-        header: {
-          type: 'box',
-          layout: 'vertical',
-          contents: [
-            {
-              type: 'box',
-              layout: 'horizontal',
-              contents: [
-                { type: 'text', text: stock.name, color: '#ffffff', size: 'xl', weight: 'bold', flex: 1 },
-                { type: 'text', text: stock.id, color: '#ffffffaa', size: 'sm', align: 'end' }
-              ]
-            },
-            { type: 'text', text: alert.message, color: '#ffffff', size: 'sm', margin: 'md' }
-          ],
-          backgroundColor: color,
-          paddingAll: '20px'
-        },
-        body: {
-          type: 'box',
-          layout: 'vertical',
-          contents: [
-            {
-              type: 'box',
-              layout: 'horizontal',
-              contents: [
-                { type: 'text', text: `${stock.price}`, size: '3xl', weight: 'bold', color: color },
-                { type: 'text', text: `${arrow} ${stock.changePercent}%`, size: 'xl', color: color, align: 'end', gravity: 'bottom' }
-              ]
-            },
-            { type: 'separator', margin: 'lg' },
-            {
-              type: 'box',
-              layout: 'horizontal',
-              margin: 'lg',
-              contents: [
-                { type: 'text', text: '開盤', size: 'sm', color: '#888888', flex: 1 },
-                { type: 'text', text: `${stock.open}`, size: 'sm', align: 'end', flex: 1 },
-                { type: 'text', text: '最高', size: 'sm', color: '#888888', flex: 1 },
-                { type: 'text', text: `${stock.high}`, size: 'sm', align: 'end', flex: 1 }
-              ]
-            },
-            {
-              type: 'box',
-              layout: 'horizontal',
-              margin: 'sm',
-              contents: [
-                { type: 'text', text: '昨收', size: 'sm', color: '#888888', flex: 1 },
-                { type: 'text', text: `${stock.yesterday}`, size: 'sm', align: 'end', flex: 1 },
-                { type: 'text', text: '最低', size: 'sm', color: '#888888', flex: 1 },
-                { type: 'text', text: `${stock.low}`, size: 'sm', align: 'end', flex: 1 }
-              ]
-            },
-            { type: 'separator', margin: 'lg' },
-            {
-              type: 'box',
-              layout: 'vertical',
-              margin: 'lg',
-              contents: [
-                { type: 'text', text: '💬 AI 短評', size: 'sm', color: '#888888' },
-                { type: 'text', text: aiComment, size: 'md', wrap: true, margin: 'sm' }
-              ]
-            }
-          ],
-          paddingAll: '20px'
-        },
-        footer: {
-          type: 'box',
-          layout: 'horizontal',
-          contents: [
-            { type: 'text', text: `⏰ ${this.getTaiwanTime()}`, size: 'xs', color: '#888888' }
-          ],
-          paddingAll: '15px'
-        }
+        type: 'carousel',
+        contents: [card1, card2, card3, card4]
       }
     };
+  }
+
+  /**
+   * 解析雙 AI 評論
+   */
+  parseAIComment(aiComment) {
+    let bullish = '';
+    let bearish = '';
+    let summary = '';
+    let aiSource1 = 'Gemini';
+    let aiSource2 = 'GPT-4o';
+
+    try {
+      // 解析 AI 來源
+      const source1Match = aiComment.match(/🟢【([^】]+)】/);
+      const source2Match = aiComment.match(/🔴【([^】]+)】/);
+      
+      if (source1Match) aiSource1 = source1Match[1].replace('樂觀派', '').replace('謹慎派', '').trim();
+      if (source2Match) aiSource2 = source2Match[1].replace('樂觀派', '').replace('謹慎派', '').trim();
+
+      // 解析內容
+      const bullishMatch = aiComment.match(/🟢【[^】]+】\n?([\s\S]*?)(?=\n\n🔴|$)/);
+      const bearishMatch = aiComment.match(/🔴【[^】]+】\n?([\s\S]*?)(?=\n\n📊|$)/);
+      const summaryMatch = aiComment.match(/📊【[^】]+】\n?([\s\S]*?)$/);
+
+      bullish = bullishMatch?.[1]?.trim() || '';
+      bearish = bearishMatch?.[1]?.trim() || '';
+      summary = summaryMatch?.[1]?.trim() || '';
+
+      // 如果解析失敗，使用簡單分割
+      if (!bullish && !bearish) {
+        const parts = aiComment.split('\n\n');
+        bullish = parts[0] || aiComment;
+        bearish = parts[1] || '';
+        summary = parts[2] || '';
+      }
+
+    } catch (e) {
+      bullish = aiComment.substring(0, 500);
+      bearish = '請查看完整分析';
+      summary = '';
+    }
+
+    return { 
+      bullish: bullish || '分析產生中...', 
+      bearish: bearish || '分析產生中...', 
+      summary: summary || '請綜合多空觀點自行判斷',
+      aiSource1,
+      aiSource2
+    };
+  }
+
+  /**
+   * 截斷文字
+   */
+  truncateText(text, maxLength) {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength - 3) + '...';
   }
 
   /**
@@ -185,9 +339,12 @@ class LineService {
   createDailyReportFlex(stockDataList, aiSummary) {
     const today = this.getTaiwanDate();
 
-    const stockRows = stockDataList.slice(0, 10).map(stock => {
+    // 解析雙 AI 日報
+    const { bullish, bearish, strategy, aiSource1, aiSource2 } = this.parseDailySummary(aiSummary);
+
+    // 股票表格（最多 8 檔）
+    const stockRows = stockDataList.slice(0, 8).map(stock => {
       const isUp = stock.change >= 0;
-      // 台灣股市：紅漲綠跌
       const color = isUp ? '#ff4444' : '#00C851';
       const arrow = isUp ? '▲' : '▼';
 
@@ -195,59 +352,211 @@ class LineService {
         type: 'box',
         layout: 'horizontal',
         contents: [
-          { type: 'text', text: stock.name, size: 'sm', flex: 3 },
-          { type: 'text', text: `${stock.price}`, size: 'sm', align: 'end', flex: 2 },
-          { type: 'text', text: `${arrow}${stock.changePercent}%`, size: 'sm', color: color, align: 'end', flex: 2 }
+          { type: 'text', text: stock.name, size: 'xs', flex: 3 },
+          { type: 'text', text: `${stock.price}`, size: 'xs', align: 'end', flex: 2 },
+          { type: 'text', text: `${arrow}${stock.changePercent}%`, size: 'xs', color: color, align: 'end', flex: 2 }
         ],
         margin: 'sm'
       };
     });
 
+    // 統計
+    const upCount = stockDataList.filter(s => s.change >= 0).length;
+    const downCount = stockDataList.filter(s => s.change < 0).length;
+
+    // 📊 卡片 1：股票清單
+    const card1 = {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: '📊 收盤日報', size: 'xl', weight: 'bold', color: '#ffffff' },
+          { type: 'text', text: `${today} | ↑${upCount} ↓${downCount}`, size: 'sm', color: '#ffffffaa', margin: 'sm' }
+        ],
+        backgroundColor: '#2C3E50',
+        paddingAll: '20px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: '股票', size: 'xs', color: '#888888', flex: 3 },
+              { type: 'text', text: '收盤', size: 'xs', color: '#888888', align: 'end', flex: 2 },
+              { type: 'text', text: '漲跌', size: 'xs', color: '#888888', align: 'end', flex: 2 }
+            ]
+          },
+          { type: 'separator', margin: 'sm' },
+          ...stockRows
+        ],
+        paddingAll: '15px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: '👉 滑動看雙 AI 分析', size: 'xs', color: '#888888', align: 'center' }
+        ],
+        paddingAll: '10px'
+      }
+    };
+
+    // 🟢 卡片 2：Gemini 樂觀派（獨立完整卡片）
+    const card2 = {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: `🟢 ${aiSource1} 樂觀派`, color: '#ffffff', size: 'lg', weight: 'bold' },
+          { type: 'text', text: '今日多頭觀點', color: '#ffffffcc', size: 'sm', margin: 'sm' }
+        ],
+        backgroundColor: '#2E7D32',
+        paddingAll: '20px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: bullish, size: 'md', wrap: true }
+        ],
+        paddingAll: '20px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: '👉 滑動看風險分析', size: 'xs', color: '#888888', align: 'center' }
+        ],
+        paddingAll: '10px'
+      }
+    };
+
+    // 🔴 卡片 3：GPT-4o 謹慎派（獨立完整卡片）
+    const card3 = {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: `🔴 ${aiSource2} 謹慎派`, color: '#ffffff', size: 'lg', weight: 'bold' },
+          { type: 'text', text: '今日風控觀點', color: '#ffffffcc', size: 'sm', margin: 'sm' }
+        ],
+        backgroundColor: '#C62828',
+        paddingAll: '20px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: bearish, size: 'md', wrap: true }
+        ],
+        paddingAll: '20px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: '👉 滑動看明日策略', size: 'xs', color: '#888888', align: 'center' }
+        ],
+        paddingAll: '10px'
+      }
+    };
+
+    // 📊 卡片 4：明日策略
+    const card4 = {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: '📊 明日操作策略', color: '#ffffff', size: 'lg', weight: 'bold' },
+          { type: 'text', text: '綜合投資建議', color: '#ffffffcc', size: 'sm', margin: 'sm' }
+        ],
+        backgroundColor: '#1565C0',
+        paddingAll: '20px'
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        contents: [
+          { type: 'text', text: strategy, size: 'md', wrap: true }
+        ],
+        paddingAll: '20px'
+      },
+      footer: {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: `⏰ ${this.getTaiwanTime()}`, size: 'xs', color: '#888888', align: 'center' }
+        ],
+        paddingAll: '10px'
+      }
+    };
+
     return {
       type: 'flex',
       altText: `📊 ${today} 收盤日報`,
       contents: {
-        type: 'bubble',
-        size: 'mega',
-        header: {
-          type: 'box',
-          layout: 'vertical',
-          contents: [
-            { type: 'text', text: '📊 收盤日報', size: 'xl', weight: 'bold', color: '#ffffff' },
-            { type: 'text', text: today, size: 'sm', color: '#ffffffaa', margin: 'sm' }
-          ],
-          backgroundColor: '#2C3E50',
-          paddingAll: '20px'
-        },
-        body: {
-          type: 'box',
-          layout: 'vertical',
-          contents: [
-            {
-              type: 'box',
-              layout: 'horizontal',
-              contents: [
-                { type: 'text', text: '股票', size: 'xs', color: '#888888', flex: 3 },
-                { type: 'text', text: '收盤價', size: 'xs', color: '#888888', align: 'end', flex: 2 },
-                { type: 'text', text: '漲跌', size: 'xs', color: '#888888', align: 'end', flex: 2 }
-              ]
-            },
-            { type: 'separator', margin: 'md' },
-            ...stockRows,
-            { type: 'separator', margin: 'lg' },
-            {
-              type: 'box',
-              layout: 'vertical',
-              margin: 'lg',
-              contents: [
-                { type: 'text', text: '💬 AI 總評', size: 'sm', color: '#888888' },
-                { type: 'text', text: aiSummary, size: 'sm', wrap: true, margin: 'sm' }
-              ]
-            }
-          ],
-          paddingAll: '20px'
-        }
+        type: 'carousel',
+        contents: [card1, card2, card3, card4]
       }
+    };
+  }
+
+  /**
+   * 解析雙 AI 日報
+   */
+  parseDailySummary(aiSummary) {
+    let bullish = '';
+    let bearish = '';
+    let strategy = '';
+    let aiSource1 = 'Gemini';
+    let aiSource2 = 'GPT-4o';
+
+    try {
+      // 解析 AI 來源
+      const source1Match = aiSummary.match(/🟢【([^】]+)】/);
+      const source2Match = aiSummary.match(/🔴【([^】]+)】/);
+      
+      if (source1Match) aiSource1 = source1Match[1].replace('樂觀派', '').replace('謹慎派', '').trim();
+      if (source2Match) aiSource2 = source2Match[1].replace('樂觀派', '').replace('謹慎派', '').trim();
+
+      const bullishMatch = aiSummary.match(/🟢【[^】]+】\n?([\s\S]*?)(?=\n\n🔴|$)/);
+      const bearishMatch = aiSummary.match(/🔴【[^】]+】\n?([\s\S]*?)(?=\n\n📊|$)/);
+      const strategyMatch = aiSummary.match(/📊【[^】]+】\n?([\s\S]*?)$/);
+
+      bullish = bullishMatch?.[1]?.trim() || '';
+      bearish = bearishMatch?.[1]?.trim() || '';
+      strategy = strategyMatch?.[1]?.trim() || '';
+
+      if (!bullish && !bearish) {
+        const parts = aiSummary.split('\n\n');
+        bullish = parts[0] || aiSummary;
+        bearish = parts[1] || '';
+        strategy = parts[2] || '';
+      }
+
+    } catch (e) {
+      bullish = aiSummary.substring(0, 500);
+      bearish = '請查看完整分析';
+      strategy = '';
+    }
+
+    return { 
+      bullish: bullish || '分析產生中...', 
+      bearish: bearish || '分析產生中...', 
+      strategy: strategy || '綜合多空觀點，審慎操作',
+      aiSource1,
+      aiSource2
     };
   }
 

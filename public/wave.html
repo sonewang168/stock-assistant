@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌊 艾略特波浪理論分析 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #E2E8F0; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    
+    /* Header */
+    .header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 24px; background: #161b22; border-radius: 12px;
+      margin-bottom: 20px; border: 1px solid #30363d;
+    }
+    .header h1 { font-size: 1.4rem; display: flex; align-items: center; gap: 10px; }
+    .header h1 span { color: #58a6ff; }
+    .search-box { display: flex; gap: 10px; }
+    .search-box input {
+      padding: 10px 16px; border-radius: 8px; border: 1px solid #30363d;
+      background: #0d1117; color: #E2E8F0; width: 120px; font-size: 1rem;
+    }
+    .search-box input:focus { outline: none; border-color: #58a6ff; }
+    .btn {
+      padding: 10px 20px; border-radius: 8px; border: none;
+      font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 0.9rem;
+    }
+    .btn-primary { background: #238636; color: white; }
+    .btn-primary:hover { background: #2ea043; }
+    
+    /* Tabs */
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: #161b22; padding: 4px; border-radius: 8px; width: fit-content; }
+    .tab {
+      padding: 10px 20px; border-radius: 6px; background: transparent;
+      color: #8b949e; cursor: pointer; font-weight: 500; transition: all 0.2s; border: none;
+    }
+    .tab.active { background: #238636; color: white; }
+    .tab:hover:not(.active) { color: #c9d1d9; }
+    
+    /* Main Card */
+    .main-card {
+      background: #161b22; border-radius: 12px; border: 1px solid #30363d;
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 16px 20px; background: #21262d; border-bottom: 1px solid #30363d;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .card-header h2 { font-size: 1.1rem; color: #c9d1d9; }
+    .card-body { padding: 24px; }
+    
+    /* Wave Analysis Box */
+    .wave-analysis-box {
+      background: #0d1117; border: 1px solid #30363d; border-radius: 12px;
+      padding: 24px; margin-bottom: 24px;
+    }
+    .wave-analysis-title {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 20px;
+      font-size: 1rem; color: #c9d1d9;
+    }
+    
+    /* Wave Circles */
+    .wave-circles {
+      display: flex; justify-content: center; gap: 8px; margin-bottom: 24px;
+    }
+    .wave-circle {
+      width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 1rem; cursor: pointer;
+      transition: all 0.2s; position: relative;
+    }
+    /* 推動浪 1,3,5 = 綠色 */
+    .wave-circle.w1, .wave-circle.w3, .wave-circle.w5 { background: #238636; color: white; }
+    /* 修正浪 2,4 = 藍色 */
+    .wave-circle.w2, .wave-circle.w4 { background: #1f6feb; color: white; }
+    /* A,C 浪 = 紅色 */
+    .wave-circle.wA, .wave-circle.wC { background: #da3633; color: white; }
+    /* B 浪 = 橘色 */
+    .wave-circle.wB { background: #d29922; color: white; }
+    /* 當前波浪 */
+    .wave-circle.active {
+      box-shadow: 0 0 0 3px #58a6ff;
+      transform: scale(1.15);
+    }
+    
+    /* Current Wave Display */
+    .current-wave-display { text-align: center; margin-bottom: 16px; }
+    .current-wave-display .label { color: #8b949e; font-size: 1rem; }
+    .current-wave-display .wave-number {
+      font-size: 2.5rem; font-weight: 700; color: #58a6ff; margin: 0 8px;
+    }
+    .current-wave-display .wave-label { font-size: 1.2rem; color: #c9d1d9; }
+    
+    /* Trend Info */
+    .trend-info {
+      display: flex; justify-content: center; align-items: center; gap: 16px;
+      font-size: 0.95rem; color: #8b949e; flex-wrap: wrap;
+    }
+    .trend-info .up { color: #f85149; }
+    .trend-info .down { color: #3fb950; }
+    .trend-info .separator { color: #30363d; }
+    .from-wave-badge {
+      padding: 4px 10px; border-radius: 4px; font-size: 0.85rem; font-weight: 500;
+    }
+    .from-wave-badge.up { background: rgba(248, 81, 73, 0.15); color: #f85149; }
+    .from-wave-badge.down { background: rgba(63, 185, 80, 0.15); color: #3fb950; }
+    
+    /* Three Columns */
+    .three-columns {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px;
+    }
+    .column-card {
+      background: #0d1117; border: 1px solid #30363d; border-radius: 10px; overflow: hidden;
+    }
+    .column-header {
+      padding: 12px 16px; background: #21262d; border-bottom: 1px solid #30363d;
+      font-size: 0.9rem; font-weight: 600; color: #c9d1d9;
+    }
+    .column-body { padding: 16px; }
+    
+    /* Rule Check */
+    .rule-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; margin-bottom: 8px;
+      background: #161b22; border-radius: 6px;
+      border-left: 3px solid;
+    }
+    .rule-item.pass { border-color: #3fb950; }
+    .rule-item.fail { border-color: #f85149; }
+    .rule-icon { font-size: 1.1rem; }
+    .rule-text { font-size: 0.85rem; color: #c9d1d9; }
+    
+    /* Wave History */
+    .wave-history-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 12px; margin-bottom: 6px;
+      background: #161b22; border-radius: 6px; font-size: 0.85rem;
+    }
+    .wave-history-item .wave-name { color: #c9d1d9; font-weight: 500; }
+    .wave-history-item .wave-type { color: #8b949e; font-size: 0.75rem; }
+    .wave-history-item .wave-price { font-weight: 600; }
+    .wave-history-item .wave-price.up { color: #f85149; }
+    .wave-history-item .wave-price.down { color: #3fb950; }
+    .wave-history-item.current { background: rgba(88, 166, 255, 0.15); border: 1px solid rgba(88, 166, 255, 0.3); }
+    
+    /* Suggestion Box */
+    .suggestion-box {
+      background: rgba(35, 134, 54, 0.1); border: 1px solid rgba(35, 134, 54, 0.3);
+      border-radius: 8px; padding: 14px; margin-bottom: 16px;
+    }
+    .suggestion-box p { color: #c9d1d9; font-size: 0.9rem; line-height: 1.5; }
+    
+    /* Targets */
+    .targets-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .target-box { padding: 12px; border-radius: 8px; text-align: center; }
+    .target-box.up { background: rgba(248, 81, 73, 0.1); border: 1px solid rgba(248, 81, 73, 0.3); }
+    .target-box.down { background: rgba(63, 185, 80, 0.1); border: 1px solid rgba(63, 185, 80, 0.3); }
+    .target-box .label { font-size: 0.75rem; color: #8b949e; margin-bottom: 4px; }
+    .target-box .value { font-size: 1.2rem; font-weight: 700; }
+    .target-box.up .value { color: #f85149; }
+    .target-box.down .value { color: #3fb950; }
+    
+    /* Chart */
+    .chart-section { margin-bottom: 24px; }
+    .chart-container { height: 320px; position: relative; }
+    .chart-legend {
+      display: flex; gap: 16px; justify-content: center; margin-top: 10px; flex-wrap: wrap;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #8b949e; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+    
+    /* Recent Data Table */
+    .data-table { width: 100%; font-size: 0.8rem; border-collapse: collapse; }
+    .data-table th { text-align: left; padding: 8px; color: #8b949e; border-bottom: 1px solid #30363d; }
+    .data-table td { padding: 8px; border-bottom: 1px solid #21262d; }
+    .data-table tr.up td { color: #f85149; }
+    .data-table tr.down td { color: #3fb950; }
+    
+    /* Fibonacci */
+    .fib-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 12px; margin-bottom: 4px; border-radius: 6px;
+      background: #161b22; border-left: 3px solid;
+    }
+    .fib-ratio { font-weight: 600; }
+    .fib-price { color: #c9d1d9; }
+    
+    /* Portfolio Tab */
+    .portfolio-controls {
+      display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+      padding: 16px; background: #0d1117; border-radius: 8px; margin-bottom: 20px;
+    }
+    .portfolio-controls input {
+      padding: 8px 12px; border-radius: 6px; border: 1px solid #30363d;
+      background: #161b22; color: #c9d1d9; font-size: 0.9rem;
+    }
+    .budget-btns { display: flex; gap: 6px; }
+    .budget-btn {
+      padding: 6px 12px; border-radius: 6px; border: 1px solid #30363d;
+      background: transparent; color: #8b949e; cursor: pointer; font-size: 0.8rem;
+    }
+    .budget-btn:hover, .budget-btn.active { background: #238636; color: white; border-color: #238636; }
+    
+    /* Summary Grid */
+    .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+    .summary-card {
+      background: #0d1117; border: 1px solid #30363d; border-radius: 8px;
+      padding: 14px; text-align: center;
+    }
+    .summary-card .label { color: #8b949e; font-size: 0.75rem; margin-bottom: 4px; }
+    .summary-card .value { font-size: 1.1rem; font-weight: 700; }
+    
+    /* Stock List */
+    .stock-header {
+      display: grid; grid-template-columns: 130px 1fr 100px 70px 70px 50px;
+      gap: 12px; padding: 10px 14px; color: #8b949e; font-size: 0.8rem; font-weight: 600;
+    }
+    .stock-item {
+      display: grid; grid-template-columns: 130px 1fr 100px 70px 70px 50px;
+      gap: 12px; align-items: center; padding: 12px 14px;
+      background: #0d1117; border: 1px solid #30363d; border-radius: 8px; margin-bottom: 8px;
+    }
+    .stock-item:hover { border-color: #58a6ff; }
+    .stock-item .name { font-weight: 600; color: #c9d1d9; }
+    .stock-item .sector { font-size: 0.8rem; color: #8b949e; }
+    .stock-item .amount { color: #3fb950; font-weight: 600; }
+    .stock-item input {
+      width: 55px; padding: 6px; border-radius: 4px; border: 1px solid #30363d;
+      background: #161b22; color: #c9d1d9; text-align: center; font-size: 0.85rem;
+    }
+    .wave-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+    .delete-btn {
+      background: rgba(248, 81, 73, 0.15); color: #f85149; border: none;
+      padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 0.85rem;
+    }
+    
+    /* Add Form */
+    .add-form {
+      display: flex; gap: 8px; align-items: center; padding: 14px;
+      background: rgba(35, 134, 54, 0.1); border: 1px solid rgba(35, 134, 54, 0.3);
+      border-radius: 8px; margin-top: 12px;
+    }
+    .add-form input { flex: 1; min-width: 60px; }
+    
+    /* Risk Section */
+    .risk-section { margin-top: 24px; padding: 20px; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; }
+    .risk-bar-bg {
+      height: 12px; background: linear-gradient(90deg, #3fb950 0%, #d29922 50%, #f85149 100%);
+      border-radius: 6px; position: relative; margin: 16px 0;
+    }
+    .risk-indicator {
+      position: absolute; top: -6px; width: 24px; height: 24px;
+      background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem; font-weight: 700; color: #0d1117; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      transform: translateX(-50%); transition: left 0.5s;
+    }
+    .risk-labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: #8b949e; }
+    .risk-comment { margin-top: 14px; padding: 12px; background: #161b22; border-radius: 6px; font-size: 0.85rem; color: #c9d1d9; line-height: 1.5; }
+    
+    /* Sector Bars */
+    .sector-section { margin-top: 24px; }
+    .sector-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .sector-row .name { width: 70px; font-size: 0.85rem; color: #8b949e; }
+    .sector-row .bar-bg { flex: 1; height: 18px; background: #21262d; border-radius: 4px; overflow: hidden; }
+    .sector-row .bar-fill {
+      height: 100%; display: flex; align-items: center; justify-content: flex-end;
+      padding-right: 8px; transition: width 0.5s;
+    }
+    .sector-row .bar-fill span { color: white; font-size: 0.7rem; font-weight: 600; }
+    
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .three-columns { grid-template-columns: 1fr; }
+      .summary-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .header { flex-direction: column; gap: 12px; }
+      .stock-header, .stock-item { grid-template-columns: 1fr 1fr; }
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    
+    .hidden { display: none !important; }
+    .loading { text-align: center; padding: 30px; color: #8b949e; }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid #30363d; border-top-color: #58a6ff;
+      border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1>🌊 <span>艾略特波浪理論分析</span></h1>
+      <div class="search-box">
+        <input type="text" id="stockInput" placeholder="股票代碼" value="2330" />
+        <button class="btn btn-primary" onclick="analyzeStock()">🔍 分析波浪</button>
+      </div>
+    </header>
+    
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('wave')">🌊 波浪分析</button>
+      <button class="tab" onclick="showTab('portfolio')">💼 投資組合</button>
+    </div>
+
+    <!-- Wave Tab -->
+    <div id="waveTab">
+      <div class="main-card">
+        <div class="card-header">
+          <h2>📈 <span id="stockName">載入中...</span> (<span id="stockId">----</span>)</h2>
+          <span id="confidenceBadge" style="padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; background: rgba(210, 153, 34, 0.2); color: #d29922;">信心: --</span>
+        </div>
+        <div class="card-body">
+          <!-- Chart with Wave Labels -->
+          <div class="chart-section">
+            <div class="chart-container"><canvas id="priceChart"></canvas></div>
+            <div class="chart-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:#238636;"></div>推動浪 (1,3,5)</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#1f6feb;"></div>修正浪 (2,4)</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#da3633;"></div>下跌浪 (A,C)</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#d29922;"></div>反彈浪 (B)</div>
+            </div>
+          </div>
+          
+          <!-- Wave Analysis Box -->
+          <div class="wave-analysis-box">
+            <div class="wave-analysis-title">🌊 艾略特波浪分析</div>
+            
+            <!-- Wave Circles (1-5, A-B-C) -->
+            <div class="wave-circles" id="waveCircles">
+              <div class="wave-circle w1">1</div>
+              <div class="wave-circle w2">2</div>
+              <div class="wave-circle w3">3</div>
+              <div class="wave-circle w4">4</div>
+              <div class="wave-circle w5">5</div>
+              <div class="wave-circle wA">A</div>
+              <div class="wave-circle wB">B</div>
+              <div class="wave-circle wC">C</div>
+            </div>
+            
+            <!-- Current Wave -->
+            <div class="current-wave-display">
+              <span class="label">目前推測位於</span>
+              <span class="wave-label">第</span>
+              <span class="wave-number" id="currentWave">--</span>
+              <span class="wave-label">浪</span>
+            </div>
+            
+            <!-- Trend Info -->
+            <div class="trend-info">
+              <span id="trendText">--</span>
+              <span class="separator">|</span>
+              <span>現價: <strong id="currentPrice">--</strong></span>
+              <span id="changePercent">--</span>
+              <span id="fromWaveText" class="from-wave-badge up">自上浪 --</span>
+            </div>
+          </div>
+          
+          <!-- Three Columns -->
+          <div class="three-columns">
+            <!-- Rules Check -->
+            <div class="column-card">
+              <div class="column-header">📋 波浪規則檢查</div>
+              <div class="column-body" id="rulesContainer">
+                <div class="loading"><div class="spinner"></div></div>
+              </div>
+            </div>
+            
+            <!-- Wave History -->
+            <div class="column-card">
+              <div class="column-header">📊 近期波浪</div>
+              <div class="column-body" id="waveHistoryContainer">
+                <div class="loading"><div class="spinner"></div></div>
+              </div>
+            </div>
+            
+            <!-- Suggestion -->
+            <div class="column-card">
+              <div class="column-header">💡 操作建議</div>
+              <div class="column-body">
+                <div class="suggestion-box">
+                  <p id="suggestionText">載入中...</p>
+                </div>
+                <div class="targets-row">
+                  <div class="target-box up">
+                    <div class="label">🎯 目標上檔</div>
+                    <div class="value" id="targetUp">--</div>
+                  </div>
+                  <div class="target-box down">
+                    <div class="label">🛡️ 支撐下檔</div>
+                    <div class="value" id="targetDown">--</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Bottom Row -->
+          <div class="three-columns" style="grid-template-columns: 1fr 1fr; margin-top: 16px;">
+            <div class="column-card">
+              <div class="column-header">📅 最近交易日數據</div>
+              <div class="column-body" id="recentDataContainer">
+                <div class="loading"><div class="spinner"></div></div>
+              </div>
+            </div>
+            <div class="column-card">
+              <div class="column-header">📐 斐波那契比例</div>
+              <div class="column-body" id="fibContainer">
+                <div class="loading"><div class="spinner"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Portfolio Tab -->
+    <div id="portfolioTab" class="hidden">
+      <div class="main-card">
+        <div class="card-header"><h2>💼 自訂投資組合</h2></div>
+        <div class="card-body">
+          <!-- Controls -->
+          <div class="portfolio-controls">
+            <span style="color: #8b949e;">預算：</span>
+            <input type="number" id="budgetInput" value="60" style="width: 80px;" />
+            <span style="color: #8b949e;">萬元</span>
+            <div class="budget-btns">
+              <button class="budget-btn" onclick="setBudget(30)">30萬</button>
+              <button class="budget-btn" onclick="setBudget(50)">50萬</button>
+              <button class="budget-btn active" onclick="setBudget(60)">60萬</button>
+              <button class="budget-btn" onclick="setBudget(100)">100萬</button>
+              <button class="budget-btn" onclick="setBudget(200)">200萬</button>
+            </div>
+            <button class="btn btn-primary" onclick="renderPortfolio()" style="margin-left: auto;">🔄 重新計算</button>
+          </div>
+          
+          <!-- Summary -->
+          <div class="summary-grid">
+            <div class="summary-card">
+              <div class="label">總預算</div>
+              <div class="value" style="color: #c9d1d9;" id="sumBudget">$600,000</div>
+            </div>
+            <div class="summary-card">
+              <div class="label">股票配置</div>
+              <div class="value" style="color: #3fb950;" id="sumStock">$552,000</div>
+            </div>
+            <div class="summary-card">
+              <div class="label">現金保留</div>
+              <div class="value" style="color: #d29922;" id="sumCash">$48,000</div>
+            </div>
+            <div class="summary-card">
+              <div class="label">風險分數</div>
+              <div class="value" style="color: #58a6ff;" id="sumRiskScore">45</div>
+            </div>
+            <div class="summary-card">
+              <div class="label">風險等級</div>
+              <div class="value" id="sumRiskLevel" style="color: #3fb950;">低</div>
+            </div>
+          </div>
+          
+          <!-- Stock List -->
+          <div class="stock-header">
+            <span>股票</span><span>類股/原因</span><span>配置金額</span><span>比例</span><span>波浪</span><span>操作</span>
+          </div>
+          <div id="stockList"></div>
+          
+          <!-- Add Form -->
+          <div class="add-form">
+            <input type="text" id="newId" placeholder="代碼" style="width: 70px;" />
+            <input type="text" id="newName" placeholder="名稱" style="width: 90px;" />
+            <input type="text" id="newSector" placeholder="類股" style="width: 80px;" />
+            <input type="number" id="newPercent" placeholder="%" style="width: 50px;" value="5" />
+            <input type="text" id="newReason" placeholder="投資原因" />
+            <button class="btn btn-primary" onclick="addStock()">➕ 新增</button>
+          </div>
+          
+          <!-- Risk Section -->
+          <div class="risk-section">
+            <h3 style="font-size: 0.95rem; color: #c9d1d9; margin-bottom: 8px;">📊 風險評估</h3>
+            <div class="risk-bar-bg">
+              <div class="risk-indicator" id="riskIndicator" style="left: 35%;">35</div>
+            </div>
+            <div class="risk-labels">
+              <span>🟢 低風險</span><span>🟡 中風險</span><span>🔴 高風險</span>
+            </div>
+            <div class="risk-comment" id="riskComment">組合風險評估中...</div>
+          </div>
+          
+          <!-- Sector Distribution -->
+          <div class="sector-section">
+            <h3 style="font-size: 0.95rem; color: #c9d1d9; margin-bottom: 12px;">📊 類股分散</h3>
+            <div id="sectorBars"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let priceChart = null;
+    let currentPivots = [];
+    let currentHistory = [];
+    
+    // 投資組合
+    let portfolio = [
+      { id: '2330', name: '台積電', sector: '半導體', percent: 25, wave: 3, reason: '主升段，技術領先' },
+      { id: '2454', name: '聯發科', sector: 'IC設計', percent: 12, wave: 2, reason: '回調進場點' },
+      { id: '2881', name: '富邦金', sector: '金融', percent: 10, wave: 1, reason: '初升段' },
+      { id: '0050', name: '元大台灣50', sector: 'ETF', percent: 20, wave: 3, reason: '分散風險' },
+      { id: '00878', name: '國泰永續高股息', sector: 'ETF', percent: 15, wave: 4, reason: '穩定配息' },
+      { id: '2344', name: '華邦電', sector: '記憶體', percent: 10, wave: 2, reason: '景氣循環' },
+      { id: 'CASH', name: '現金保留', sector: '現金', percent: 8, wave: '-', reason: '等待時機' }
+    ];
+    
+    // 波浪說明
+    const waveDesc = {
+      1: '【第1浪 初升段】股票首次上漲，少數人認出。策略：小量試單，觀察確認。',
+      2: '【第2浪 回調】獲利了結造成下跌，但不跌破第1浪低點。策略：等待回調後進場。',
+      3: '【第3浪 主升段】最強最長的一波！吸引公眾目光。策略：持股續抱，可加碼！',
+      4: '【第4浪 整理】部分獲利了結，不跌破第1浪高點。策略：持股觀望。',
+      5: '【第5浪 末升段】市場極度樂觀，CEO上雜誌封面。策略：分批獲利了結！',
+      A: '【A浪 下跌開始】下跌開始，多數人認為暫時回檔。策略：減碼或停損！',
+      B: '【B浪 反彈陷阱】對A浪的反彈，是「多頭陷阱」。策略：不宜追高！',
+      C: '【C浪 主跌段】破壞力最強的下跌浪，全面性下跌。策略：空手觀望！'
+    };
+    
+    // 波浪顏色對應
+    const waveColors = {
+      '1': '#238636', '3': '#238636', '5': '#238636',  // 推動浪=綠
+      '2': '#1f6feb', '4': '#1f6feb',                   // 修正浪=藍
+      'A': '#da3633', 'C': '#da3633',                   // 下跌浪=紅
+      'B': '#d29922'                                     // 反彈浪=橘
+    };
+    
+    window.onload = function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      document.getElementById('stockInput').value = urlParams.get('stock') || '2330';
+      analyzeStock();
+      renderPortfolio();
+    };
+    
+    function showTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab')[tab === 'wave' ? 0 : 1].classList.add('active');
+      document.getElementById('waveTab').classList.toggle('hidden', tab !== 'wave');
+      document.getElementById('portfolioTab').classList.toggle('hidden', tab !== 'portfolio');
+    }
+    
+    async function analyzeStock() {
+      const stockId = document.getElementById('stockInput').value.trim();
+      if (!stockId) return alert('請輸入股票代碼');
+      showLoading();
+      
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        
+        // 儲存數據供圖表使用
+        currentPivots = data.pivots || [];
+        currentHistory = data.history || [];
+        
+        renderAnalysis(data);
+      } catch (e) {
+        alert('分析失敗: ' + e.message);
+      }
+    }
+    
+    function renderAnalysis(data) {
+      document.getElementById('stockName').textContent = data.stockName || data.stockId;
+      document.getElementById('stockId').textContent = data.stockId;
+      document.getElementById('currentPrice').textContent = '$' + (data.currentPrice || 0).toFixed(2);
+      document.getElementById('currentWave').textContent = data.currentWave || '--';
+      
+      // 漲跌（台股：漲=紅，跌=綠）
+      const change = data.changePercent || 0;
+      const changeEl = document.getElementById('changePercent');
+      changeEl.textContent = (change >= 0 ? '▲' : '▼') + Math.abs(change).toFixed(2) + '%';
+      changeEl.className = change >= 0 ? 'up' : 'down';
+      
+      // 趨勢
+      const wave = data.currentWave;
+      const isUp = [1,2,3,4,5,'1','2','3','4','5'].includes(wave);
+      document.getElementById('trendText').textContent = isUp ? '上升趨勢' : '下降趨勢';
+      document.getElementById('trendText').className = isUp ? 'up' : 'down';
+      
+      // 自上浪變化
+      const fromWaveEl = document.getElementById('fromWaveText');
+      const fromChange = data.fromWaveChange || change;
+      fromWaveEl.textContent = `自上浪 ${fromChange >= 0 ? '+' : ''}${fromChange.toFixed(1)}%`;
+      fromWaveEl.className = 'from-wave-badge ' + (fromChange >= 0 ? 'up' : 'down');
+      
+      // 信心分數
+      const conf = data.confidence || 50;
+      const confEl = document.getElementById('confidenceBadge');
+      confEl.textContent = `信心: ${conf}%`;
+      confEl.style.background = conf >= 70 ? 'rgba(63,185,80,0.2)' : conf >= 40 ? 'rgba(210,153,34,0.2)' : 'rgba(248,81,73,0.2)';
+      confEl.style.color = conf >= 70 ? '#3fb950' : conf >= 40 ? '#d29922' : '#f85149';
+      
+      // 波浪圓圈
+      renderWaveCircles(wave);
+      
+      // 其他
+      document.getElementById('suggestionText').textContent = data.suggestion || '請結合其他技術指標綜合判斷。';
+      document.getElementById('targetUp').textContent = '$' + (data.targetUp || 0).toFixed(1);
+      document.getElementById('targetDown').textContent = '$' + (data.targetDown || 0).toFixed(1);
+      
+      renderRules(data.rules);
+      renderWaveHistory(data.waves, data.currentPrice, wave);
+      renderFibonacci(data);
+      renderRecentData(data.history);
+      renderChart(data);
+    }
+    
+    function renderWaveCircles(currentWave) {
+      const waves = ['1', '2', '3', '4', '5', 'A', 'B', 'C'];
+      const container = document.getElementById('waveCircles');
+      
+      container.innerHTML = waves.map(w => {
+        const isActive = String(currentWave) === w;
+        let cls = 'w' + w;
+        if (w === 'A' || w === 'C') cls = 'wA';
+        else if (w === 'B') cls = 'wB';
+        return `<div class="wave-circle ${cls} ${isActive ? 'active' : ''}" onclick="alert('${waveDesc[w]}')">${w}</div>`;
+      }).join('');
+    }
+    
+    function renderRules(rules) {
+      const r = rules || [
+        { rule: '第2浪不跌破第1浪起點', pass: true },
+        { rule: '第3浪不是最短推動浪', pass: true },
+        { rule: '第4浪不重疊第1浪區間', pass: true }
+      ];
+      document.getElementById('rulesContainer').innerHTML = r.map(x => `
+        <div class="rule-item ${x.pass ? 'pass' : 'fail'}">
+          <span class="rule-icon">${x.pass ? '✅' : '❌'}</span>
+          <span class="rule-text">${x.rule}</span>
+        </div>
+      `).join('');
+    }
+    
+    function renderWaveHistory(waves, currentPrice, currentWave) {
+      const container = document.getElementById('waveHistoryContainer');
+      if (!waves || !waves.length) {
+        container.innerHTML = '<div style="color: #8b949e; text-align: center; padding: 20px;">暫無波浪數據</div>';
+        return;
+      }
+      
+      // 波浪歷史：由舊到新排序
+      const order = { '1':1, '2':2, '3':3, '4':4, '5':5, 'A':6, 'B':7, 'C':8, 1:1, 2:2, 3:3, 4:4, 5:5 };
+      const sortedWaves = [...waves].sort((a, b) => (order[a.wave] || 99) - (order[b.wave] || 99));
+      
+      container.innerHTML = sortedWaves.slice(0, 6).map(w => {
+        const up = w.end > w.start;
+        const pct = ((w.end - w.start) / w.start * 100).toFixed(1);
+        const type = [1,3,5,'1','3','5'].includes(w.wave) ? '推動' : '修正';
+        const isCurrent = String(w.wave) === String(currentWave);
+        
+        return `
+          <div class="wave-history-item ${isCurrent ? 'current' : ''}">
+            <div>
+              <div class="wave-name">第 ${w.wave} 浪 (${type})</div>
+              ${isCurrent ? '<div class="wave-type">← 目前</div>' : ''}
+            </div>
+            <div class="wave-price ${up ? 'up' : 'down'}">
+              ${w.start.toFixed(1)} → ${w.end.toFixed(1)}
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      // 現價
+      if (currentPrice) {
+        container.innerHTML += `
+          <div class="wave-history-item" style="background: rgba(88,166,255,0.1); border: 1px solid rgba(88,166,255,0.3);">
+            <span style="color: #58a6ff;">📍 現價</span>
+            <span style="color: #c9d1d9; font-weight: 700;">$${currentPrice.toFixed(2)}</span>
+          </div>
+        `;
+      }
+    }
+    
+    function renderFibonacci(data) {
+      const price = data.currentPrice || 100;
+      const high = data.targetUp || price * 1.1;
+      const low = data.targetDown || price * 0.9;
+      const range = high - low;
+      
+      const levels = [
+        { r: '0%', p: low, c: '#3fb950' },
+        { r: '23.6%', p: low + range * 0.236, c: '#58a6ff' },
+        { r: '38.2%', p: low + range * 0.382, c: '#58a6ff' },
+        { r: '50%', p: low + range * 0.5, c: '#d29922' },
+        { r: '61.8%', p: low + range * 0.618, c: '#d29922' },
+        { r: '100%', p: high, c: '#f85149' }
+      ];
+      
+      document.getElementById('fibContainer').innerHTML = levels.map(l => {
+        const near = Math.abs(l.p - price) < range * 0.08;
+        return `
+          <div class="fib-row" style="background: ${near ? 'rgba(88,166,255,0.15)' : '#161b22'}; border-color: ${l.c};">
+            <span class="fib-ratio" style="color: ${l.c};">${l.r}</span>
+            <span class="fib-price">$${l.p.toFixed(2)}</span>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    function renderRecentData(history) {
+      const container = document.getElementById('recentDataContainer');
+      if (!history || !history.length) {
+        container.innerHTML = '<div style="color: #8b949e; text-align: center;">暫無數據</div>';
+        return;
+      }
+      
+      // history 已經是正序（舊→新），取最後10筆顯示
+      const recent = history.slice(-10);
+      
+      container.innerHTML = `
+        <table class="data-table">
+          <thead><tr>
+            <th>日期</th><th style="text-align:right;">開</th><th style="text-align:right;">高</th>
+            <th style="text-align:right;">低</th><th style="text-align:right;">收</th>
+          </tr></thead>
+          <tbody>
+            ${recent.map(d => {
+              const up = d.close >= d.open;
+              return `<tr class="${up ? 'up' : 'down'}">
+                <td style="color: #8b949e;">${d.date ? new Date(d.date).toLocaleDateString('zh-TW') : '-'}</td>
+                <td style="text-align:right;">${d.open?.toFixed(1) || '-'}</td>
+                <td style="text-align:right;">${d.high?.toFixed(1) || '-'}</td>
+                <td style="text-align:right;">${d.low?.toFixed(1) || '-'}</td>
+                <td style="text-align:right; font-weight:600;">${d.close?.toFixed(1) || '-'}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        <div style="font-size: 0.7rem; color: #6b7280; text-align: center; margin-top: 8px;">
+          共 ${history.length} 天歷史資料
+        </div>
+      `;
+    }
+    
+    function renderChart(data) {
+      const ctx = document.getElementById('priceChart').getContext('2d');
+      if (priceChart) priceChart.destroy();
+      
+      const history = data.history || [];
+      if (history.length === 0) return;
+      
+      // ⚠️ API 返回的 history 已經是正序（舊→新），直接使用！
+      // 左邊 = 最舊，右邊 = 最新
+      const labels = history.map(h => h.date ? new Date(h.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'}) : '');
+      const prices = history.map(h => h.close);
+      
+      // 建立波浪標記 annotations - 從 waves 陣列取得
+      const annotations = {};
+      const waves = data.waves || [];
+      
+      // 為每個波浪找到對應的價格位置並標記
+      waves.forEach((w, i) => {
+        const waveLabel = String(w.wave);
+        const color = waveColors[waveLabel] || '#58a6ff';
+        
+        // 找到最接近 end 價格的索引位置
+        let bestIdx = -1;
+        let bestDiff = Infinity;
+        
+        for (let j = 0; j < prices.length; j++) {
+          const diff = Math.abs(prices[j] - w.end);
+          if (diff < bestDiff) {
+            bestDiff = diff;
+            bestIdx = j;
+          }
+        }
+        
+        // 確保標記不重疊 - 往後找更接近的點
+        if (bestIdx >= 0 && bestIdx < prices.length) {
+          // 微調位置避免重疊
+          const isHigh = [1, 3, 5, 'A', 'C'].includes(w.wave) ? (w.end > w.start) : (w.end < w.start);
+          
+          annotations['wave_' + i] = {
+            type: 'label',
+            xValue: bestIdx,
+            yValue: w.end,
+            content: waveLabel,
+            backgroundColor: color,
+            color: 'white',
+            font: { size: 12, weight: 'bold' },
+            padding: { top: 4, bottom: 4, left: 7, right: 7 },
+            borderRadius: 12,
+            yAdjust: isHigh ? -15 : 15  // 高點往上移，低點往下移
+          };
+        }
+      });
+      
+      // 加上現價標記
+      if (data.currentPrice && prices.length > 0) {
+        annotations['current'] = {
+          type: 'line',
+          yMin: data.currentPrice,
+          yMax: data.currentPrice,
+          borderColor: '#58a6ff',
+          borderWidth: 1,
+          borderDash: [5, 5],
+          label: {
+            display: true,
+            content: `現價 $${data.currentPrice.toFixed(1)}`,
+            position: 'end',
+            backgroundColor: '#58a6ff',
+            color: 'white',
+            font: { size: 10 }
+          }
+        };
+      }
+      
+      priceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data: prices,
+            borderColor: '#58a6ff',
+            backgroundColor: 'rgba(88, 166, 255, 0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 1,
+            pointHoverRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { 
+            legend: { display: false },
+            annotation: { annotations }
+          },
+          scales: {
+            x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 15, maxRotation: 45 } },
+            y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } }
+          }
+        }
+      });
+    }
+    
+    function showLoading() {
+      ['rulesContainer', 'waveHistoryContainer', 'fibContainer', 'recentDataContainer'].forEach(id => {
+        document.getElementById(id).innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+      });
+    }
+    
+    // ========== 投資組合 ==========
+    
+    function setBudget(val) {
+      document.getElementById('budgetInput').value = val;
+      document.querySelectorAll('.budget-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      renderPortfolio();
+    }
+    
+    function renderPortfolio() {
+      const budget = (parseInt(document.getElementById('budgetInput').value) || 60) * 10000;
+      const container = document.getElementById('stockList');
+      
+      const data = portfolio.map(s => ({ ...s, amount: Math.round(budget * s.percent / 100) }));
+      
+      container.innerHTML = data.map((s, i) => {
+        const waveColor = s.wave === '-' ? '#8b949e' : 
+                          [1,2,'1','2'].includes(s.wave) ? '#3fb950' : 
+                          [3,4,'3','4'].includes(s.wave) ? '#d29922' : '#f85149';
+        return `
+          <div class="stock-item">
+            <div class="name">${s.id} ${s.name}</div>
+            <div>
+              <div class="sector">${s.sector}</div>
+              <div style="color: #8b949e; font-size: 0.75rem;">${s.reason}</div>
+            </div>
+            <div class="amount">$${s.amount.toLocaleString()}</div>
+            <input type="number" value="${s.percent}" min="0" max="100" onchange="updatePercent(${i}, this.value)" />
+            <span class="wave-badge" style="background: ${waveColor}22; color: ${waveColor}; border: 1px solid ${waveColor}44;">
+              ${s.wave === '-' ? '現金' : '第'+s.wave+'浪'}
+            </span>
+            ${s.id !== 'CASH' ? `<button class="delete-btn" onclick="deleteStock(${i})">🗑️</button>` : '<span></span>'}
+          </div>
+        `;
+      }).join('');
+      
+      const stockTotal = data.filter(p => p.id !== 'CASH').reduce((sum, p) => sum + p.amount, 0);
+      const cashTotal = data.find(p => p.id === 'CASH')?.amount || 0;
+      document.getElementById('sumBudget').textContent = '$' + budget.toLocaleString();
+      document.getElementById('sumStock').textContent = '$' + stockTotal.toLocaleString();
+      document.getElementById('sumCash').textContent = '$' + cashTotal.toLocaleString();
+      
+      calculateRisk(data);
+      renderSectorBars(data);
+    }
+    
+    function updatePercent(i, val) {
+      portfolio[i].percent = parseInt(val) || 0;
+      renderPortfolio();
+    }
+    
+    function deleteStock(i) {
+      if (confirm(`確定刪除 ${portfolio[i].name}？`)) {
+        portfolio.splice(i, 1);
+        renderPortfolio();
+      }
+    }
+    
+    function addStock() {
+      const id = document.getElementById('newId').value.trim();
+      const name = document.getElementById('newName').value.trim();
+      const sector = document.getElementById('newSector').value.trim() || '其他';
+      const percent = parseInt(document.getElementById('newPercent').value) || 5;
+      const reason = document.getElementById('newReason').value.trim() || '自訂配置';
+      
+      if (!id || !name) return alert('請輸入代碼和名稱');
+      if (portfolio.find(s => s.id === id)) return alert('此股票已存在');
+      
+      portfolio.push({ id, name, sector, percent, wave: '?', reason });
+      ['newId', 'newName', 'newSector', 'newReason'].forEach(x => document.getElementById(x).value = '');
+      document.getElementById('newPercent').value = '5';
+      renderPortfolio();
+    }
+    
+    function calculateRisk(data) {
+      let score = 0, weight = 0;
+      data.forEach(s => {
+        if (s.id === 'CASH') return;
+        let risk = 50;
+        const w = s.wave;
+        if ([1,2,'1','2'].includes(w)) risk = 25;
+        else if ([3,'3'].includes(w)) risk = 40;
+        else if ([4,'4'].includes(w)) risk = 55;
+        else if ([5,'5'].includes(w)) risk = 70;
+        else if (['A','B','C'].includes(w)) risk = 80;
+        
+        if (s.sector.includes('ETF')) risk -= 15;
+        if (s.sector.includes('金融')) risk -= 10;
+        if (s.sector.includes('記憶體')) risk += 10;
+        
+        score += risk * s.percent;
+        weight += s.percent;
+      });
+      
+      const avg = weight > 0 ? Math.round(score / weight) : 50;
+      document.getElementById('sumRiskScore').textContent = avg;
+      document.getElementById('riskIndicator').style.left = avg + '%';
+      document.getElementById('riskIndicator').textContent = avg;
+      
+      let level = '低', color = '#3fb950', comment = '組合風險偏低，配置保守。可適度增加成長股提高報酬。';
+      if (avg >= 60) {
+        level = '高'; color = '#f85149';
+        comment = '組合風險較高，建議增加防禦性標的（高股息ETF、金融股）降低波動。';
+      } else if (avg >= 40) {
+        level = '中'; color = '#d29922';
+        comment = '組合風險適中，攻守兼備。可根據市場狀況適度調整。';
+      }
+      
+      document.getElementById('sumRiskLevel').textContent = level;
+      document.getElementById('sumRiskLevel').style.color = color;
+      document.getElementById('riskComment').textContent = comment;
+    }
+    
+    function renderSectorBars(data) {
+      const sectors = {};
+      const colors = { '半導體': '#58a6ff', 'ETF': '#3fb950', '金融': '#d29922', '記憶體': '#f85149', '現金': '#8b949e', '其他': '#a371f7' };
+      
+      data.forEach(p => {
+        let cat = '其他';
+        if (p.id === 'CASH') cat = '現金';
+        else if (p.sector.includes('半導體') || p.sector.includes('IC')) cat = '半導體';
+        else if (p.sector.includes('ETF')) cat = 'ETF';
+        else if (p.sector.includes('金融')) cat = '金融';
+        else if (p.sector.includes('記憶體')) cat = '記憶體';
+        sectors[cat] = (sectors[cat] || 0) + p.percent;
+      });
+      
+      document.getElementById('sectorBars').innerHTML = Object.entries(sectors)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, pct]) => `
+          <div class="sector-row">
+            <div class="name">${name}</div>
+            <div class="bar-bg">
+              <div class="bar-fill" style="width: ${pct}%; background: ${colors[name] || '#58a6ff'};">
+                <span>${pct}%</span>
+              </div>
+            </div>
+          </div>
+        `).join('');
+    }
+  </script>
+</body>
+</html>

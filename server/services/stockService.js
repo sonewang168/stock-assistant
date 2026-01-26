@@ -46,27 +46,197 @@ class StockService {
   }
 
   /**
-   * 🇺🇸 取得美股即時股價（使用 Yahoo Finance）
+   * 🇺🇸 取得美股即時股價（使用多個來源）
    */
   async getUSStockPrice(symbol) {
+    // 嘗試多個資料來源
+    let data = await this.fetchUSStockFromYahoo(symbol);
+    
+    if (!data) {
+      console.log(`   嘗試備用來源 (v7)...`);
+      data = await this.fetchUSStockFromYahooV7(symbol);
+    }
+    
+    if (!data) {
+      console.log(`   嘗試備用來源 (quote)...`);
+      data = await this.fetchUSStockFromYahooQuote(symbol);
+    }
+
+    if (!data) {
+      console.log(`   嘗試備用來源 (Google)...`);
+      data = await this.fetchUSStockFromGoogle(symbol);
+    }
+    
+    if (!data) {
+      console.log(`   嘗試備用來源 (Yahoo HTML)...`);
+      data = await this.fetchUSStockFromYahooHTML(symbol);
+    }
+    
+    return data;
+  }
+
+  /**
+   * Yahoo Finance HTML 頁面爬取（最後備援）
+   */
+  async fetchUSStockFromYahooHTML(symbol) {
     try {
-      // 使用 Yahoo Finance API
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
+      const url = `https://finance.yahoo.com/quote/${symbol}`;
       
       const response = await axios.get(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Cache-Control': 'no-cache'
+        },
+        timeout: 15000
+      });
+
+      const html = response.data;
+      
+      // 嘗試從 JSON-LD 或頁面中提取數據
+      const priceMatch = html.match(/regularMarketPrice.*?(\d+\.?\d*)/);
+      const changeMatch = html.match(/regularMarketChange.*?(-?\d+\.?\d*)/);
+      const changePercentMatch = html.match(/regularMarketChangePercent.*?(-?\d+\.?\d*)/);
+      
+      // 備用正則
+      const priceMatch2 = html.match(/data-field="regularMarketPrice"[^>]*>([0-9,.]+)</);
+      const finStreamMatch = html.match(/"regularMarketPrice":{"raw":([0-9.]+)/);
+      
+      let price = null;
+      if (priceMatch) price = parseFloat(priceMatch[1]);
+      else if (priceMatch2) price = parseFloat(priceMatch2[1].replace(/,/g, ''));
+      else if (finStreamMatch) price = parseFloat(finStreamMatch[1]);
+      
+      if (price && price > 0) {
+        const change = changeMatch ? parseFloat(changeMatch[1]) : 0;
+        const changePercent = changePercentMatch ? parseFloat(changePercentMatch[1]) : 0;
+        
+        const usStockNames = {
+          'AAPL': '蘋果', 'TSLA': '特斯拉', 'NVDA': '輝達', 'MSFT': '微軟',
+          'GOOGL': '谷歌', 'GOOG': '谷歌', 'AMZN': '亞馬遜', 'META': 'Meta',
+          'AMD': '超微', 'INTC': '英特爾', 'TSM': '台積電ADR', 'MU': '美光',
+          'WDC': '威騰', 'STX': '希捷'
+        };
+
+        console.log(`   ✅ Yahoo HTML ${symbol}: $${price}`);
+        return {
+          id: symbol,
+          name: usStockNames[symbol] || symbol,
+          price: parseFloat(price.toFixed(2)),
+          change: parseFloat(change.toFixed(2)),
+          changePercent: changePercent.toFixed(2),
+          market: 'US',
+          colorMode: 'us',
+          currency: 'USD'
+        };
+      }
+    } catch (e) {
+      console.error(`Yahoo HTML ${symbol} 失敗:`, e.message);
+    }
+    return null;
+  }
+
+  /**
+   * Google Finance 備援（美股個股）
+   */
+  async fetchUSStockFromGoogle(symbol) {
+    try {
+      const url = `https://www.google.com/finance/quote/${symbol}:NASDAQ`;
+      
+      let response = await axios.get(url, {
+        headers: { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'text/html'
         },
         timeout: 10000
       });
 
+      // 如果 NASDAQ 找不到，試試 NYSE
+      if (!response.data.includes('data-last-price')) {
+        const urlNYSE = `https://www.google.com/finance/quote/${symbol}:NYSE`;
+        response = await axios.get(urlNYSE, {
+          headers: { 
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html'
+          },
+          timeout: 10000
+        });
+      }
+
+      const html = response.data;
+      
+      // 解析價格
+      const priceMatch = html.match(/data-last-price="([0-9,.]+)"/);
+      const changeMatch = html.match(/data-price-change="([0-9,.-]+)"/);
+      const changePercentMatch = html.match(/data-price-change-percent="([0-9,.-]+)"/);
+      
+      if (priceMatch) {
+        const price = parseFloat(priceMatch[1].replace(/,/g, ''));
+        const change = changeMatch ? parseFloat(changeMatch[1].replace(/,/g, '')) : 0;
+        const changePercent = changePercentMatch ? parseFloat(changePercentMatch[1]) : 0;
+
+        const usStockNames = {
+          'AAPL': '蘋果', 'TSLA': '特斯拉', 'NVDA': '輝達', 'MSFT': '微軟',
+          'GOOGL': '谷歌', 'GOOG': '谷歌', 'AMZN': '亞馬遜', 'META': 'Meta',
+          'AMD': '超微', 'INTC': '英特爾', 'TSM': '台積電ADR'
+        };
+
+        return {
+          id: symbol,
+          name: usStockNames[symbol] || symbol,
+          price: parseFloat(price.toFixed(2)),
+          change: parseFloat(change.toFixed(2)),
+          changePercent: changePercent.toFixed(2),
+          market: 'US',
+          colorMode: 'us',
+          currency: 'USD'
+        };
+      }
+    } catch (e) {
+      console.error(`Google Finance ${symbol} 失敗:`, e.message);
+    }
+    return null;
+  }
+
+  /**
+   * Yahoo Finance v8 API
+   */
+  async fetchUSStockFromYahoo(symbol) {
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=5d`;
+      
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Origin': 'https://finance.yahoo.com',
+          'Referer': 'https://finance.yahoo.com/',
+          'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+          'Sec-Ch-Ua-Mobile': '?0',
+          'Sec-Ch-Ua-Platform': '"Windows"',
+          'Sec-Fetch-Dest': 'empty',
+          'Sec-Fetch-Mode': 'cors',
+          'Sec-Fetch-Site': 'same-site'
+        },
+        timeout: 15000
+      });
+
       const result = response.data?.chart?.result?.[0];
-      if (!result) return null;
+      if (!result) {
+        console.log(`   Yahoo v8: ${symbol} 無資料`);
+        return null;
+      }
 
       const meta = result.meta;
       const quote = result.indicators?.quote?.[0];
       
-      if (!meta || !quote) return null;
+      if (!meta) {
+        console.log(`   Yahoo v8: ${symbol} meta 為空`);
+        return null;
+      }
 
       const price = meta.regularMarketPrice || 0;
       const previousClose = meta.previousClose || meta.chartPreviousClose || 0;
@@ -86,27 +256,146 @@ class StockService {
         'SPY': 'S&P500 ETF', 'QQQ': '納指100 ETF', 'VOO': 'Vanguard S&P500'
       };
 
-      const stockData = {
+      return {
         id: symbol,
-        name: usStockNames[symbol] || meta.shortName || symbol,
+        name: usStockNames[symbol] || meta.shortName || meta.longName || symbol,
         price: parseFloat(price.toFixed(2)),
-        open: quote.open?.[quote.open.length - 1] || 0,
-        high: quote.high?.[quote.high.length - 1] || 0,
-        low: quote.low?.[quote.low.length - 1] || 0,
+        open: quote?.open?.[quote.open.length - 1] || meta.regularMarketOpen || 0,
+        high: quote?.high?.[quote.high.length - 1] || meta.regularMarketDayHigh || 0,
+        low: quote?.low?.[quote.low.length - 1] || meta.regularMarketDayLow || 0,
         yesterday: previousClose,
-        volume: quote.volume?.[quote.volume.length - 1] || 0,
+        volume: quote?.volume?.[quote.volume.length - 1] || meta.regularMarketVolume || 0,
         change: parseFloat(change.toFixed(2)),
         changePercent: changePercent,
         market: 'US',
-        colorMode: 'us', // 美國：綠漲紅跌
+        colorMode: 'us',
         currency: meta.currency || 'USD',
+        marketState: meta.marketState || 'UNKNOWN',
         time: new Date().toLocaleTimeString('zh-TW', { timeZone: 'America/New_York' })
       };
 
-      return stockData;
+    } catch (error) {
+      const status = error.response?.status || 'N/A';
+      const msg = error.response?.data?.chart?.error?.description || error.message;
+      console.error(`取得美股 ${symbol} 失敗 (v8): [${status}] ${msg}`);
+      return null;
+    }
+  }
+
+  /**
+   * Yahoo Finance v7 API（備用）
+   */
+  async fetchUSStockFromYahooV7(symbol) {
+    try {
+      const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`;
+      
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': '*/*',
+          'Origin': 'https://finance.yahoo.com',
+          'Referer': 'https://finance.yahoo.com/'
+        },
+        timeout: 15000
+      });
+
+      const quote = response.data?.quoteResponse?.result?.[0];
+      if (!quote) {
+        console.log(`   Yahoo v7: ${symbol} 無資料`);
+        return null;
+      }
+
+      const usStockNames = {
+        'AAPL': '蘋果', 'TSLA': '特斯拉', 'NVDA': '輝達', 'MSFT': '微軟',
+        'GOOGL': '谷歌', 'GOOG': '谷歌', 'AMZN': '亞馬遜', 'META': 'Meta',
+        'AMD': '超微', 'INTC': '英特爾', 'TSM': '台積電ADR'
+      };
+
+      const price = quote.regularMarketPrice || 0;
+      const previousClose = quote.regularMarketPreviousClose || 0;
+      const change = quote.regularMarketChange || (price - previousClose);
+      const changePercent = quote.regularMarketChangePercent || 
+        (previousClose > 0 ? ((change / previousClose) * 100) : 0);
+
+      return {
+        id: symbol,
+        name: usStockNames[symbol] || quote.shortName || quote.longName || symbol,
+        price: parseFloat(price.toFixed(2)),
+        open: quote.regularMarketOpen || 0,
+        high: quote.regularMarketDayHigh || 0,
+        low: quote.regularMarketDayLow || 0,
+        yesterday: previousClose,
+        volume: quote.regularMarketVolume || 0,
+        change: parseFloat(change.toFixed(2)),
+        changePercent: parseFloat(changePercent).toFixed(2),
+        market: 'US',
+        colorMode: 'us',
+        currency: quote.currency || 'USD',
+        marketState: quote.marketState || 'UNKNOWN',
+        time: new Date().toLocaleTimeString('zh-TW', { timeZone: 'America/New_York' })
+      };
 
     } catch (error) {
-      console.error(`取得美股 ${symbol} 失敗:`, error.message);
+      const status = error.response?.status || 'N/A';
+      const msg = error.response?.data?.quoteResponse?.error?.description || error.message;
+      console.error(`取得美股 ${symbol} 失敗 (v7): [${status}] ${msg}`);
+      return null;
+    }
+  }
+
+  /**
+   * Yahoo Finance Quote API（第三備用）
+   */
+  async fetchUSStockFromYahooQuote(symbol) {
+    try {
+      // 使用 query2 端點
+      const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=price`;
+      
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+          'Accept': 'application/json'
+        },
+        timeout: 15000
+      });
+
+      const priceData = response.data?.quoteSummary?.result?.[0]?.price;
+      if (!priceData) {
+        console.log(`   Yahoo quote: ${symbol} 無資料`);
+        return null;
+      }
+
+      const usStockNames = {
+        'AAPL': '蘋果', 'TSLA': '特斯拉', 'NVDA': '輝達', 'MSFT': '微軟',
+        'AMD': '超微', 'GOOGL': '谷歌', 'AMZN': '亞馬遜', 'META': 'Meta'
+      };
+
+      const price = priceData.regularMarketPrice?.raw || 0;
+      const previousClose = priceData.regularMarketPreviousClose?.raw || 0;
+      const change = priceData.regularMarketChange?.raw || 0;
+      const changePercent = priceData.regularMarketChangePercent?.raw || 0;
+
+      return {
+        id: symbol,
+        name: usStockNames[symbol] || priceData.shortName || symbol,
+        price: parseFloat(price.toFixed(2)),
+        open: priceData.regularMarketOpen?.raw || 0,
+        high: priceData.regularMarketDayHigh?.raw || 0,
+        low: priceData.regularMarketDayLow?.raw || 0,
+        yesterday: previousClose,
+        volume: priceData.regularMarketVolume?.raw || 0,
+        change: parseFloat(change.toFixed(2)),
+        changePercent: parseFloat(changePercent).toFixed(2),
+        market: 'US',
+        colorMode: 'us',
+        currency: priceData.currency || 'USD',
+        marketState: priceData.marketState || 'UNKNOWN',
+        time: new Date().toLocaleTimeString('zh-TW', { timeZone: 'America/New_York' })
+      };
+
+    } catch (error) {
+      const status = error.response?.status || 'N/A';
+      console.error(`取得美股 ${symbol} 失敗 (quote): [${status}] ${error.message}`);
       return null;
     }
   }
@@ -117,45 +406,40 @@ class StockService {
   async getUSIndices() {
     try {
       const indices = [
-        { symbol: '^DJI', name: '道瓊工業' },
-        { symbol: '^GSPC', name: 'S&P 500' },
-        { symbol: '^IXIC', name: '納斯達克' },
-        { symbol: '^SOX', name: '費城半導體' }
+        { symbol: '^DJI', name: '道瓊工業', finageSymbol: 'DJI' },
+        { symbol: '^GSPC', name: 'S&P 500', finageSymbol: 'SPX' },
+        { symbol: '^IXIC', name: '納斯達克', finageSymbol: 'IXIC' },
+        { symbol: '^SOX', name: '費城半導體', finageSymbol: 'SOX' }
       ];
 
       const results = [];
       
       for (const index of indices) {
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(index.symbol)}?interval=1d&range=1d`;
+        let data = null;
         
-        try {
-          const response = await axios.get(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0' },
-            timeout: 8000
-          });
-
-          const result = response.data?.chart?.result?.[0];
-          if (result) {
-            const meta = result.meta;
-            const price = meta.regularMarketPrice || 0;
-            const previousClose = meta.previousClose || 0;
-            const change = price - previousClose;
-            const changePercent = previousClose > 0 ? ((change / previousClose) * 100).toFixed(2) : 0;
-
-            results.push({
-              symbol: index.symbol,
-              name: index.name,
-              price: parseFloat(price.toFixed(2)),
-              change: parseFloat(change.toFixed(2)),
-              changePercent: changePercent,
-              colorMode: 'us'
-            });
-          }
-        } catch (e) {
-          console.error(`取得 ${index.name} 失敗`);
+        // 嘗試方法 1: Yahoo v8 chart API
+        data = await this.fetchIndexFromYahooV8(index);
+        
+        // 嘗試方法 2: Yahoo v7 quote API
+        if (!data) {
+          data = await this.fetchIndexFromYahooV7(index);
         }
         
-        await this.sleep(300);
+        // 嘗試方法 3: Yahoo v6 quote API
+        if (!data) {
+          data = await this.fetchIndexFromYahooV6(index);
+        }
+        
+        // 嘗試方法 4: 使用 Google Finance 頁面解析
+        if (!data) {
+          data = await this.fetchIndexFromGoogle(index);
+        }
+
+        if (data) {
+          results.push(data);
+        }
+        
+        await this.sleep(500);
       }
 
       return results;
@@ -164,6 +448,176 @@ class StockService {
       console.error('取得美股指數失敗:', error.message);
       return [];
     }
+  }
+
+  /**
+   * Yahoo v8 chart API
+   */
+  async fetchIndexFromYahooV8(index) {
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(index.symbol)}?interval=1d&range=5d`;
+      
+      const response = await axios.get(url, {
+        headers: { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': 'application/json',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Origin': 'https://finance.yahoo.com',
+          'Referer': 'https://finance.yahoo.com/',
+          'Sec-Fetch-Dest': 'empty',
+          'Sec-Fetch-Mode': 'cors',
+          'Sec-Fetch-Site': 'same-site'
+        },
+        timeout: 10000
+      });
+
+      const result = response.data?.chart?.result?.[0];
+      if (result) {
+        const meta = result.meta;
+        const price = meta.regularMarketPrice || 0;
+        const previousClose = meta.previousClose || meta.chartPreviousClose || 0;
+        const change = price - previousClose;
+        const changePercent = previousClose > 0 ? ((change / previousClose) * 100).toFixed(2) : 0;
+
+        return {
+          symbol: index.symbol,
+          name: index.name,
+          price: parseFloat(price.toFixed(2)),
+          change: parseFloat(change.toFixed(2)),
+          changePercent: changePercent,
+          colorMode: 'us'
+        };
+      }
+    } catch (e) {
+      // Silent fail, try next method
+    }
+    return null;
+  }
+
+  /**
+   * Yahoo v7 quote API  
+   */
+  async fetchIndexFromYahooV7(index) {
+    try {
+      const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(index.symbol)}`;
+      
+      const response = await axios.get(url, {
+        headers: { 
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': '*/*',
+          'Accept-Language': 'en-US,en;q=0.9'
+        },
+        timeout: 10000
+      });
+
+      const quote = response.data?.quoteResponse?.result?.[0];
+      if (quote) {
+        const price = quote.regularMarketPrice || 0;
+        const change = quote.regularMarketChange || 0;
+        const changePercent = quote.regularMarketChangePercent || 0;
+
+        return {
+          symbol: index.symbol,
+          name: index.name,
+          price: parseFloat(price.toFixed(2)),
+          change: parseFloat(change.toFixed(2)),
+          changePercent: parseFloat(changePercent).toFixed(2),
+          colorMode: 'us'
+        };
+      }
+    } catch (e) {
+      // Silent fail
+    }
+    return null;
+  }
+
+  /**
+   * Yahoo v6 quote API
+   */
+  async fetchIndexFromYahooV6(index) {
+    try {
+      const url = `https://query2.finance.yahoo.com/v6/finance/quote?symbols=${encodeURIComponent(index.symbol)}`;
+      
+      const response = await axios.get(url, {
+        headers: { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
+          'Accept': 'application/json'
+        },
+        timeout: 10000
+      });
+
+      const quote = response.data?.quoteResponse?.result?.[0];
+      if (quote) {
+        const price = quote.regularMarketPrice || 0;
+        const change = quote.regularMarketChange || 0;
+        const changePercent = quote.regularMarketChangePercent || 0;
+
+        return {
+          symbol: index.symbol,
+          name: index.name,
+          price: parseFloat(price.toFixed(2)),
+          change: parseFloat(change.toFixed(2)),
+          changePercent: parseFloat(changePercent).toFixed(2),
+          colorMode: 'us'
+        };
+      }
+    } catch (e) {
+      // Silent fail
+    }
+    return null;
+  }
+
+  /**
+   * Google Finance 備援（解析網頁）
+   */
+  async fetchIndexFromGoogle(index) {
+    try {
+      // Google Finance 使用不同的代碼
+      const googleSymbols = {
+        '^DJI': '.DJI:INDEXDJX',
+        '^GSPC': '.INX:INDEXSP', 
+        '^IXIC': '.IXIC:INDEXNASDAQ',
+        '^SOX': 'SOX:INDEXNASDAQ'
+      };
+      
+      const gSymbol = googleSymbols[index.symbol];
+      if (!gSymbol) return null;
+
+      const url = `https://www.google.com/finance/quote/${gSymbol}`;
+      
+      const response = await axios.get(url, {
+        headers: { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'text/html'
+        },
+        timeout: 10000
+      });
+
+      const html = response.data;
+      
+      // 解析價格 - 找 data-last-price
+      const priceMatch = html.match(/data-last-price="([0-9,.]+)"/);
+      const changeMatch = html.match(/data-price-change="([0-9,.-]+)"/);
+      const changePercentMatch = html.match(/data-price-change-percent="([0-9,.-]+)"/);
+      
+      if (priceMatch) {
+        const price = parseFloat(priceMatch[1].replace(/,/g, ''));
+        const change = changeMatch ? parseFloat(changeMatch[1].replace(/,/g, '')) : 0;
+        const changePercent = changePercentMatch ? parseFloat(changePercentMatch[1]) : 0;
+
+        return {
+          symbol: index.symbol,
+          name: index.name,
+          price: parseFloat(price.toFixed(2)),
+          change: parseFloat(change.toFixed(2)),
+          changePercent: changePercent.toFixed(2),
+          colorMode: 'us'
+        };
+      }
+    } catch (e) {
+      console.error(`Google Finance ${index.name} 失敗:`, e.message);
+    }
+    return null;
   }
 
   /**

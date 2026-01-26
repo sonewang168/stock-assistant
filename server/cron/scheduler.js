@@ -8,6 +8,9 @@ const stockService = require('../services/stockService');
 const technicalService = require('../services/technicalService');
 const aiService = require('../services/aiService');
 const lineService = require('../services/lineService');
+const chipService = require('../services/chipService');
+const smartAlertService = require('../services/smartAlertService');
+const performanceService = require('../services/performanceService');
 
 class Scheduler {
 
@@ -21,6 +24,14 @@ class Scheduler {
    */
   start() {
     console.log('⏰ 排程任務啟動中...');
+
+    // 🔔 台股開盤前提醒（08:30 啟動，根據設定決定發送時間）
+    const twMarketOpen = cron.schedule('30 8 * * 1-5', () => {
+      this.scheduleTWMarketReminder();
+    }, {
+      timezone: 'Asia/Taipei'
+    });
+    this.jobs.push(twMarketOpen);
 
     // 盤中監控（週一到週五 09:00-13:30，每 5 分鐘）
     const marketCheck = cron.schedule('*/5 9-13 * * 1-5', () => {
@@ -37,16 +48,46 @@ class Scheduler {
     });
     this.jobs.push(marketCheck);
 
-    // 收盤日報（週一到週五 13:35）
-    const dailyReport = cron.schedule('35 13 * * 1-5', () => {
+    // 🔔 智能通知檢查（週一到週五 09:30-13:30，每 15 分鐘）
+    const smartAlertCheck = cron.schedule('*/15 9-13 * * 1-5', () => {
+      const now = new Date();
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      if (hour === 9 && minute < 30) return;
+      if (hour === 13 && minute > 30) return;
+      
+      this.checkSmartAlerts();
+    }, {
+      timezone: 'Asia/Taipei'
+    });
+    this.jobs.push(smartAlertCheck);
+
+    // 📊 每日績效報告（週一到週五 13:35）
+    const dailyPerformance = cron.schedule('35 13 * * 1-5', () => {
+      this.sendPerformanceReport();
+    }, {
+      timezone: 'Asia/Taipei'
+    });
+    this.jobs.push(dailyPerformance);
+
+    // 收盤日報（週一到週五 13:40）
+    const dailyReport = cron.schedule('40 13 * * 1-5', () => {
       this.sendDailyReport();
     }, {
       timezone: 'Asia/Taipei'
     });
     this.jobs.push(dailyReport);
 
-    // 籌碼更新（週一到週五 15:00）
-    const chipUpdate = cron.schedule('0 15 * * 1-5', () => {
+    // 🏦 三大法人更新（週一到週五 15:30）- TWSE 資料約 15:00 後更新
+    const institutionalUpdate = cron.schedule('30 15 * * 1-5', () => {
+      this.updateInstitutionalData();
+    }, {
+      timezone: 'Asia/Taipei'
+    });
+    this.jobs.push(institutionalUpdate);
+
+    // 籌碼更新（週一到週五 16:00）
+    const chipUpdate = cron.schedule('0 16 * * 1-5', () => {
       this.updateChipData();
     }, {
       timezone: 'Asia/Taipei'
@@ -61,30 +102,341 @@ class Scheduler {
     });
     this.jobs.push(cleanup);
 
-    console.log('✅ 排程任務已啟動：');
-    console.log('   📊 盤中監控：09:00-13:30 每 5 分鐘');
-    console.log('   📋 收盤日報：13:35');
-    console.log('   💰 籌碼更新：15:00');
-    console.log('   🧹 資料清理：03:00');
-    console.log('   🇺🇸 美股開盤提示：21:30');
-    console.log('   🇺🇸 美股盤中監控：22:00-05:00 每 30 分鐘');
-
-    // 🇺🇸 美股開盤提示（週一到週五 21:30 台灣時間，對應美東 08:30 盤前）
-    const usMarketOpen = cron.schedule('30 21 * * 1-5', () => {
-      this.sendUSMarketOpenAlert();
+    // 🇺🇸 美股開盤提示（週一到週五 21:00 啟動，根據設定決定發送時間）
+    const usMarketOpen = cron.schedule('0 21 * * 1-5', () => {
+      this.scheduleUSMarketReminder();
     }, {
       timezone: 'Asia/Taipei'
     });
     this.jobs.push(usMarketOpen);
 
     // 🇺🇸 美股盤中監控（週二到週六 22:00-05:00，每 30 分鐘）
-    // 注意：台灣週二凌晨 = 美國週一晚上
     const usMarketCheck = cron.schedule('*/30 22-23,0-5 * * 2-6', () => {
       this.checkUSStocks();
     }, {
       timezone: 'Asia/Taipei'
     });
     this.jobs.push(usMarketCheck);
+
+    console.log('✅ 排程任務已啟動：');
+    console.log('   🔔 台股開盤提醒：08:30 啟動（根據設定）');
+    console.log('   📊 盤中監控：09:00-13:30 每 5 分鐘');
+    console.log('   🔔 智能通知：09:30-13:30 每 15 分鐘');
+    console.log('   📈 績效報告：13:35');
+    console.log('   📋 收盤日報：13:40');
+    console.log('   🏦 三大法人：15:30');
+    console.log('   💰 籌碼更新：16:00');
+    console.log('   🧹 資料清理：03:00');
+    console.log('   🇺🇸 美股開盤：根據設定');
+    console.log('   🇺🇸 美股監控：22:00-05:00');
+  }
+
+  /**
+   * 🔔 排程台股開盤提醒（根據設定）
+   */
+  async scheduleTWMarketReminder() {
+    try {
+      const settings = await this.getSettings();
+      const reminderMinutes = parseInt(settings.tw_market_reminder) || 5;
+      
+      // 如果設定為 0，不發送
+      if (reminderMinutes === 0) {
+        console.log('🔔 台股開盤提醒已關閉');
+        return;
+      }
+
+      // 計算要等待的時間
+      // 09:00 開盤，提前 reminderMinutes 分鐘
+      // 現在是 08:30，要等到 (30 - reminderMinutes) 分鐘後發送
+      const waitMinutes = 30 - reminderMinutes;
+      const waitMs = waitMinutes * 60 * 1000;
+
+      if (waitMinutes <= 0) {
+        // 如果設定 30 分鐘，立即發送
+        console.log(`🔔 台股開盤提醒：設定 ${reminderMinutes} 分鐘前，立即發送`);
+        await this.sendTWMarketOpenAlert(reminderMinutes);
+      } else {
+        console.log(`🔔 台股開盤提醒：設定 ${reminderMinutes} 分鐘前，將在 ${waitMinutes} 分鐘後發送`);
+        setTimeout(async () => {
+          await this.sendTWMarketOpenAlert(reminderMinutes);
+        }, waitMs);
+      }
+    } catch (error) {
+      console.error('❌ 排程台股開盤提醒錯誤:', error.message);
+    }
+  }
+
+  /**
+   * 🔔 台股開盤前提醒
+   */
+  async sendTWMarketOpenAlert(reminderMinutes = 5) {
+    console.log(`\n🔔 台股開盤前提醒（提前 ${reminderMinutes} 分鐘） ${new Date().toLocaleString('zh-TW')}`);
+
+    try {
+      // 取得 LINE User ID
+      const result = await pool.query(
+        "SELECT value FROM settings WHERE key = 'line_user_id'"
+      );
+      const userId = result.rows[0]?.value || process.env.LINE_USER_ID;
+
+      if (!userId) {
+        console.log('   ⚠️ 未設定 LINE User ID');
+        return;
+      }
+
+      // 取得持股
+      const holdings = await pool.query(`
+        SELECT h.*, s.name as stock_name
+        FROM holdings h
+        LEFT JOIN stocks s ON h.stock_id = s.id
+        WHERE h.user_id = 'default' AND h.is_won = true
+      `);
+
+      // 取得監控清單
+      const watchlist = await pool.query(`
+        SELECT w.stock_id, s.name as stock_name
+        FROM watchlist w
+        LEFT JOIN stocks s ON w.stock_id = s.id
+        WHERE w.user_id = 'default' AND w.is_active = true
+        LIMIT 10
+      `);
+
+      // 建立訊息內容
+      const today = new Date().toLocaleDateString('zh-TW', { 
+        month: 'numeric', 
+        day: 'numeric',
+        weekday: 'short'
+      });
+
+      // 計算開盤時間
+      const openTime = `09:00（還有 ${reminderMinutes} 分鐘）`;
+
+      // 建立 Flex Message
+      const flexMessage = {
+        type: 'flex',
+        altText: `🔔 ${today} 台股即將開盤`,
+        contents: {
+          type: 'bubble',
+          size: 'mega',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              { type: 'text', text: '🔔 台股即將開盤', size: 'xl', weight: 'bold', color: '#ffffff' },
+              { type: 'text', text: `${today} ${openTime}`, size: 'sm', color: '#ffffffaa', margin: 'sm' }
+            ],
+            backgroundColor: '#D32F2F',
+            paddingAll: '20px'
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: `📦 持股：${holdings.rows.length} 檔`,
+                size: 'md',
+                weight: 'bold'
+              },
+              holdings.rows.length > 0 ? {
+                type: 'text',
+                text: holdings.rows.slice(0, 5).map(h => h.stock_name || h.stock_id).join('、'),
+                size: 'sm',
+                color: '#666666',
+                wrap: true,
+                margin: 'sm'
+              } : { type: 'filler' },
+              { type: 'separator', margin: 'lg' },
+              {
+                type: 'text',
+                text: `👀 監控：${watchlist.rows.length} 檔`,
+                size: 'md',
+                weight: 'bold',
+                margin: 'lg'
+              },
+              watchlist.rows.length > 0 ? {
+                type: 'text',
+                text: watchlist.rows.slice(0, 8).map(w => w.stock_id).join('、'),
+                size: 'sm',
+                color: '#666666',
+                wrap: true,
+                margin: 'sm'
+              } : { type: 'filler' },
+              { type: 'separator', margin: 'lg' },
+              {
+                type: 'box',
+                layout: 'vertical',
+                margin: 'lg',
+                contents: [
+                  { type: 'text', text: '💡 快速指令', size: 'sm', color: '#888888' },
+                  { type: 'text', text: '「績效」「持股」「大盤」', size: 'sm', margin: 'sm' }
+                ]
+              }
+            ],
+            paddingAll: '20px'
+          },
+          footer: {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              {
+                type: 'button',
+                action: { type: 'message', label: '📊 大盤', text: '大盤' },
+                style: 'secondary',
+                height: 'sm',
+                flex: 1
+              },
+              {
+                type: 'button',
+                action: { type: 'message', label: '💼 持股', text: '持股' },
+                style: 'secondary',
+                height: 'sm',
+                flex: 1,
+                margin: 'sm'
+              },
+              {
+                type: 'button',
+                action: { type: 'message', label: '📈 績效', text: '績效' },
+                style: 'primary',
+                height: 'sm',
+                flex: 1,
+                margin: 'sm'
+              }
+            ],
+            paddingAll: '15px'
+          }
+        }
+      };
+
+      await lineService.sendFlexMessage(userId, flexMessage);
+      console.log('   ✅ 台股開盤提醒已發送');
+
+    } catch (error) {
+      console.error('❌ 台股開盤提醒錯誤:', error.message);
+    }
+  }
+
+  /**
+   * 🔔 檢查智能通知
+   */
+  async checkSmartAlerts() {
+    console.log(`\n🔔 檢查智能通知 ${new Date().toLocaleString('zh-TW')}`);
+    try {
+      await smartAlertService.checkAllAlerts();
+    } catch (error) {
+      console.error('❌ 智能通知檢查錯誤:', error.message);
+    }
+  }
+
+  /**
+   * 📈 發送績效報告
+   */
+  async sendPerformanceReport() {
+    console.log(`\n📈 發送績效報告 ${new Date().toLocaleString('zh-TW')}`);
+    try {
+      await performanceService.sendDailyReport('default');
+    } catch (error) {
+      console.error('❌ 績效報告錯誤:', error.message);
+    }
+  }
+
+  /**
+   * 🏦 更新三大法人資料
+   */
+  async updateInstitutionalData() {
+    console.log(`\n🏦 更新三大法人資料 ${new Date().toLocaleString('zh-TW')}`);
+    try {
+      const results = await chipService.updateWatchlistInstitutional();
+      console.log(`   ✅ 更新 ${results.length} 檔股票的三大法人資料`);
+      
+      // 發送三大法人異動通知（外資/投信大買或大賣）
+      await this.sendInstitutionalAlerts(results);
+    } catch (error) {
+      console.error('❌ 三大法人更新錯誤:', error.message);
+    }
+  }
+
+  /**
+   * 發送三大法人異動通知
+   */
+  async sendInstitutionalAlerts(dataList) {
+    if (!dataList || dataList.length === 0) return;
+
+    const alerts = [];
+    
+    for (const data of dataList) {
+      // 外資單日買超 5000 張以上
+      if (data.foreign.net >= 5000000) {
+        alerts.push({
+          stockId: data.stockId,
+          stockName: data.stockName,
+          type: 'foreign_buy',
+          message: `🏦 外資大買 ${Math.round(data.foreign.net / 1000)} 張`
+        });
+      }
+      // 外資單日賣超 5000 張以上
+      if (data.foreign.net <= -5000000) {
+        alerts.push({
+          stockId: data.stockId,
+          stockName: data.stockName,
+          type: 'foreign_sell',
+          message: `🏦 外資大賣 ${Math.round(Math.abs(data.foreign.net) / 1000)} 張`
+        });
+      }
+      // 投信單日買超 1000 張以上
+      if (data.trust.net >= 1000000) {
+        alerts.push({
+          stockId: data.stockId,
+          stockName: data.stockName,
+          type: 'trust_buy',
+          message: `🏛️ 投信大買 ${Math.round(data.trust.net / 1000)} 張`
+        });
+      }
+    }
+
+    if (alerts.length > 0) {
+      // 建立通知訊息
+      const message = `🏦 三大法人異動通知\n` +
+        `━━━━━━━━━━━━\n` +
+        alerts.map(a => `${a.stockName}(${a.stockId})\n${a.message}`).join('\n\n');
+      
+      await lineService.broadcastMessage({ type: 'text', text: message });
+      console.log(`   📤 發送 ${alerts.length} 個三大法人異動通知`);
+    }
+  }
+
+  /**
+   * 🇺🇸 排程美股開盤提醒（根據設定）
+   */
+  async scheduleUSMarketReminder() {
+    try {
+      const settings = await this.getSettings();
+      const reminderMinutes = parseInt(settings.us_market_reminder) || 60;
+      
+      // 如果設定為 0，不發送
+      if (reminderMinutes === 0) {
+        console.log('🇺🇸 美股開盤提醒已關閉');
+        return;
+      }
+
+      // 美股開盤 22:30（冬令）
+      // 現在是 21:00，要等到 (90 - reminderMinutes) 分鐘後發送
+      const waitMinutes = 90 - reminderMinutes;
+      const waitMs = waitMinutes * 60 * 1000;
+
+      if (waitMinutes <= 0) {
+        // 如果設定 90 分鐘，立即發送
+        console.log(`🇺🇸 美股開盤提醒：設定 ${reminderMinutes} 分鐘前，立即發送`);
+        await this.sendUSMarketOpenAlert();
+      } else {
+        console.log(`🇺🇸 美股開盤提醒：設定 ${reminderMinutes} 分鐘前，將在 ${waitMinutes} 分鐘後發送`);
+        setTimeout(async () => {
+          await this.sendUSMarketOpenAlert();
+        }, waitMs);
+      }
+    } catch (error) {
+      console.error('❌ 排程美股開盤提醒錯誤:', error.message);
+    }
   }
 
   /**

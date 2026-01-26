@@ -145,6 +145,37 @@
                 <input type="text" id="defaultAlertDown" placeholder="5%" style="width:80px;text-align:center;" onchange="saveSetting('default_alert_down', this.value)">
             </div>
         </div>
+
+        <div class="section">
+            <div class="section-title">🔔 開盤提醒設定</div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">台股開盤提醒</div>
+                    <div class="setting-desc">09:00 開盤前幾分鐘提醒</div>
+                </div>
+                <select id="twMarketReminder" onchange="saveSetting('tw_market_reminder', this.value)">
+                    <option value="0">關閉</option>
+                    <option value="5" selected>5 分鐘前</option>
+                    <option value="10">10 分鐘前</option>
+                    <option value="15">15 分鐘前</option>
+                    <option value="20">20 分鐘前</option>
+                    <option value="30">30 分鐘前</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">美股開盤提醒</div>
+                    <div class="setting-desc">22:30 開盤前幾分鐘提醒</div>
+                </div>
+                <select id="usMarketReminder" onchange="saveSetting('us_market_reminder', this.value)">
+                    <option value="0">關閉</option>
+                    <option value="30">30 分鐘前</option>
+                    <option value="60" selected>60 分鐘前</option>
+                    <option value="90">90 分鐘前</option>
+                </select>
+            </div>
+            <button class="test-btn" onclick="testMarketReminder()" style="margin-top:15px;width:100%;">🔔 測試開盤提醒</button>
+        </div>
         
         <div style="text-align:center;margin-top:20px;font-size:12px;opacity:0.5;">
             設定會即時同步到 LINE Bot
@@ -171,6 +202,8 @@
             document.getElementById('autoVoice').checked = currentSettings.auto_voice === 'true';
             document.getElementById('defaultAlertUp').value = currentSettings.default_alert_up || '';
             document.getElementById('defaultAlertDown').value = currentSettings.default_alert_down || '';
+            document.getElementById('twMarketReminder').value = currentSettings.tw_market_reminder || '5';
+            document.getElementById('usMarketReminder').value = currentSettings.us_market_reminder || '60';
             
             // 語音角色
             const voiceId = currentSettings.elevenlabs_voice_id || 'pNInz6obpgDQGcFmaJgB';
@@ -193,6 +226,23 @@
                 showToast('✅ 已儲存');
             } catch (e) {
                 showToast('❌ 儲存失敗');
+            }
+        }
+        
+        async function testMarketReminder() {
+            showToast('🔔 發送測試提醒...');
+            try {
+                const res = await fetch('/api/settings/test-market-reminder', {
+                    method: 'POST'
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('✅ 已發送到 LINE！');
+                } else {
+                    showToast('❌ ' + (data.error || '發送失敗'));
+                }
+            } catch (e) {
+                showToast('❌ 發送失敗');
             }
         }
         

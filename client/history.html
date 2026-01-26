@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>交易歷史 - 股海秘書</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460); 
+            color: white; 
+            min-height: 100vh; 
+            padding: 20px 20px 100px;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        .header { display: flex; align-items: center; margin-bottom: 20px; }
+        .back-btn { background: none; border: none; color: white; font-size: 24px; cursor: pointer; margin-right: 10px; text-decoration: none; }
+        h1 { font-size: 20px; flex: 1; }
+        
+        .stats-card {
+            background: linear-gradient(135deg, rgba(100,200,255,0.2), rgba(50,150,255,0.1));
+            border: 1px solid rgba(100,200,255,0.3);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .stats-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .stats-label { color: rgba(255,255,255,0.7); font-size: 13px; }
+        .stats-value { font-size: 18px; font-weight: bold; }
+        .stats-value.profit { color: #ff4444; }
+        .stats-value.loss { color: #00C851; }
+        
+        .filter-section {
+            background: rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .filter-section select {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(0,0,0,0.3);
+            color: white;
+            font-size: 14px;
+            flex: 1;
+            min-width: 100px;
+        }
+        
+        .trade-card {
+            background: rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-left: 4px solid #888;
+        }
+        .trade-card.profit { border-left-color: #D32F2F; }
+        .trade-card.loss { border-left-color: #388E3C; }
+        
+        .trade-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .trade-name { font-weight: bold; font-size: 16px; }
+        .trade-date { font-size: 12px; color: rgba(255,255,255,0.5); }
+        .trade-status { padding: 3px 8px; border-radius: 10px; font-size: 11px; }
+        .trade-status.buy { background: rgba(255,215,0,0.2); color: #ffd700; }
+        .trade-status.sell { background: rgba(76,175,80,0.2); color: #4CAF50; }
+        
+        .trade-details { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+        .trade-item { text-align: center; }
+        .trade-item-label { font-size: 10px; color: rgba(255,255,255,0.5); }
+        .trade-item-value { font-size: 14px; margin-top: 2px; }
+        
+        .trade-profit { display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .profit-label { font-size: 13px; color: rgba(255,255,255,0.6); }
+        .profit-value { font-size: 16px; font-weight: bold; }
+        .profit-value.up { color: #ff4444; }
+        .profit-value.down { color: #00C851; }
+        
+        .empty-state { text-align: center; padding: 40px; color: rgba(255,255,255,0.5); }
+        .empty-state .icon { font-size: 48px; margin-bottom: 10px; }
+        
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: rgba(26, 26, 46, 0.98);
+            display: flex; justify-content: space-around;
+            padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .nav-item {
+            display: flex; flex-direction: column; align-items: center;
+            color: rgba(255,255,255,0.5); font-size: 10px; cursor: pointer;
+            padding: 5px 15px; text-decoration: none;
+        }
+        .nav-item.active { color: #ffd700; }
+        .nav-item span:first-child { font-size: 22px; margin-bottom: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="/" class="back-btn">←</a>
+            <h1>📜 交易歷史</h1>
+        </div>
+        
+        <div class="stats-card">
+            <div class="stats-row">
+                <span class="stats-label">總交易筆數</span>
+                <span class="stats-value" id="totalCount">-</span>
+            </div>
+            <div class="stats-row">
+                <span class="stats-label">已實現損益</span>
+                <span class="stats-value" id="totalProfit">-</span>
+            </div>
+            <div class="stats-row">
+                <span class="stats-label">勝率</span>
+                <span class="stats-value" id="winRate">-</span>
+            </div>
+        </div>
+        
+        <div class="filter-section">
+            <select id="filterType">
+                <option value="all">全部</option>
+                <option value="sold">已賣出</option>
+                <option value="holding">持股中</option>
+            </select>
+            <select id="filterResult">
+                <option value="all">不限損益</option>
+                <option value="profit">獲利</option>
+                <option value="loss">虧損</option>
+            </select>
+            <select id="filterTime">
+                <option value="all">不限時間</option>
+                <option value="month">本月</option>
+                <option value="quarter">本季</option>
+                <option value="year">今年</option>
+            </select>
+        </div>
+        
+        <div id="tradeList">
+            <div class="empty-state">
+                <div class="icon">⏳</div>
+                <p>載入中...</p>
+            </div>
+        </div>
+    </div>
+    
+    <nav class="bottom-nav">
+        <a href="/" class="nav-item"><span>🏠</span><span>首頁</span></a>
+        <a href="/watchlist.html" class="nav-item"><span>📋</span><span>監控</span></a>
+        <a href="/holdings.html" class="nav-item"><span>💼</span><span>持股</span></a>
+        <a href="/history.html" class="nav-item active"><span>📜</span><span>歷史</span></a>
+    </nav>
+    
+    <script>
+        var allTrades = [];
+        
+        async function loadHistory() {
+            try {
+                var holdingRes = await fetch('/api/holdings');
+                var holdingData = await holdingRes.json();
+                
+                var soldRes = await fetch('/api/holdings?sold=true');
+                var soldData = await soldRes.json();
+                
+                allTrades = [];
+                
+                // 持股中
+                (holdingData.holdings || []).forEach(function(h) {
+                    allTrades.push({
+                        type: 'holding',
+                        stockId: h.stock_id,
+                        stockName: h.stock_name || h.stock_id,
+                        buyPrice: parseFloat(h.won_price) || parseFloat(h.bid_price) || 0,
+                        currentPrice: h.currentPrice || 0,
+                        lots: h.lots || 0,
+                        oddShares: h.odd_shares || 0,
+                        profit: h.profit || 0,
+                        profitPercent: h.profitPercent || 0,
+                        date: h.created_at,
+                        isWon: h.is_won
+                    });
+                });
+                
+                // 已賣出
+                (soldData.holdings || []).forEach(function(h) {
+                    allTrades.push({
+                        type: 'sold',
+                        stockId: h.stock_id,
+                        stockName: h.stock_name || h.stock_id,
+                        buyPrice: parseFloat(h.won_price) || 0,
+                        sellPrice: parseFloat(h.sold_price) || 0,
+                        lots: h.lots || 0,
+                        oddShares: h.odd_shares || 0,
+                        netProfit: h.netProfit || 0,
+                        profitPercent: h.profitPercent || 0,
+                        buyFee: h.buyFee || 0,
+                        sellFee: h.sellFee || 0,
+                        tax: h.tax || 0,
+                        date: h.sold_date || h.updated_at
+                    });
+                });
+                
+                // 按日期排序
+                allTrades.sort(function(a, b) {
+                    return new Date(b.date) - new Date(a.date);
+                });
+                
+                renderStats();
+                renderTrades();
+                
+            } catch (e) {
+                document.getElementById('tradeList').innerHTML = '<div class="empty-state"><div class="icon">❌</div><p>載入失敗</p></div>';
+            }
+        }
+        
+        function renderStats() {
+            var soldTrades = allTrades.filter(function(t) { return t.type === 'sold'; });
+            var totalProfit = 0;
+            var winCount = 0;
+            
+            soldTrades.forEach(function(t) {
+                totalProfit += t.netProfit || 0;
+                if ((t.netProfit || 0) > 0) winCount++;
+            });
+            
+            document.getElementById('totalCount').textContent = allTrades.length + ' 筆';
+            
+            var profitEl = document.getElementById('totalProfit');
+            profitEl.textContent = (totalProfit >= 0 ? '+' : '') + '$' + Math.round(totalProfit).toLocaleString();
+            profitEl.className = 'stats-value ' + (totalProfit >= 0 ? 'profit' : 'loss');
+            
+            var winRate = soldTrades.length > 0 ? ((winCount / soldTrades.length) * 100).toFixed(1) : 0;
+            document.getElementById('winRate').textContent = winRate + '% (' + winCount + '/' + soldTrades.length + ')';
+        }
+        
+        function renderTrades() {
+            var filterType = document.getElementById('filterType').value;
+            var filterResult = document.getElementById('filterResult').value;
+            var filterTime = document.getElementById('filterTime').value;
+            
+            var now = new Date();
+            var filtered = allTrades.filter(function(t) {
+                // 類型篩選
+                if (filterType === 'sold' && t.type !== 'sold') return false;
+                if (filterType === 'holding' && t.type !== 'holding') return false;
+                
+                // 損益篩選
+                var profit = t.type === 'sold' ? t.netProfit : t.profit;
+                if (filterResult === 'profit' && profit <= 0) return false;
+                if (filterResult === 'loss' && profit >= 0) return false;
+                
+                // 時間篩選
+                if (filterTime !== 'all' && t.date) {
+                    var tradeDate = new Date(t.date);
+                    if (filterTime === 'month' && (tradeDate.getMonth() !== now.getMonth() || tradeDate.getFullYear() !== now.getFullYear())) return false;
+                    if (filterTime === 'quarter') {
+                        var q1 = Math.floor(now.getMonth() / 3);
+                        var q2 = Math.floor(tradeDate.getMonth() / 3);
+                        if (q1 !== q2 || tradeDate.getFullYear() !== now.getFullYear()) return false;
+                    }
+                    if (filterTime === 'year' && tradeDate.getFullYear() !== now.getFullYear()) return false;
+                }
+                
+                return true;
+            });
+            
+            var container = document.getElementById('tradeList');
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>沒有符合條件的交易紀錄</p></div>';
+                return;
+            }
+            
+            container.innerHTML = filtered.map(function(t) {
+                var isSold = t.type === 'sold';
+                var profit = isSold ? t.netProfit : t.profit;
+                var isUp = profit >= 0;
+                var profitClass = isUp ? 'profit' : 'loss';
+                var statusClass = isSold ? 'sell' : 'buy';
+                var statusText = isSold ? '已賣出' : (t.isWon ? '持股中' : '競標中');
+                var dateStr = t.date ? new Date(t.date).toLocaleDateString('zh-TW') : '-';
+                
+                var lotsDisplay = '';
+                if (t.lots > 0 && t.oddShares > 0) lotsDisplay = t.lots + '張' + t.oddShares + '股';
+                else if (t.lots > 0) lotsDisplay = t.lots + '張';
+                else lotsDisplay = t.oddShares + '股';
+                
+                var html = '<div class="trade-card ' + profitClass + '">';
+                html += '<div class="trade-header">';
+                html += '<div><div class="trade-name">' + t.stockName + '</div><div class="trade-date">' + t.stockId + ' | ' + dateStr + '</div></div>';
+                html += '<span class="trade-status ' + statusClass + '">' + statusText + '</span>';
+                html += '</div>';
+                
+                html += '<div class="trade-details">';
+                html += '<div class="trade-item"><div class="trade-item-label">數量</div><div class="trade-item-value">' + lotsDisplay + '</div></div>';
+                html += '<div class="trade-item"><div class="trade-item-label">買入價</div><div class="trade-item-value">$' + (t.buyPrice || '-') + '</div></div>';
+                
+                if (isSold) {
+                    html += '<div class="trade-item"><div class="trade-item-label">賣出價</div><div class="trade-item-value" style="color:' + (isUp ? '#ff6b6b' : '#4CAF50') + ';">$' + t.sellPrice + '</div></div>';
+                } else {
+                    html += '<div class="trade-item"><div class="trade-item-label">現價</div><div class="trade-item-value" style="color:#00bcd4;">$' + (t.currentPrice || '-') + '</div></div>';
+                }
+                html += '</div>';
+                
+                html += '<div class="trade-profit">';
+                html += '<span class="profit-label">' + (isSold ? '淨損益' : '帳面損益') + '</span>';
+                html += '<span class="profit-value ' + (isUp ? 'up' : 'down') + '">' + (isUp ? '+' : '') + '$' + Math.round(profit).toLocaleString() + ' (' + (t.profitPercent >= 0 ? '+' : '') + t.profitPercent + '%)</span>';
+                html += '</div>';
+                
+                html += '</div>';
+                return html;
+            }).join('');
+        }
+        
+        // 綁定篩選事件
+        document.getElementById('filterType').addEventListener('change', renderTrades);
+        document.getElementById('filterResult').addEventListener('change', renderTrades);
+        document.getElementById('filterTime').addEventListener('change', renderTrades);
+        
+        // 初始載入
+        loadHistory();
+    </script>
+</body>
+</html>

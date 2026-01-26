@@ -109,4 +109,150 @@ router.delete('/:key', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/settings/test-market-reminder
+ * 測試開盤提醒
+ */
+router.post('/test-market-reminder', async (req, res) => {
+  try {
+    const lineService = require('../services/lineService');
+    
+    // 取得 LINE User ID
+    const result = await pool.query(
+      "SELECT value FROM settings WHERE key = 'line_user_id'"
+    );
+    const userId = result.rows[0]?.value || process.env.LINE_USER_ID;
+
+    if (!userId) {
+      return res.json({ success: false, error: '未設定 LINE User ID' });
+    }
+
+    // 取得設定
+    const settingsResult = await pool.query('SELECT * FROM settings');
+    const settings = {};
+    settingsResult.rows.forEach(row => {
+      settings[row.key] = row.value;
+    });
+
+    const twReminder = settings.tw_market_reminder || '5';
+
+    // 取得持股
+    const holdings = await pool.query(`
+      SELECT h.*, s.name as stock_name
+      FROM holdings h
+      LEFT JOIN stocks s ON h.stock_id = s.id
+      WHERE h.user_id = 'default' AND h.is_won = true
+    `);
+
+    // 取得監控清單
+    const watchlist = await pool.query(`
+      SELECT w.stock_id, s.name as stock_name
+      FROM watchlist w
+      LEFT JOIN stocks s ON w.stock_id = s.id
+      WHERE w.user_id = 'default' AND w.is_active = true
+      LIMIT 10
+    `);
+
+    const today = new Date().toLocaleDateString('zh-TW', { 
+      month: 'numeric', 
+      day: 'numeric',
+      weekday: 'short'
+    });
+
+    // 建立測試 Flex Message
+    const flexMessage = {
+      type: 'flex',
+      altText: `🔔 測試：台股開盤提醒`,
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '🔔 台股即將開盤（測試）', size: 'xl', weight: 'bold', color: '#ffffff' },
+            { type: 'text', text: `設定：提前 ${twReminder} 分鐘提醒`, size: 'sm', color: '#ffffffaa', margin: 'sm' }
+          ],
+          backgroundColor: '#FF9800',
+          paddingAll: '20px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: `📦 持股：${holdings.rows.length} 檔`,
+              size: 'md',
+              weight: 'bold'
+            },
+            holdings.rows.length > 0 ? {
+              type: 'text',
+              text: holdings.rows.slice(0, 5).map(h => h.stock_name || h.stock_id).join('、'),
+              size: 'sm',
+              color: '#666666',
+              wrap: true,
+              margin: 'sm'
+            } : { type: 'text', text: '無持股', size: 'sm', color: '#999999', margin: 'sm' },
+            { type: 'separator', margin: 'lg' },
+            {
+              type: 'text',
+              text: `👀 監控：${watchlist.rows.length} 檔`,
+              size: 'md',
+              weight: 'bold',
+              margin: 'lg'
+            },
+            watchlist.rows.length > 0 ? {
+              type: 'text',
+              text: watchlist.rows.slice(0, 8).map(w => w.stock_id).join('、'),
+              size: 'sm',
+              color: '#666666',
+              wrap: true,
+              margin: 'sm'
+            } : { type: 'text', text: '無監控', size: 'sm', color: '#999999', margin: 'sm' }
+          ],
+          paddingAll: '20px'
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            {
+              type: 'button',
+              action: { type: 'message', label: '📊 大盤', text: '大盤' },
+              style: 'secondary',
+              height: 'sm',
+              flex: 1
+            },
+            {
+              type: 'button',
+              action: { type: 'message', label: '💼 持股', text: '持股' },
+              style: 'secondary',
+              height: 'sm',
+              flex: 1,
+              margin: 'sm'
+            },
+            {
+              type: 'button',
+              action: { type: 'message', label: '📈 績效', text: '績效' },
+              style: 'primary',
+              height: 'sm',
+              flex: 1,
+              margin: 'sm'
+            }
+          ],
+          paddingAll: '15px'
+        }
+      }
+    };
+
+    await lineService.sendFlexMessage(userId, flexMessage);
+    res.json({ success: true });
+
+  } catch (error) {
+    console.error('測試開盤提醒錯誤:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

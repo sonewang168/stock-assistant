@@ -7,20 +7,70 @@ const { pool } = require('../db');
 class TechnicalService {
 
   /**
-   * 取得完整技術指標
+   * 取得完整技術指標（支援即時價格同步）
+   * @param {string} stockId - 股票代碼
+   * @param {object} realtimeData - 即時股價資料（可選）
    */
-  async getFullIndicators(stockId) {
+  async getFullIndicators(stockId, realtimeData = null) {
     const history = await this.getPriceHistory(stockId, 60);
     
+    // 🔥 如果有即時資料，將今天的價格更新/插入到歷史最前面
+    let closes, highs, lows;
+    
+    if (realtimeData && realtimeData.price) {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // 檢查歷史資料的第一筆是否是今天
+      if (history.length > 0) {
+        const firstDate = history[0].date instanceof Date 
+          ? history[0].date.toISOString().split('T')[0]
+          : String(history[0].date).split('T')[0];
+        
+        if (firstDate === today) {
+          // 更新今天的資料為即時價格
+          console.log(`   📊 更新今日價格: $${history[0].close_price} → $${realtimeData.price}`);
+          history[0] = {
+            ...history[0],
+            close_price: realtimeData.price,
+            high_price: Math.max(parseFloat(history[0].high_price) || 0, realtimeData.high || realtimeData.price),
+            low_price: Math.min(parseFloat(history[0].low_price) || 999999, realtimeData.low || realtimeData.price)
+          };
+        } else {
+          // 今天的資料還沒有，插入到最前面
+          console.log(`   📊 插入今日即時價格: $${realtimeData.price}`);
+          history.unshift({
+            stock_id: stockId,
+            date: today,
+            close_price: realtimeData.price,
+            high_price: realtimeData.high || realtimeData.price,
+            low_price: realtimeData.low || realtimeData.price,
+            open_price: realtimeData.open || realtimeData.price
+          });
+        }
+      } else {
+        // 沒有歷史資料，插入即時資料
+        console.log(`   📊 無歷史資料，使用即時價格: $${realtimeData.price}`);
+        history.unshift({
+          stock_id: stockId,
+          date: today,
+          close_price: realtimeData.price,
+          high_price: realtimeData.high || realtimeData.price,
+          low_price: realtimeData.low || realtimeData.price,
+          open_price: realtimeData.open || realtimeData.price
+        });
+      }
+    }
+    
     if (history.length < 26) {
+      console.log(`   ⚠️ 歷史資料不足: ${history.length} 筆 (需要 26 筆)`);
       return null;
     }
 
-    const closes = history.map(h => parseFloat(h.close_price));
-    const highs = history.map(h => parseFloat(h.high_price));
-    const lows = history.map(h => parseFloat(h.low_price));
+    closes = history.map(h => parseFloat(h.close_price));
+    highs = history.map(h => parseFloat(h.high_price));
+    lows = history.map(h => parseFloat(h.low_price));
 
-    return {
+    const indicators = {
       rsi: this.calculateRSI(closes, 14),
       kd: this.calculateKD(highs, lows, closes, 9),
       macd: this.calculateMACD(closes),
@@ -28,8 +78,14 @@ class TechnicalService {
       ma5: this.calculateMA(closes, 5),
       ma10: this.calculateMA(closes, 10),
       ma20: this.calculateMA(closes, 20),
-      ma60: this.calculateMA(closes, 60)
+      ma60: this.calculateMA(closes, 60),
+      currentPrice: closes[0],  // 加入當前使用的價格
+      dataPoints: history.length
     };
+    
+    console.log(`   📈 技術指標計算完成 (使用 ${history.length} 筆資料, 現價: $${closes[0]})`);
+    
+    return indicators;
   }
 
   /**

@@ -166,9 +166,17 @@
         <div class="section-title">🛠️ 管理功能</div>
         <div class="grid">
             <a href="/watchlist.html" class="btn hl"><span>👀</span><span>監控清單</span></a>
+            <a href="/holdings.html" class="btn hl"><span>💼</span><span>持股管理</span></a>
             <a href="/settings.html" class="btn"><span>⚙️</span><span>設定</span></a>
-            <div class="btn us" onclick="showUSIndices()"><span>📊</span><span>美股指數</span></div>
             <div class="btn tw" onclick="showTWIndex()"><span>📈</span><span>台股大盤</span></div>
+        </div>
+        
+        <div class="section-title">📊 更多功能</div>
+        <div class="grid">
+            <div class="btn us" onclick="showUSIndices()"><span>🗽</span><span>美股指數</span></div>
+            <div class="btn" onclick="showToast('請在 LINE Bot 輸入「熱門」')"><span>🔥</span><span>熱門排行</span></div>
+            <div class="btn" onclick="showToast('請在 LINE Bot 輸入「K 代碼」')"><span>📉</span><span>K線圖</span></div>
+            <div class="btn" onclick="showToast('請在 LINE Bot 輸入「問」')"><span>🤖</span><span>AI分析</span></div>
         </div>
         
         <div class="line-section">
@@ -180,7 +188,8 @@
     
     <div class="bottom-nav">
         <div class="nav-item active" onclick="location.reload()"><span>🏠</span><span>首頁</span></div>
-        <a href="/watchlist.html" class="nav-item"><span>👀</span><span>監控</span></a>
+        <a href="/watchlist.html" class="nav-item"><span>📋</span><span>監控</span></a>
+        <a href="/holdings.html" class="nav-item"><span>💼</span><span>持股</span></a>
         <a href="/settings.html" class="nav-item"><span>⚙️</span><span>設定</span></a>
     </div>
     
