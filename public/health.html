@@ -9,75 +9,341 @@
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
     body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
     .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
-    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; flex-wrap: wrap; gap: 12px; }
     .header h1 { font-size: 1.4rem; color: #58a6ff; }
     .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
     .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #238636; color: white; }
-    .score-card { background: linear-gradient(135deg, #238636, #2ea043); border-radius: 16px; padding: 32px; text-align: center; margin-bottom: 24px; }
+    .btn:hover { background: #2ea043; }
+    
+    .score-card { border-radius: 16px; padding: 32px; text-align: center; margin-bottom: 24px; }
+    .score-card.excellent { background: linear-gradient(135deg, #238636, #2ea043); }
+    .score-card.good { background: linear-gradient(135deg, #1f6feb, #58a6ff); }
+    .score-card.fair { background: linear-gradient(135deg, #9e6a03, #d29922); }
+    .score-card.poor { background: linear-gradient(135deg, #da3633, #f85149); }
     .score-card .title { color: rgba(255,255,255,0.9); font-size: 1rem; }
     .score-card .score { font-size: 4rem; font-weight: 700; color: white; }
     .score-card .grade { font-size: 1.5rem; color: white; margin-top: 8px; }
-    .check-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    
+    .summary-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .summary-item { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 16px; text-align: center; }
+    .summary-item .label { color: #8b949e; font-size: 0.85rem; }
+    .summary-item .value { font-size: 1.3rem; font-weight: 700; margin-top: 4px; }
+    
+    .check-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 20px; }
     .check-item { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; }
-    .check-item .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .check-item .item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .check-item .name { font-weight: 600; color: #c9d1d9; }
     .check-item .status { padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
     .check-item .status.good { background: rgba(63,185,80,0.2); color: #3fb950; }
     .check-item .status.warn { background: rgba(210,153,34,0.2); color: #d29922; }
     .check-item .status.bad { background: rgba(248,81,73,0.2); color: #f85149; }
-    .check-item .desc { color: #8b949e; font-size: 0.9rem; line-height: 1.5; }
-    .suggestion { background: #21262d; border-radius: 8px; padding: 16px; }
+    .check-item .desc { color: #8b949e; font-size: 0.9rem; line-height: 1.6; }
+    
+    .holdings-table { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .holdings-table h3 { color: #c9d1d9; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px; text-align: right; border-bottom: 1px solid #21262d; }
+    th { color: #8b949e; font-weight: 500; font-size: 0.9rem; }
+    td { color: #c9d1d9; }
+    td:first-child, th:first-child { text-align: left; }
+    td a { color: #58a6ff; text-decoration: none; }
+    
+    .suggestion { background: #21262d; border-radius: 12px; padding: 20px; }
     .suggestion h4 { color: #d29922; margin-bottom: 12px; }
     .suggestion ul { color: #c9d1d9; padding-left: 20px; line-height: 1.8; }
+    
+    .empty-state { text-align: center; padding: 60px 20px; color: #8b949e; }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 16px; }
+    
+    .loading { text-align: center; padding: 40px; color: #8b949e; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
   <div class="container">
     <header class="header">
       <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🏥 持股健檢報告</h1></div>
-      <button class="btn" onclick="refresh()">🔄 重新檢查</button>
+      <button class="btn" onclick="runHealthCheck()">🔄 重新檢查</button>
     </header>
-    <div class="score-card">
-      <div class="title">投資組合健康分數</div>
-      <div class="score">78</div>
-      <div class="grade">良好 ⭐⭐⭐⭐</div>
-    </div>
-    <div class="check-grid">
-      <div class="check-item">
-        <div class="header"><span class="name">📊 風險分散</span><span class="status good">良好</span></div>
-        <div class="desc">持有 5 檔股票，分散於 3 個產業，風險分散度良好。</div>
-      </div>
-      <div class="check-item">
-        <div class="header"><span class="name">📈 技術面</span><span class="status warn">注意</span></div>
-        <div class="desc">2 檔股票接近壓力位，1 檔 RSI 超買，建議注意回檔風險。</div>
-      </div>
-      <div class="check-item">
-        <div class="header"><span class="name">🌊 波浪位置</span><span class="status good">良好</span></div>
-        <div class="desc">60% 持股處於第1-3浪上升階段，整體位置偏多。</div>
-      </div>
-      <div class="check-item">
-        <div class="header"><span class="name">💰 殖利率</span><span class="status good">優秀</span></div>
-        <div class="desc">平均殖利率 4.2%，高於定存利率，配息穩定。</div>
-      </div>
-      <div class="check-item">
-        <div class="header"><span class="name">🛡️ 停損設定</span><span class="status bad">待改善</span></div>
-        <div class="desc">3 檔股票尚未設定停損點，建議盡快設定以控制風險。</div>
-      </div>
-      <div class="check-item">
-        <div class="header"><span class="name">🏦 法人動向</span><span class="status warn">注意</span></div>
-        <div class="desc">外資連續賣超 2 檔持股，建議持續觀察籌碼變化。</div>
-      </div>
-    </div>
-    <div class="suggestion">
-      <h4>💡 改善建議</h4>
-      <ul>
-        <li>為尚未設定停損的股票設定停損點（建議 -8% ~ -10%）</li>
-        <li>RSI 超買的股票可考慮減碼或設定停利</li>
-        <li>持續觀察外資賣超股票的籌碼變化</li>
-        <li>可考慮增加不同產業的配置以進一步分散風險</li>
-      </ul>
+    <div id="content">
+      <div class="loading"><div class="spinner"></div>正在分析您的持股...</div>
     </div>
   </div>
-  <script>function refresh() { location.reload(); }</script>
+  
+  <script>
+    // 從後端 API 讀取持股
+    async function getHoldingsFromAPI() {
+      try {
+        const res = await fetch('/api/holdings');
+        const data = await res.json();
+        return data.holdings || [];
+      } catch (e) {
+        console.log('API 讀取失敗，嘗試 localStorage');
+        return null;
+      }
+    }
+    
+    // 從 localStorage 讀取持股（備用）
+    function getHoldingsFromStorage() {
+      const keys = ['holdings', 'stock_holdings', 'portfolio', 'watchlist_stocks'];
+      for (const key of keys) {
+        const data = localStorage.getItem(key);
+        if (data) {
+          try {
+            const parsed = JSON.parse(data);
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          } catch (e) {}
+        }
+      }
+      return [];
+    }
+    
+    async function runHealthCheck() {
+      document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div>正在分析您的持股...</div>';
+      
+      // 優先從 API 讀取
+      let holdings = await getHoldingsFromAPI();
+      
+      // 如果 API 失敗，嘗試 localStorage
+      if (!holdings || holdings.length === 0) {
+        holdings = getHoldingsFromStorage();
+      }
+      
+      if (!holdings || holdings.length === 0) {
+        document.getElementById('content').innerHTML = `
+          <div class="empty-state">
+            <div class="icon">📋</div>
+            <div>尚未有持股資料</div>
+            <div style="margin-top:12px;font-size:0.9rem;">
+              請先到 <a href="holdings.html" style="color:#58a6ff;">持股管理</a> 新增您的持股
+            </div>
+          </div>
+        `;
+        return;
+      }
+      
+      // 分析每檔持股
+      const analysis = [];
+      let totalLots = 0;
+      let totalOddShares = 0;
+      let totalValue = 0;
+      let totalCost = 0;
+      
+      for (const h of holdings) {
+        // 適應不同的數據格式
+        const stockId = h.stock_id || h.stockId || h.id || h.code;
+        const lots = h.lots || Math.floor((h.shares || h.quantity || 0) / 1000) || 0;
+        const oddShares = h.odd_shares !== undefined ? h.odd_shares : ((h.shares || 0) % 1000);
+        const totalShares = lots * 1000 + oddShares;
+        const costPrice = parseFloat(h.won_price) || parseFloat(h.bid_price) || parseFloat(h.cost) || parseFloat(h.avgCost) || 0;
+        
+        if (!stockId) continue;
+        
+        try {
+          const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+          const data = await res.json();
+          
+          if (!data.error) {
+            const currentPrice = data.currentPrice;
+            const value = currentPrice * totalShares;
+            const costValue = costPrice * totalShares;
+            const profit = costPrice > 0 ? ((currentPrice - costPrice) / costPrice * 100) : 0;
+            
+            analysis.push({
+              stockId,
+              stockName: data.stockName || h.stock_name,
+              lots,
+              oddShares,
+              totalShares,
+              costPrice,
+              currentPrice,
+              changePercent: data.changePercent,
+              currentWave: data.currentWave,
+              value,
+              costValue,
+              profit,
+              isWon: h.is_won !== false
+            });
+            
+            totalLots += lots;
+            totalOddShares += oddShares;
+            totalValue += value;
+            totalCost += costValue;
+          }
+        } catch (e) {
+          console.log('分析失敗:', stockId);
+        }
+      }
+      
+      if (analysis.length === 0) {
+        document.getElementById('content').innerHTML = `
+          <div class="empty-state">
+            <div class="icon">⚠️</div>
+            <div>無法取得持股資料</div>
+            <div style="margin-top:8px;font-size:0.9rem;">請確認網路連線後重試</div>
+          </div>
+        `;
+        return;
+      }
+      
+      // 計算健康分數
+      const report = calculateHealthScore(analysis, totalValue, totalCost);
+      renderReport(analysis, report, totalLots, totalOddShares, totalValue, totalCost);
+    }
+    
+    function calculateHealthScore(analysis, totalValue, totalCost) {
+      let score = 60;
+      const checks = [];
+      const suggestions = [];
+      
+      const count = analysis.length;
+      const totalProfit = totalCost > 0 ? ((totalValue - totalCost) / totalCost * 100) : 0;
+      
+      // 1. 風險分散
+      if (count >= 5) {
+        score += 15;
+        checks.push({ name: '📊 風險分散', status: 'good', desc: `持有 ${count} 檔股票，分散度良好。` });
+      } else if (count >= 3) {
+        score += 8;
+        checks.push({ name: '📊 風險分散', status: 'warn', desc: `持有 ${count} 檔股票，建議增加分散。` });
+        suggestions.push('考慮增加持股數量以分散風險');
+      } else {
+        checks.push({ name: '📊 風險分散', status: 'bad', desc: `僅持有 ${count} 檔股票，集中度高。` });
+        suggestions.push('持股過於集中，建議分散投資');
+      }
+      
+      // 2. 波浪位置
+      const upWaves = analysis.filter(a => ['1', '2', '3', 1, 2, 3].includes(a.currentWave)).length;
+      const upRatio = upWaves / count;
+      
+      if (upRatio >= 0.6) {
+        score += 15;
+        checks.push({ name: '🌊 波浪位置', status: 'good', desc: `${(upRatio * 100).toFixed(0)}% 持股處於上升浪。` });
+      } else if (upRatio >= 0.4) {
+        score += 8;
+        checks.push({ name: '🌊 波浪位置', status: 'warn', desc: `${(upRatio * 100).toFixed(0)}% 持股處於上升浪。` });
+        suggestions.push('部分持股波浪位置較高，注意獲利了結');
+      } else {
+        checks.push({ name: '🌊 波浪位置', status: 'bad', desc: `僅 ${(upRatio * 100).toFixed(0)}% 持股處於上升浪。` });
+        suggestions.push('多數持股處於修正浪，建議減碼觀望');
+      }
+      
+      // 3. 獲利狀況
+      if (totalProfit > 10) {
+        score += 15;
+        checks.push({ name: '💰 獲利表現', status: 'good', desc: `整體報酬率 ${totalProfit.toFixed(1)}%，表現優異！` });
+      } else if (totalProfit > 0) {
+        score += 8;
+        checks.push({ name: '💰 獲利表現', status: 'warn', desc: `整體報酬率 ${totalProfit.toFixed(1)}%。` });
+      } else {
+        checks.push({ name: '💰 獲利表現', status: 'bad', desc: `整體報酬率 ${totalProfit.toFixed(1)}%，處於虧損。` });
+        suggestions.push('整體處於虧損，建議檢視持股基本面');
+      }
+      
+      // 4. 今日漲跌
+      const upToday = analysis.filter(a => a.changePercent > 0).length;
+      const downToday = analysis.filter(a => a.changePercent < 0).length;
+      
+      if (upToday > downToday) {
+        score += 5;
+        checks.push({ name: '📈 今日表現', status: 'good', desc: `今日 ${upToday} 漲 ${downToday} 跌。` });
+      } else {
+        checks.push({ name: '📈 今日表現', status: downToday > upToday ? 'bad' : 'warn', desc: `今日 ${upToday} 漲 ${downToday} 跌。` });
+      }
+      
+      score = Math.max(0, Math.min(100, score));
+      return { score, checks, suggestions };
+    }
+    
+    function renderReport(analysis, report, totalLots, totalOddShares, totalValue, totalCost) {
+      const { score, checks, suggestions } = report;
+      const totalProfit = totalCost > 0 ? ((totalValue - totalCost) / totalCost * 100) : 0;
+      
+      let grade, gradeText, cardClass;
+      if (score >= 85) { grade = '⭐⭐⭐⭐⭐'; gradeText = '優秀'; cardClass = 'excellent'; }
+      else if (score >= 70) { grade = '⭐⭐⭐⭐'; gradeText = '良好'; cardClass = 'good'; }
+      else if (score >= 50) { grade = '⭐⭐⭐'; gradeText = '普通'; cardClass = 'fair'; }
+      else { grade = '⭐⭐'; gradeText = '待改善'; cardClass = 'poor'; }
+      
+      // 格式化張數
+      const sharesDisplay = totalLots > 0 && totalOddShares > 0 ? `${totalLots} 張 ${totalOddShares} 股` :
+                           totalLots > 0 ? `${totalLots} 張` : `${totalOddShares} 股`;
+      
+      document.getElementById('content').innerHTML = `
+        <div class="score-card ${cardClass}">
+          <div class="title">投資組合健康分數</div>
+          <div class="score">${score}</div>
+          <div class="grade">${gradeText} ${grade}</div>
+        </div>
+        
+        <div class="summary-bar">
+          <div class="summary-item">
+            <div class="label">持股檔數</div>
+            <div class="value" style="color:#58a6ff;">${analysis.length} 檔</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">總股數</div>
+            <div class="value" style="color:#c9d1d9;">${sharesDisplay}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">市值</div>
+            <div class="value" style="color:#d29922;">$${Math.round(totalValue).toLocaleString()}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">總報酬</div>
+            <div class="value" style="color:${totalProfit >= 0 ? '#f85149' : '#3fb950'};">${totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(1)}%</div>
+          </div>
+        </div>
+        
+        <div class="check-grid">
+          ${checks.map(c => `
+            <div class="check-item">
+              <div class="item-header">
+                <span class="name">${c.name}</span>
+                <span class="status ${c.status}">${c.status === 'good' ? '良好' : c.status === 'warn' ? '注意' : '警告'}</span>
+              </div>
+              <div class="desc">${c.desc}</div>
+            </div>
+          `).join('')}
+        </div>
+        
+        <div class="holdings-table">
+          <h3>📋 持股明細</h3>
+          <table>
+            <thead>
+              <tr><th>股票</th><th>股數</th><th>成本</th><th>現價</th><th>今日</th><th>波浪</th><th>報酬</th></tr>
+            </thead>
+            <tbody>
+              ${analysis.map(a => {
+                const sharesText = a.lots > 0 && a.oddShares > 0 ? `${a.lots}張${a.oddShares}股` :
+                                  a.lots > 0 ? `${a.lots}張` : `${a.oddShares}股`;
+                return `
+                  <tr>
+                    <td><a href="wave.html?stock=${a.stockId}">${a.stockId} ${a.stockName}</a></td>
+                    <td>${sharesText}</td>
+                    <td>$${a.costPrice > 0 ? a.costPrice.toFixed(2) : '-'}</td>
+                    <td>$${a.currentPrice.toFixed(2)}</td>
+                    <td style="color:${a.changePercent >= 0 ? '#f85149' : '#3fb950'};">${a.changePercent >= 0 ? '+' : ''}${a.changePercent.toFixed(2)}%</td>
+                    <td>${a.currentWave}</td>
+                    <td style="color:${a.profit >= 0 ? '#f85149' : '#3fb950'};">${a.costPrice > 0 ? (a.profit >= 0 ? '+' : '') + a.profit.toFixed(1) + '%' : '-'}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        
+        ${suggestions.length > 0 ? `
+          <div class="suggestion">
+            <h4>💡 改善建議</h4>
+            <ul>${suggestions.map(s => `<li>${s}</li>`).join('')}</ul>
+          </div>
+        ` : ''}
+      `;
+    }
+    
+    runHealthCheck();
+  </script>
 </body>
 </html>
