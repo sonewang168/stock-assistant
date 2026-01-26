@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📉 RSI & 乖離率 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .search-box { display: flex; gap: 10px; }
+    .search-box input { padding: 10px 16px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; width: 120px; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #238636; color: white; }
+    .btn:hover { background: #2ea043; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    
+    .main-card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 24px; margin-bottom: 20px; }
+    .card-title { font-size: 1.1rem; color: #c9d1d9; margin-bottom: 16px; }
+    .chart-container { height: 220px; margin-bottom: 16px; }
+    
+    .indicator-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .indicator-card { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 16px; text-align: center; }
+    .indicator-card .label { color: #8b949e; font-size: 0.85rem; margin-bottom: 8px; }
+    .indicator-card .value { font-size: 1.5rem; font-weight: 700; }
+    .indicator-card .signal { font-size: 0.8rem; margin-top: 8px; padding: 4px 10px; border-radius: 4px; display: inline-block; }
+    .signal.buy { background: rgba(63,185,80,0.2); color: #3fb950; }
+    .signal.sell { background: rgba(248,81,73,0.2); color: #f85149; }
+    .signal.neutral { background: rgba(139,148,158,0.2); color: #8b949e; }
+    
+    .analysis-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+    .analysis-card { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+    .analysis-card h4 { color: #58a6ff; margin-bottom: 12px; font-size: 1rem; }
+    .analysis-card p { color: #c9d1d9; font-size: 0.9rem; line-height: 1.6; }
+    .analysis-card .tip { margin-top: 12px; padding: 10px; background: #21262d; border-radius: 6px; font-size: 0.85rem; color: #8b949e; }
+    
+    .legend { display: flex; gap: 16px; justify-content: center; margin-top: 8px; font-size: 0.8rem; color: #8b949e; }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+    
+    .loading { text-align: center; padding: 40px; color: #8b949e; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div>
+        <a href="analysis.html" class="back-link">← 返回分析中心</a>
+        <h1>📉 RSI & 乖離率分析</h1>
+      </div>
+      <div class="search-box">
+        <input type="text" id="stockInput" placeholder="股票代碼" value="2330">
+        <button class="btn" onclick="analyze()">🔍 分析</button>
+      </div>
+    </header>
+
+    <div id="content">
+      <div class="loading"><div class="spinner"></div><p>載入中...</p></div>
+    </div>
+  </div>
+
+  <script>
+    async function analyze() {
+      const stockId = document.getElementById('stockInput').value.trim();
+      if (!stockId) return alert('請輸入股票代碼');
+      
+      document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p>分析中...</p></div>';
+      
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        renderAnalysis(stockId, data);
+      } catch (e) {
+        document.getElementById('content').innerHTML = `<div class="main-card"><p style="color:#f85149;">分析失敗: ${e.message}</p></div>`;
+      }
+    }
+    
+    function calculateRSI(prices, period = 14) {
+      const rsi = [];
+      for (let i = 0; i < prices.length; i++) {
+        if (i < period) { rsi.push(50); continue; }
+        
+        let gains = 0, losses = 0;
+        for (let j = i - period + 1; j <= i; j++) {
+          const change = prices[j] - prices[j - 1];
+          if (change > 0) gains += change;
+          else losses -= change;
+        }
+        
+        const avgGain = gains / period;
+        const avgLoss = losses / period;
+        const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+        rsi.push(100 - (100 / (1 + rs)));
+      }
+      return rsi;
+    }
+    
+    function calculateBias(prices, period) {
+      const bias = [];
+      for (let i = 0; i < prices.length; i++) {
+        if (i < period - 1) { bias.push(0); continue; }
+        const ma = prices.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0) / period;
+        bias.push(((prices[i] - ma) / ma) * 100);
+      }
+      return bias;
+    }
+    
+    function getRSISignal(rsi) {
+      if (rsi >= 80) return { signal: '嚴重超買', type: 'sell', desc: 'RSI > 80，股價可能即將回檔' };
+      if (rsi >= 70) return { signal: '超買', type: 'sell', desc: 'RSI > 70，進入超買區' };
+      if (rsi <= 20) return { signal: '嚴重超賣', type: 'buy', desc: 'RSI < 20，股價可能即將反彈' };
+      if (rsi <= 30) return { signal: '超賣', type: 'buy', desc: 'RSI < 30，進入超賣區' };
+      return { signal: '中性', type: 'neutral', desc: 'RSI 在 30-70 之間，無明顯訊號' };
+    }
+    
+    function getBiasSignal(bias5, bias10, bias20) {
+      // 台股經驗值
+      if (bias5 > 8 || bias10 > 10 || bias20 > 12) return { signal: '正乖離過大', type: 'sell', desc: '股價偏離均線過遠，可能回檔' };
+      if (bias5 < -8 || bias10 < -10 || bias20 < -12) return { signal: '負乖離過大', type: 'buy', desc: '股價偏離均線過遠，可能反彈' };
+      if (bias5 > 3 && bias10 > 5) return { signal: '正乖離', type: 'sell', desc: '股價高於均線，注意回檔風險' };
+      if (bias5 < -3 && bias10 < -5) return { signal: '負乖離', type: 'buy', desc: '股價低於均線，可考慮進場' };
+      return { signal: '正常', type: 'neutral', desc: '乖離率在正常範圍' };
+    }
+    
+    function renderAnalysis(stockId, data) {
+      const { history, currentPrice, stockName, changePercent } = data;
+      const prices = history.map(h => h.close);
+      
+      const rsi6 = calculateRSI(prices, 6);
+      const rsi14 = calculateRSI(prices, 14);
+      const bias5 = calculateBias(prices, 5);
+      const bias10 = calculateBias(prices, 10);
+      const bias20 = calculateBias(prices, 20);
+      
+      const lastRSI6 = rsi6[rsi6.length - 1];
+      const lastRSI14 = rsi14[rsi14.length - 1];
+      const lastBias5 = bias5[bias5.length - 1];
+      const lastBias10 = bias10[bias10.length - 1];
+      const lastBias20 = bias20[bias20.length - 1];
+      
+      const rsiSignal = getRSISignal(lastRSI14);
+      const biasSignal = getBiasSignal(lastBias5, lastBias10, lastBias20);
+      
+      document.getElementById('content').innerHTML = `
+        <div class="indicator-grid">
+          <div class="indicator-card">
+            <div class="label">${stockName} (${stockId})</div>
+            <div class="value" style="color:#58a6ff;">$${currentPrice.toFixed(2)}</div>
+            <div class="signal ${changePercent >= 0 ? 'buy' : 'sell'}">${changePercent >= 0 ? '▲' : '▼'} ${Math.abs(changePercent).toFixed(2)}%</div>
+          </div>
+          <div class="indicator-card">
+            <div class="label">RSI(6)</div>
+            <div class="value" style="color:${lastRSI6 > 70 ? '#f85149' : lastRSI6 < 30 ? '#3fb950' : '#c9d1d9'};">${lastRSI6.toFixed(1)}</div>
+            <div class="signal ${getRSISignal(lastRSI6).type}">${getRSISignal(lastRSI6).signal}</div>
+          </div>
+          <div class="indicator-card">
+            <div class="label">RSI(14)</div>
+            <div class="value" style="color:${lastRSI14 > 70 ? '#f85149' : lastRSI14 < 30 ? '#3fb950' : '#c9d1d9'};">${lastRSI14.toFixed(1)}</div>
+            <div class="signal ${rsiSignal.type}">${rsiSignal.signal}</div>
+          </div>
+          <div class="indicator-card">
+            <div class="label">乖離率(10日)</div>
+            <div class="value" style="color:${lastBias10 > 5 ? '#f85149' : lastBias10 < -5 ? '#3fb950' : '#c9d1d9'};">${lastBias10.toFixed(2)}%</div>
+            <div class="signal ${biasSignal.type}">${biasSignal.signal}</div>
+          </div>
+        </div>
+        
+        <div class="main-card">
+          <div class="card-title">📈 股價走勢</div>
+          <div class="chart-container"><canvas id="priceChart"></canvas></div>
+        </div>
+        
+        <div class="main-card">
+          <div class="card-title">📊 RSI 相對強弱指標</div>
+          <div class="chart-container"><canvas id="rsiChart"></canvas></div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#f85149;"></div>RSI(6)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#58a6ff;"></div>RSI(14)</div>
+            <div class="legend-item"><span style="color:#f8514966;">── 超買線(70)</span></div>
+            <div class="legend-item"><span style="color:#3fb95066;">── 超賣線(30)</span></div>
+          </div>
+        </div>
+        
+        <div class="main-card">
+          <div class="card-title">📉 乖離率 (BIAS)</div>
+          <div class="chart-container"><canvas id="biasChart"></canvas></div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#f85149;"></div>5日乖離</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#58a6ff;"></div>10日乖離</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#a371f7;"></div>20日乖離</div>
+          </div>
+        </div>
+        
+        <div class="analysis-grid">
+          <div class="analysis-card">
+            <h4>📊 RSI 分析</h4>
+            <p>${rsiSignal.desc}</p>
+            <p style="margin-top:8px;">RSI(6): ${lastRSI6.toFixed(1)} | RSI(14): ${lastRSI14.toFixed(1)}</p>
+            <div class="tip">
+              💡 RSI > 70 超買，< 30 超賣。RSI(6) 較敏感，RSI(14) 較穩定。
+            </div>
+          </div>
+          <div class="analysis-card">
+            <h4>📉 乖離率分析</h4>
+            <p>${biasSignal.desc}</p>
+            <p style="margin-top:8px;">5日: ${lastBias5.toFixed(2)}% | 10日: ${lastBias10.toFixed(2)}% | 20日: ${lastBias20.toFixed(2)}%</p>
+            <div class="tip">
+              💡 乖離率 = (股價 - MA) / MA × 100%。正乖離過大有回檔壓力，負乖離過大有反彈機會。
+            </div>
+          </div>
+        </div>
+      `;
+      
+      renderCharts(history, { rsi6, rsi14 }, { bias5, bias10, bias20 });
+    }
+    
+    function renderCharts(history, rsiData, biasData) {
+      const labels = history.map(h => new Date(h.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'}));
+      const prices = history.map(h => h.close);
+      
+      // 價格圖
+      new Chart(document.getElementById('priceChart'), {
+        type: 'line',
+        data: { labels, datasets: [{ data: prices, borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 10 } }, y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } } }
+        }
+      });
+      
+      // RSI 圖
+      new Chart(document.getElementById('rsiChart'), {
+        type: 'line',
+        data: { labels, datasets: [
+          { data: rsiData.rsi6, borderColor: '#f85149', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+          { data: rsiData.rsi14, borderColor: '#58a6ff', borderWidth: 2, pointRadius: 0, tension: 0.3 }
+        ]},
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false },
+          annotation: { annotations: {
+            line70: { type: 'line', yMin: 70, yMax: 70, borderColor: '#f8514966', borderDash: [5,5] },
+            line30: { type: 'line', yMin: 30, yMax: 30, borderColor: '#3fb95066', borderDash: [5,5] }
+          }}
+        }, scales: { x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 10 } }, y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' }, min: 0, max: 100 } } }
+      });
+      
+      // 乖離率圖
+      new Chart(document.getElementById('biasChart'), {
+        type: 'line',
+        data: { labels, datasets: [
+          { data: biasData.bias5, borderColor: '#f85149', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+          { data: biasData.bias10, borderColor: '#58a6ff', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+          { data: biasData.bias20, borderColor: '#a371f7', borderWidth: 2, pointRadius: 0, tension: 0.3 }
+        ]},
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false },
+          annotation: { annotations: { line0: { type: 'line', yMin: 0, yMax: 0, borderColor: '#8b949e66', borderDash: [5,5] } }}
+        }, scales: { x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 10 } }, y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } } } }
+      });
+    }
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    document.getElementById('stockInput').value = urlParams.get('stock') || '2330';
+    analyze();
+  </script>
+</body>
+</html>

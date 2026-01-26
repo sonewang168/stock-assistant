@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📐 趨勢線分析 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .search-box { display: flex; gap: 10px; }
+    .search-box input { padding: 10px 16px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; width: 120px; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #238636; color: white; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .main-card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 24px; margin-bottom: 20px; }
+    .chart-container { height: 400px; }
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .info-card { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 16px; text-align: center; }
+    .info-card .label { color: #8b949e; font-size: 0.85rem; }
+    .info-card .value { font-size: 1.3rem; font-weight: 700; margin-top: 8px; }
+    .loading { text-align: center; padding: 40px; color: #8b949e; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>📐 趨勢線與均線</h1></div>
+      <div class="search-box">
+        <input type="text" id="stockInput" placeholder="股票代碼" value="2330">
+        <button class="btn" onclick="analyze()">🔍 分析</button>
+      </div>
+    </header>
+    <div id="content"><div class="loading"><div class="spinner"></div><p>載入中...</p></div></div>
+  </div>
+  <script>
+    async function analyze() {
+      const stockId = document.getElementById('stockInput').value.trim();
+      if (!stockId) return alert('請輸入股票代碼');
+      document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p>分析中...</p></div>';
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        renderAnalysis(stockId, data);
+      } catch (e) {
+        document.getElementById('content').innerHTML = `<div class="main-card"><p style="color:#f85149;">錯誤: ${e.message}</p></div>`;
+      }
+    }
+    function calculateMA(prices, period) {
+      return prices.map((_, i) => i < period - 1 ? null : prices.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0) / period);
+    }
+    function renderAnalysis(stockId, data) {
+      const { history, currentPrice, stockName, changePercent } = data;
+      const prices = history.map(h => h.close);
+      const ma5 = calculateMA(prices, 5), ma20 = calculateMA(prices, 20), ma60 = calculateMA(prices, 60);
+      const lastMA5 = ma5[ma5.length-1], lastMA20 = ma20[ma20.length-1], lastMA60 = ma60[ma60.length-1];
+      let trend = '盤整', trendColor = '#8b949e';
+      if (currentPrice > lastMA5 && lastMA5 > lastMA20) { trend = '多頭 📈'; trendColor = '#f85149'; }
+      else if (currentPrice < lastMA5 && lastMA5 < lastMA20) { trend = '空頭 📉'; trendColor = '#3fb950'; }
+      document.getElementById('content').innerHTML = `
+        <div class="info-grid">
+          <div class="info-card"><div class="label">${stockName}</div><div class="value" style="color:#58a6ff;">$${currentPrice.toFixed(2)}</div></div>
+          <div class="info-card"><div class="label">趨勢狀態</div><div class="value" style="color:${trendColor};">${trend}</div></div>
+          <div class="info-card"><div class="label">MA5</div><div class="value" style="color:${currentPrice > lastMA5 ? '#f85149' : '#3fb950'};">$${lastMA5?.toFixed(2) || '--'}</div></div>
+          <div class="info-card"><div class="label">MA20</div><div class="value" style="color:${currentPrice > lastMA20 ? '#f85149' : '#3fb950'};">$${lastMA20?.toFixed(2) || '--'}</div></div>
+        </div>
+        <div class="main-card"><div class="chart-container"><canvas id="chart"></canvas></div></div>
+      `;
+      const ctx = document.getElementById('chart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: history.map(h => new Date(h.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})),
+          datasets: [
+            { data: prices, borderColor: '#58a6ff', borderWidth: 2, pointRadius: 0 },
+            { data: ma5, borderColor: '#ffeb3b', borderWidth: 1.5, pointRadius: 0 },
+            { data: ma20, borderColor: '#e91e63', borderWidth: 1.5, pointRadius: 0 },
+            { data: ma60, borderColor: '#9c27b0', borderWidth: 1.5, pointRadius: 0 }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 10 } }, y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } } }
+        }
+      });
+    }
+    const urlParams = new URLSearchParams(window.location.search);
+    document.getElementById('stockInput').value = urlParams.get('stock') || '2330';
+    analyze();
+  </script>
+</body>
+</html>

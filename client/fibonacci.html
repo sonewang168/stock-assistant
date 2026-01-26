@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔢 斐波那契分析 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #d29922; }
+    .search-box { display: flex; gap: 10px; }
+    .search-box input { padding: 10px 16px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; width: 120px; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #d29922; color: white; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    
+    .main-card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 24px; margin-bottom: 20px; }
+    .card-title { font-size: 1.1rem; color: #c9d1d9; margin-bottom: 16px; }
+    .chart-container { height: 400px; }
+    
+    .fib-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .fib-card { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+    .fib-card h3 { color: #d29922; margin-bottom: 12px; font-size: 1rem; }
+    .fib-level { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #21262d; }
+    .fib-level:last-child { border-bottom: none; }
+    .fib-level .ratio { color: #8b949e; }
+    .fib-level .price { font-weight: 600; }
+    .fib-level.current { background: rgba(88,166,255,0.1); margin: 0 -16px; padding: 8px 16px; }
+    
+    .info-card { background: #21262d; border-radius: 8px; padding: 16px; }
+    .info-card h4 { color: #58a6ff; margin-bottom: 8px; }
+    .info-card p { color: #c9d1d9; font-size: 0.9rem; line-height: 1.6; }
+    
+    .loading { text-align: center; padding: 40px; color: #8b949e; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #30363d; border-top-color: #d29922; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div>
+        <a href="analysis.html" class="back-link">← 返回分析中心</a>
+        <h1>🔢 斐波那契回撤分析</h1>
+      </div>
+      <div class="search-box">
+        <input type="text" id="stockInput" placeholder="股票代碼" value="2330">
+        <button class="btn" onclick="analyze()">🔍 分析</button>
+      </div>
+    </header>
+
+    <div id="content">
+      <div class="loading"><div class="spinner"></div><p>載入中...</p></div>
+    </div>
+  </div>
+
+  <script>
+    const FIB_RATIOS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+    const FIB_COLORS = ['#3fb950', '#58a6ff', '#a371f7', '#d29922', '#f85149', '#da3633', '#8b949e'];
+    
+    async function analyze() {
+      const stockId = document.getElementById('stockInput').value.trim();
+      if (!stockId) return alert('請輸入股票代碼');
+      
+      document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p>分析中...</p></div>';
+      
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        renderAnalysis(stockId, data);
+      } catch (e) {
+        document.getElementById('content').innerHTML = `<div class="main-card"><p style="color:#f85149;">分析失敗: ${e.message}</p></div>`;
+      }
+    }
+    
+    function calculateFibLevels(high, low, isUptrend) {
+      const diff = high - low;
+      return FIB_RATIOS.map((ratio, i) => ({
+        ratio: ratio,
+        label: `${(ratio * 100).toFixed(1)}%`,
+        price: isUptrend ? high - diff * ratio : low + diff * ratio,
+        color: FIB_COLORS[i]
+      }));
+    }
+    
+    function renderAnalysis(stockId, data) {
+      const { history, currentPrice, stockName } = data;
+      const prices = history.map(h => h.close);
+      const high = Math.max(...prices);
+      const low = Math.min(...prices);
+      
+      // 判斷趨勢：近期高點在前還是後
+      const recentHigh = Math.max(...prices.slice(-30));
+      const recentLow = Math.min(...prices.slice(-30));
+      const isUptrend = prices[prices.length - 1] > prices[Math.floor(prices.length / 2)];
+      
+      const fibLevels = calculateFibLevels(high, low, isUptrend);
+      
+      // 找出現價最接近的斐波那契位
+      let nearestLevel = fibLevels[0];
+      let minDiff = Infinity;
+      fibLevels.forEach(level => {
+        const diff = Math.abs(currentPrice - level.price);
+        if (diff < minDiff) {
+          minDiff = diff;
+          nearestLevel = level;
+        }
+      });
+      
+      document.getElementById('content').innerHTML = `
+        <div class="fib-grid">
+          <div class="fib-card">
+            <h3>📈 ${isUptrend ? '上升' : '下降'}趨勢回撤位</h3>
+            ${fibLevels.map(l => `
+              <div class="fib-level ${Math.abs(currentPrice - l.price) < (high-low)*0.02 ? 'current' : ''}">
+                <span class="ratio" style="color:${l.color};">■ ${l.label}</span>
+                <span class="price">$${l.price.toFixed(2)}</span>
+              </div>
+            `).join('')}
+          </div>
+          
+          <div class="fib-card">
+            <h3>📊 股票資訊</h3>
+            <div class="fib-level"><span class="ratio">股票</span><span class="price">${stockName} (${stockId})</span></div>
+            <div class="fib-level"><span class="ratio">現價</span><span class="price" style="color:#58a6ff;">$${currentPrice.toFixed(2)}</span></div>
+            <div class="fib-level"><span class="ratio">區間高點</span><span class="price" style="color:#f85149;">$${high.toFixed(2)}</span></div>
+            <div class="fib-level"><span class="ratio">區間低點</span><span class="price" style="color:#3fb950;">$${low.toFixed(2)}</span></div>
+            <div class="fib-level"><span class="ratio">最近斐波位</span><span class="price" style="color:${nearestLevel.color};">${nearestLevel.label}</span></div>
+          </div>
+        </div>
+        
+        <div class="main-card">
+          <div class="card-title">📈 斐波那契回撤圖</div>
+          <div class="chart-container"><canvas id="fibChart"></canvas></div>
+        </div>
+        
+        <div class="info-card">
+          <h4>💡 斐波那契使用說明</h4>
+          <p>
+            <strong>回撤位說明：</strong><br>
+            • <span style="color:#3fb950;">■ 0%</span> - 起點<br>
+            • <span style="color:#58a6ff;">■ 23.6%</span> - 淺回撤，強勢支撐<br>
+            • <span style="color:#a371f7;">■ 38.2%</span> - 常見支撐位<br>
+            • <span style="color:#d29922;">■ 50%</span> - 中間位，重要心理關卡<br>
+            • <span style="color:#f85149;">■ 61.8%</span> - 黃金分割，最重要支撐<br>
+            • <span style="color:#da3633;">■ 78.6%</span> - 深度回撤<br>
+            • <span style="color:#8b949e;">■ 100%</span> - 終點
+          </p>
+          <p style="margin-top:12px;">
+            <strong>操作建議：</strong>股價回撤至 38.2%~61.8% 區間是常見的進場點位。若跌破 78.6%，趨勢可能反轉。
+          </p>
+        </div>
+      `;
+      
+      renderChart(history, currentPrice, fibLevels, high, low);
+    }
+    
+    function renderChart(history, currentPrice, fibLevels, high, low) {
+      const ctx = document.getElementById('fibChart').getContext('2d');
+      const labels = history.map(h => new Date(h.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'}));
+      const prices = history.map(h => h.close);
+      
+      const annotations = {};
+      fibLevels.forEach((level, i) => {
+        annotations[`fib_${i}`] = {
+          type: 'line',
+          yMin: level.price, yMax: level.price,
+          borderColor: level.color + '88',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          label: {
+            display: true,
+            content: `${level.label} $${level.price.toFixed(0)}`,
+            position: 'start',
+            backgroundColor: level.color,
+            color: 'white',
+            font: { size: 10 }
+          }
+        };
+      });
+      
+      annotations['current'] = {
+        type: 'line',
+        yMin: currentPrice, yMax: currentPrice,
+        borderColor: '#58a6ff',
+        borderWidth: 2,
+        label: { display: true, content: `現價 $${currentPrice.toFixed(0)}`, position: 'end', backgroundColor: '#58a6ff', color: 'white' }
+      };
+      
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{ data: prices, borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, annotation: { annotations } },
+          scales: {
+            x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 10 } },
+            y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' }, min: low * 0.95, max: high * 1.05 }
+          }
+        }
+      });
+    }
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    document.getElementById('stockInput').value = urlParams.get('stock') || '2330';
+    analyze();
+  </script>
+</body>
+</html>

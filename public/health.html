@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏥 健檢報告 - 股海秘書</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #238636; color: white; }
+    .score-card { background: linear-gradient(135deg, #238636, #2ea043); border-radius: 16px; padding: 32px; text-align: center; margin-bottom: 24px; }
+    .score-card .title { color: rgba(255,255,255,0.9); font-size: 1rem; }
+    .score-card .score { font-size: 4rem; font-weight: 700; color: white; }
+    .score-card .grade { font-size: 1.5rem; color: white; margin-top: 8px; }
+    .check-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .check-item { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; }
+    .check-item .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .check-item .name { font-weight: 600; color: #c9d1d9; }
+    .check-item .status { padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+    .check-item .status.good { background: rgba(63,185,80,0.2); color: #3fb950; }
+    .check-item .status.warn { background: rgba(210,153,34,0.2); color: #d29922; }
+    .check-item .status.bad { background: rgba(248,81,73,0.2); color: #f85149; }
+    .check-item .desc { color: #8b949e; font-size: 0.9rem; line-height: 1.5; }
+    .suggestion { background: #21262d; border-radius: 8px; padding: 16px; }
+    .suggestion h4 { color: #d29922; margin-bottom: 12px; }
+    .suggestion ul { color: #c9d1d9; padding-left: 20px; line-height: 1.8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🏥 持股健檢報告</h1></div>
+      <button class="btn" onclick="refresh()">🔄 重新檢查</button>
+    </header>
+    <div class="score-card">
+      <div class="title">投資組合健康分數</div>
+      <div class="score">78</div>
+      <div class="grade">良好 ⭐⭐⭐⭐</div>
+    </div>
+    <div class="check-grid">
+      <div class="check-item">
+        <div class="header"><span class="name">📊 風險分散</span><span class="status good">良好</span></div>
+        <div class="desc">持有 5 檔股票，分散於 3 個產業，風險分散度良好。</div>
+      </div>
+      <div class="check-item">
+        <div class="header"><span class="name">📈 技術面</span><span class="status warn">注意</span></div>
+        <div class="desc">2 檔股票接近壓力位，1 檔 RSI 超買，建議注意回檔風險。</div>
+      </div>
+      <div class="check-item">
+        <div class="header"><span class="name">🌊 波浪位置</span><span class="status good">良好</span></div>
+        <div class="desc">60% 持股處於第1-3浪上升階段，整體位置偏多。</div>
+      </div>
+      <div class="check-item">
+        <div class="header"><span class="name">💰 殖利率</span><span class="status good">優秀</span></div>
+        <div class="desc">平均殖利率 4.2%，高於定存利率，配息穩定。</div>
+      </div>
+      <div class="check-item">
+        <div class="header"><span class="name">🛡️ 停損設定</span><span class="status bad">待改善</span></div>
+        <div class="desc">3 檔股票尚未設定停損點，建議盡快設定以控制風險。</div>
+      </div>
+      <div class="check-item">
+        <div class="header"><span class="name">🏦 法人動向</span><span class="status warn">注意</span></div>
+        <div class="desc">外資連續賣超 2 檔持股，建議持續觀察籌碼變化。</div>
+      </div>
+    </div>
+    <div class="suggestion">
+      <h4>💡 改善建議</h4>
+      <ul>
+        <li>為尚未設定停損的股票設定停損點（建議 -8% ~ -10%）</li>
+        <li>RSI 超買的股票可考慮減碼或設定停利</li>
+        <li>持續觀察外資賣超股票的籌碼變化</li>
+        <li>可考慮增加不同產業的配置以進一步分散風險</li>
+      </ul>
+    </div>
+  </div>
+  <script>function refresh() { location.reload(); }</script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⏱️ 策略回測 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; flex-wrap: wrap; gap: 12px; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .controls input, .controls select { padding: 10px 14px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; }
+    .controls input { width: 100px; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #238636; color: white; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .result-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; text-align: center; }
+    .result-card .label { color: #8b949e; font-size: 0.85rem; }
+    .result-card .value { font-size: 1.8rem; font-weight: 700; margin-top: 8px; }
+    .result-card .value.profit { color: #f85149; }
+    .result-card .value.loss { color: #3fb950; }
+    .main-card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 20px; margin-bottom: 20px; }
+    .chart-container { height: 350px; }
+    .trades-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    .trades-table th, .trades-table td { padding: 12px; text-align: left; border-bottom: 1px solid #21262d; }
+    .trades-table th { color: #8b949e; font-weight: 600; }
+    .profit { color: #f85149; }
+    .loss { color: #3fb950; }
+    .loading { text-align: center; padding: 40px; color: #8b949e; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>⏱️ 策略回測</h1></div>
+      <div class="controls">
+        <input type="text" id="stockInput" placeholder="股票代碼" value="2330">
+        <select id="strategy">
+          <option value="ma">均線交叉</option>
+          <option value="rsi">RSI 超買超賣</option>
+          <option value="macd">MACD 交叉</option>
+        </select>
+        <button class="btn" onclick="runBacktest()">▶️ 回測</button>
+      </div>
+    </header>
+    <div id="content"><div class="loading"><div class="spinner"></div><p>載入中...</p></div></div>
+  </div>
+  <script>
+    async function runBacktest() {
+      const stockId = document.getElementById('stockInput').value.trim();
+      const strategy = document.getElementById('strategy').value;
+      if (!stockId) return alert('請輸入股票代碼');
+      document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p>回測分析中...</p></div>';
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        const result = executeBacktest(data, strategy);
+        renderResults(stockId, data, result, strategy);
+      } catch (e) {
+        document.getElementById('content').innerHTML = `<div class="main-card"><p style="color:#f85149;">回測失敗: ${e.message}</p></div>`;
+      }
+    }
+    function executeBacktest(data, strategy) {
+      const { history } = data;
+      const prices = history.map(h => h.close);
+      const trades = [];
+      let position = null;
+      let capital = 100000;
+      const initialCapital = capital;
+      const equityCurve = [capital];
+      
+      for (let i = 20; i < prices.length; i++) {
+        let signal = 0;
+        if (strategy === 'ma') {
+          const ma5 = prices.slice(i-5, i).reduce((a,b)=>a+b,0)/5;
+          const ma20 = prices.slice(i-20, i).reduce((a,b)=>a+b,0)/20;
+          const prevMa5 = prices.slice(i-6, i-1).reduce((a,b)=>a+b,0)/5;
+          const prevMa20 = prices.slice(i-21, i-1).reduce((a,b)=>a+b,0)/20;
+          if (prevMa5 < prevMa20 && ma5 > ma20) signal = 1;
+          else if (prevMa5 > prevMa20 && ma5 < ma20) signal = -1;
+        } else if (strategy === 'rsi') {
+          const rsi = calculateRSI(prices.slice(0, i+1));
+          const prevRsi = calculateRSI(prices.slice(0, i));
+          if (prevRsi < 30 && rsi > 30) signal = 1;
+          else if (prevRsi > 70 && rsi < 70) signal = -1;
+        }
+        
+        if (signal === 1 && !position) {
+          position = { price: prices[i], date: history[i].date, shares: Math.floor(capital / prices[i]) };
+          capital -= position.shares * position.price;
+        } else if (signal === -1 && position) {
+          const profit = (prices[i] - position.price) * position.shares;
+          capital += position.shares * prices[i];
+          trades.push({ buy: position.price, sell: prices[i], profit, profitPct: ((prices[i] - position.price) / position.price * 100) });
+          position = null;
+        }
+        equityCurve.push(position ? capital + position.shares * prices[i] : capital);
+      }
+      
+      const totalReturn = ((equityCurve[equityCurve.length-1] - initialCapital) / initialCapital * 100);
+      const winTrades = trades.filter(t => t.profit > 0).length;
+      const winRate = trades.length > 0 ? (winTrades / trades.length * 100) : 0;
+      
+      return { trades, equityCurve, totalReturn, winRate, totalTrades: trades.length };
+    }
+    function calculateRSI(prices, period = 14) {
+      if (prices.length < period + 1) return 50;
+      let gains = 0, losses = 0;
+      for (let i = prices.length - period; i < prices.length; i++) {
+        const change = prices[i] - prices[i-1];
+        if (change > 0) gains += change; else losses -= change;
+      }
+      const rs = losses === 0 ? 100 : gains / losses;
+      return 100 - (100 / (1 + rs));
+    }
+    function renderResults(stockId, data, result, strategy) {
+      const strategyNames = { ma: '均線交叉策略', rsi: 'RSI 超買超賣策略', macd: 'MACD 交叉策略' };
+      const isProfit = result.totalReturn >= 0;
+      document.getElementById('content').innerHTML = `
+        <div class="results-grid">
+          <div class="result-card"><div class="label">策略</div><div class="value" style="font-size:1.2rem;color:#58a6ff;">${strategyNames[strategy]}</div></div>
+          <div class="result-card"><div class="label">總報酬率</div><div class="value ${isProfit ? 'profit' : 'loss'}">${isProfit ? '+' : ''}${result.totalReturn.toFixed(2)}%</div></div>
+          <div class="result-card"><div class="label">勝率</div><div class="value" style="color:#d29922;">${result.winRate.toFixed(1)}%</div></div>
+          <div class="result-card"><div class="label">交易次數</div><div class="value" style="color:#c9d1d9;">${result.totalTrades}</div></div>
+        </div>
+        <div class="main-card">
+          <h3 style="color:#58a6ff;margin-bottom:16px;">📈 資金曲線</h3>
+          <div class="chart-container"><canvas id="equityChart"></canvas></div>
+        </div>
+        <div class="main-card">
+          <h3 style="color:#58a6ff;margin-bottom:16px;">📋 交易紀錄</h3>
+          ${result.trades.length > 0 ? `
+          <table class="trades-table">
+            <thead><tr><th>#</th><th>買入價</th><th>賣出價</th><th>損益</th><th>報酬率</th></tr></thead>
+            <tbody>
+              ${result.trades.slice(-10).map((t, i) => `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td>$${t.buy.toFixed(2)}</td>
+                  <td>$${t.sell.toFixed(2)}</td>
+                  <td class="${t.profit >= 0 ? 'profit' : 'loss'}">${t.profit >= 0 ? '+' : ''}$${t.profit.toFixed(0)}</td>
+                  <td class="${t.profitPct >= 0 ? 'profit' : 'loss'}">${t.profitPct >= 0 ? '+' : ''}${t.profitPct.toFixed(2)}%</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>` : '<p style="color:#8b949e;">期間內無交易訊號</p>'}
+        </div>
+      `;
+      new Chart(document.getElementById('equityChart'), {
+        type: 'line',
+        data: { labels: result.equityCurve.map((_, i) => i),
+          datasets: [{ data: result.equityCurve, borderColor: isProfit ? '#f85149' : '#3fb950', backgroundColor: isProfit ? 'rgba(248,81,73,0.1)' : 'rgba(63,185,80,0.1)', fill: true, tension: 0.3, pointRadius: 0 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { display: false }, y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', callback: v => '$' + (v/1000).toFixed(0) + 'K' } } }
+        }
+      });
+    }
+    const urlParams = new URLSearchParams(window.location.search);
+    document.getElementById('stockInput').value = urlParams.get('stock') || '2330';
+    runBacktest();
+  </script>
+</body>
+</html>

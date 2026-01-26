@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📊 分析中心 - 股海秘書</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #E2E8F0; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    
+    /* Header */
+    .header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 24px; background: #161b22; border-radius: 12px;
+      margin-bottom: 24px; border: 1px solid #30363d;
+    }
+    .header h1 { font-size: 1.4rem; display: flex; align-items: center; gap: 10px; }
+    .header h1 span { color: #58a6ff; }
+    .search-box { display: flex; gap: 10px; }
+    .search-box input {
+      padding: 10px 16px; border-radius: 8px; border: 1px solid #30363d;
+      background: #0d1117; color: #E2E8F0; width: 140px; font-size: 1rem;
+    }
+    .search-box input:focus { outline: none; border-color: #58a6ff; }
+    .btn {
+      padding: 10px 20px; border-radius: 8px; border: none;
+      font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 0.9rem;
+    }
+    .btn-primary { background: #238636; color: white; }
+    .btn-primary:hover { background: #2ea043; }
+    .btn-export { background: #1f6feb; color: white; }
+    .btn-export:hover { background: #388bfd; }
+    
+    /* Section Title */
+    .section-title {
+      font-size: 1.1rem; font-weight: 700; color: #c9d1d9;
+      margin: 24px 0 16px; display: flex; align-items: center; gap: 8px;
+      padding-bottom: 8px; border-bottom: 1px solid #21262d;
+    }
+    
+    /* Feature Grid */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    
+    /* Feature Card */
+    .feature-card {
+      background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+      padding: 16px; text-align: center; cursor: pointer;
+      transition: all 0.2s; text-decoration: none; color: inherit;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+    }
+    .feature-card:hover {
+      border-color: #58a6ff; transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(88, 166, 255, 0.15);
+    }
+    .feature-card.active {
+      border-color: #238636; background: rgba(35, 134, 54, 0.1);
+    }
+    .feature-card.coming-soon {
+      opacity: 0.5; cursor: not-allowed;
+    }
+    .feature-card.coming-soon:hover {
+      transform: none; border-color: #30363d;
+    }
+    .feature-icon {
+      font-size: 2rem; line-height: 1;
+    }
+    .feature-name {
+      font-size: 0.85rem; font-weight: 600; color: #c9d1d9;
+    }
+    .feature-badge {
+      font-size: 0.6rem; padding: 2px 6px; border-radius: 4px;
+      background: #238636; color: white; margin-top: 2px;
+    }
+    .feature-badge.new { background: #f85149; }
+    .feature-badge.ai { background: #a371f7; }
+    .feature-badge.soon { background: #8b949e; }
+    
+    /* Quick Actions */
+    .quick-actions {
+      display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px;
+    }
+    .quick-btn {
+      padding: 12px 20px; border-radius: 8px; border: 1px solid #30363d;
+      background: #21262d; color: #c9d1d9; cursor: pointer;
+      font-size: 0.9rem; font-weight: 500; transition: all 0.2s;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .quick-btn:hover { background: #30363d; border-color: #58a6ff; }
+    .quick-btn.hot { border-color: #f85149; color: #f85149; }
+    .quick-btn.ai { border-color: #a371f7; color: #a371f7; }
+    
+    /* Stats Bar */
+    .stats-bar {
+      display: flex; gap: 16px; padding: 16px 20px;
+      background: #161b22; border-radius: 12px; border: 1px solid #30363d;
+      margin-bottom: 24px; flex-wrap: wrap;
+    }
+    .stat-item {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .stat-label { color: #8b949e; font-size: 0.85rem; }
+    .stat-value { font-weight: 700; font-size: 1rem; }
+    .stat-value.up { color: #f85149; }
+    .stat-value.down { color: #3fb950; }
+    
+    /* LINE Bot Commands */
+    .line-commands {
+      background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+      padding: 20px; margin-top: 24px;
+    }
+    .line-commands h3 {
+      font-size: 1rem; color: #c9d1d9; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .command-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 8px;
+    }
+    .command-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; background: #0d1117; border-radius: 6px;
+      font-size: 0.85rem;
+    }
+    .command-item code {
+      background: #21262d; padding: 2px 8px; border-radius: 4px;
+      font-family: monospace; color: #58a6ff;
+    }
+    .command-item span { color: #8b949e; }
+    
+    /* Footer */
+    .footer {
+      text-align: center; padding: 24px; color: #8b949e; font-size: 0.85rem;
+      border-top: 1px solid #21262d; margin-top: 40px;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header { flex-direction: column; gap: 12px; }
+      .feature-grid { grid-template-columns: repeat(3, 1fr); }
+      .stats-bar { flex-direction: column; gap: 12px; }
+    }
+    @media (max-width: 480px) {
+      .feature-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1>📊 <span>分析中心</span></h1>
+      <div class="search-box">
+        <input type="text" id="stockInput" placeholder="輸入股票代碼" />
+        <button class="btn btn-primary" onclick="quickAnalyze()">🔍 快速分析</button>
+        <button class="btn btn-export" onclick="exportCSV()">📥 匯出 CSV</button>
+      </div>
+    </header>
+    
+    <!-- Stats Bar -->
+    <div class="stats-bar" id="statsBar">
+      <div class="stat-item">
+        <span class="stat-label">加權指數</span>
+        <span class="stat-value up" id="taiex">載入中...</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">成交量</span>
+        <span class="stat-value" id="volume">--</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">上漲</span>
+        <span class="stat-value up" id="upCount">--</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">下跌</span>
+        <span class="stat-value down" id="downCount">--</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">更新時間</span>
+        <span class="stat-value" id="updateTime">--</span>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+      <button class="quick-btn hot" onclick="goTo('hotstock')">🔥 熱門股票</button>
+      <button class="quick-btn" onclick="goTo('ranking')">🏆 排行榜</button>
+      <button class="quick-btn ai" onclick="goTo('ai-analysis')">🤖 AI 三專家</button>
+      <button class="quick-btn" onclick="goTo('wave', '2330')">🌊 波浪分析</button>
+      <button class="quick-btn" onclick="goTo('holdings')">💼 持股管理</button>
+    </div>
+
+    <!-- 📈 技術分析 -->
+    <div class="section-title">📈 技術分析</div>
+    <div class="feature-grid">
+      <a href="wave.html" class="feature-card active">
+        <div class="feature-icon">🌊</div>
+        <div class="feature-name">波浪理論</div>
+      </a>
+      <a href="support.html" class="feature-card">
+        <div class="feature-icon">📊</div>
+        <div class="feature-name">支撐壓力</div>
+        <span class="feature-badge new">NEW</span>
+      </a>
+      <a href="macd.html" class="feature-card">
+        <div class="feature-icon">📈</div>
+        <div class="feature-name">MACD & KD</div>
+        <span class="feature-badge new">NEW</span>
+      </a>
+      <a href="rsi.html" class="feature-card">
+        <div class="feature-icon">📉</div>
+        <div class="feature-name">RSI & 乖離率</div>
+        <span class="feature-badge new">NEW</span>
+      </a>
+      <a href="fibonacci.html" class="feature-card">
+        <div class="feature-icon">🔢</div>
+        <div class="feature-name">斐波那契</div>
+        <span class="feature-badge new">NEW</span>
+      </a>
+      <a href="trend.html" class="feature-card">
+        <div class="feature-icon">📐</div>
+        <div class="feature-name">趨勢線</div>
+        <span class="feature-badge new">NEW</span>
+      </a>
+      <a href="ai-pattern.html" class="feature-card">
+        <div class="feature-icon">🎯</div>
+        <div class="feature-name">型態辨識</div>
+        <span class="feature-badge ai">AI</span>
+      </a>
+      <a href="kline.html" class="feature-card">
+        <div class="feature-icon">🕯️</div>
+        <div class="feature-name">K線圖表</div>
+      </a>
+    </div>
+
+    <!-- 🤖 AI 分析 -->
+    <div class="section-title">🤖 AI 智能分析</div>
+    <div class="feature-grid">
+      <a href="ai-expert.html" class="feature-card">
+        <div class="feature-icon">🧠</div>
+        <div class="feature-name">AI 專家建議</div>
+        <span class="feature-badge ai">3 AI</span>
+      </a>
+      <a href="ai-ai-pattern.html" class="feature-card">
+        <div class="feature-icon">👁️</div>
+        <div class="feature-name">AI K線型態</div>
+        <span class="feature-badge ai">AI</span>
+      </a>
+      <a href="ai-finance.html" class="feature-card">
+        <div class="feature-icon">📑</div>
+        <div class="feature-name">AI 財報分析</div>
+        <span class="feature-badge ai">AI</span>
+      </a>
+      <a href="ai-predict.html" class="feature-card">
+        <div class="feature-icon">🔮</div>
+        <div class="feature-name">明日預測</div>
+        <span class="feature-badge ai">AI</span>
+      </a>
+    </div>
+
+    <!-- 🏛️ 籌碼分析 -->
+    <div class="section-title">🏛️ 籌碼分析</div>
+    <div class="feature-grid">
+      <a href="chip.html" class="feature-card">
+        <div class="feature-icon">🏦</div>
+        <div class="feature-name">法人持股</div>
+      </a>
+      <a href="institution.html" class="feature-card">
+        <div class="feature-icon">📋</div>
+        <div class="feature-name">籌碼分析</div>
+      </a>
+      <a href="major.html" class="feature-card">
+        <div class="feature-icon">🏠</div>
+        <div class="feature-name">主力追蹤</div>
+      </a>
+      <a href="foreign.html" class="feature-card">
+        <div class="feature-icon">🌍</div>
+        <div class="feature-name">外資動態</div>
+      </a>
+    </div>
+
+    <!-- 📊 數據工具 -->
+    <div class="section-title">📊 數據工具</div>
+    <div class="feature-grid">
+      <a href="overview.html" class="feature-card">
+        <div class="feature-icon">📋</div>
+        <div class="feature-name">個股概況</div>
+      </a>
+      <a href="compare.html" class="feature-card">
+        <div class="feature-icon">⚖️</div>
+        <div class="feature-name">個股比較</div>
+      </a>
+      <a href="heatmap.html" class="feature-card">
+        <div class="feature-icon">🔥</div>
+        <div class="feature-name">類股熱力圖</div>
+        <span class="feature-badge new">NEW</span>
+      </a>
+      <a href="backtest.html" class="feature-card">
+        <div class="feature-icon">⏱️</div>
+        <div class="feature-name">策略回測</div>
+      </a>
+      <a href="screener.html" class="feature-card">
+        <div class="feature-icon">🔍</div>
+        <div class="feature-name">股票篩選</div>
+      </a>
+      <a href="calendar.html" class="feature-card">
+        <div class="feature-icon">📅</div>
+        <div class="feature-name">重要日期</div>
+      </a>
+      <a href="revenue.html" class="feature-card">
+        <div class="feature-icon">💰</div>
+        <div class="feature-name">月營收</div>
+      </a>
+      <a href="news.html" class="feature-card">
+        <div class="feature-icon">📰</div>
+        <div class="feature-name">財經新聞</div>
+      </a>
+    </div>
+
+    <!-- 💼 投資組合 -->
+    <div class="section-title">💼 投資組合</div>
+    <div class="feature-grid">
+      <a href="holdings.html" class="feature-card">
+        <div class="feature-icon">💼</div>
+        <div class="feature-name">持股管理</div>
+      </a>
+      <a href="watchlist.html" class="feature-card">
+        <div class="feature-icon">👀</div>
+        <div class="feature-name">自選報價</div>
+      </a>
+      <a href="alert.html" class="feature-card">
+        <div class="feature-icon">🔔</div>
+        <div class="feature-name">智能警示</div>
+      </a>
+      <a href="stoploss.html" class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <div class="feature-name">停損停利</div>
+      </a>
+      <a href="health.html" class="feature-card">
+        <div class="feature-icon">🏥</div>
+        <div class="feature-name">健檢報告</div>
+      </a>
+      <a href="performance.html" class="feature-card">
+        <div class="feature-icon">📈</div>
+        <div class="feature-name">績效追蹤</div>
+      </a>
+    </div>
+
+    <!-- 💰 股息專區 -->
+    <div class="section-title">💰 股息專區</div>
+    <div class="feature-grid">
+      <a href="dividend.html" class="feature-card">
+        <div class="feature-icon">💵</div>
+        <div class="feature-name">股息試算</div>
+      </a>
+      <a href="exdiv.html" class="feature-card">
+        <div class="feature-icon">📅</div>
+        <div class="feature-name">除權息日曆</div>
+      </a>
+      <a href="yield.html" class="feature-card">
+        <div class="feature-icon">🏆</div>
+        <div class="feature-name">高殖利率</div>
+      </a>
+    </div>
+
+    <!-- 🇺🇸 美股分析 -->
+    <div class="section-title">🇺🇸 美股分析</div>
+    <div class="feature-grid">
+      <a href="us-index.html" class="feature-card">
+        <div class="feature-icon">📊</div>
+        <div class="feature-name">美股指數</div>
+      </a>
+      <a href="us-stock.html" class="feature-card">
+        <div class="feature-icon">🇺🇸</div>
+        <div class="feature-name">美股分析</div>
+      </a>
+      <a href="us-etf.html" class="feature-card">
+        <div class="feature-icon">📦</div>
+        <div class="feature-name">美股 ETF</div>
+      </a>
+      <a href="trump.html" class="feature-card">
+        <div class="feature-icon">🎤</div>
+        <div class="feature-name">川普一句話</div>
+      </a>
+    </div>
+
+    <!-- LINE Bot 指令 -->
+    <div class="line-commands">
+      <h3>💬 LINE Bot 快速指令</h3>
+      <div class="command-grid">
+        <div class="command-item"><code>2330</code> <span>查股價</span></div>
+        <div class="command-item"><code>波浪 2330</code> <span>波浪分析</span></div>
+        <div class="command-item"><code>分析 2330</code> <span>AI 分析</span></div>
+        <div class="command-item"><code>預測 2330</code> <span>三AI預測</span></div>
+        <div class="command-item"><code>籌碼 2330</code> <span>籌碼分析</span></div>
+        <div class="command-item"><code>新聞 2330</code> <span>相關新聞</span></div>
+        <div class="command-item"><code>K線 2330</code> <span>K線圖</span></div>
+        <div class="command-item"><code>回測 2330</code> <span>策略回測</span></div>
+        <div class="command-item"><code>比較 2330 2454</code> <span>個股比較</span></div>
+        <div class="command-item"><code>持股</code> <span>持股報告</span></div>
+        <div class="command-item"><code>監控</code> <span>監控清單</span></div>
+        <div class="command-item"><code>熱門</code> <span>熱門股票</span></div>
+        <div class="command-item"><code>大盤</code> <span>大盤資訊</span></div>
+        <div class="command-item"><code>美股</code> <span>美股指數</span></div>
+        <div class="command-item"><code>排行</code> <span>排行榜</span></div>
+        <div class="command-item"><code>功能</code> <span>完整功能</span></div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>股海秘書 © 2026 | 🌊 波浪理論 + 🤖 三AI分析 + 📊 技術指標</p>
+      <p style="margin-top: 8px;">
+        <a href="settings.html" style="color: #58a6ff; text-decoration: none;">⚙️ 設定</a>
+        <span style="margin: 0 12px;">|</span>
+        <a href="history.html" style="color: #58a6ff; text-decoration: none;">📜 歷史紀錄</a>
+      </p>
+    </footer>
+  </div>
+
+  <script>
+    // 快速分析
+    function quickAnalyze() {
+      const stockId = document.getElementById('stockInput').value.trim();
+      if (!stockId) return alert('請輸入股票代碼');
+      window.location.href = `wave.html?stock=${stockId}`;
+    }
+    
+    // Enter 鍵觸發
+    document.getElementById('stockInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') quickAnalyze();
+    });
+    
+    // 導航
+    function goTo(page, param) {
+      const urls = {
+        'wave': `wave.html?stock=${param || '2330'}`,
+        'holdings': 'holdings.html',
+        'hotstock': '#',
+        'ranking': '#',
+        'ai-analysis': 'ai-expert.html'
+      };
+      if (urls[page] === '#') {
+        alert('功能開發中，敬請期待！');
+      } else {
+        window.location.href = urls[page];
+      }
+    }
+    
+    // 匯出 CSV
+    function exportCSV() {
+      alert('CSV 匯出功能開發中');
+    }
+    
+    // 載入大盤資訊
+    async function loadMarketStats() {
+      try {
+        const res = await fetch('/api/stock/taiex');
+        if (res.ok) {
+          const data = await res.json();
+          const el = document.getElementById('taiex');
+          const isUp = data.change >= 0;
+          el.textContent = `${data.price?.toLocaleString() || '--'} ${isUp ? '▲' : '▼'}${Math.abs(data.changePercent || 0).toFixed(2)}%`;
+          el.className = 'stat-value ' + (isUp ? 'up' : 'down');
+        }
+      } catch (e) {
+        console.log('載入大盤失敗');
+      }
+      
+      document.getElementById('updateTime').textContent = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    // 初始化
+    loadMarketStats();
+    setInterval(loadMarketStats, 60000); // 每分鐘更新
+  </script>
+</body>
+</html>

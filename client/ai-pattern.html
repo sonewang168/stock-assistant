@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>👁️ AI K線型態 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #a371f7; }
+    .search-box { display: flex; gap: 10px; }
+    .search-box input { padding: 10px 16px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; width: 120px; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #a371f7; color: white; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .main-card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 24px; margin-bottom: 20px; }
+    .chart-container { height: 300px; }
+    .pattern-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .pattern-card { background: #0d1117; border: 1px solid #30363d; border-radius: 12px; padding: 20px; }
+    .pattern-card.detected { border-color: #a371f7; background: rgba(163,113,247,0.05); }
+    .pattern-card .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .pattern-card .name { font-size: 1.1rem; font-weight: 600; color: #c9d1d9; }
+    .pattern-card .badge { padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+    .pattern-card .badge.bullish { background: rgba(248,81,73,0.2); color: #f85149; }
+    .pattern-card .badge.bearish { background: rgba(63,185,80,0.2); color: #3fb950; }
+    .pattern-card .badge.neutral { background: rgba(139,148,158,0.2); color: #8b949e; }
+    .pattern-card .desc { color: #8b949e; font-size: 0.9rem; line-height: 1.5; }
+    .pattern-card .confidence { margin-top: 12px; display: flex; align-items: center; gap: 8px; }
+    .confidence-bar { flex: 1; height: 6px; background: #21262d; border-radius: 3px; overflow: hidden; }
+    .confidence-fill { height: 100%; background: #a371f7; border-radius: 3px; }
+    .result-card { background: linear-gradient(135deg, #a371f7, #8957e5); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .result-card .title { color: rgba(255,255,255,0.9); margin-bottom: 8px; }
+    .result-card .pattern { font-size: 1.5rem; font-weight: 700; color: white; }
+    .result-card .suggestion { color: rgba(255,255,255,0.9); margin-top: 12px; }
+    .loading { text-align: center; padding: 60px; color: #8b949e; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #30363d; border-top-color: #a371f7; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>👁️ AI K線型態辨識</h1></div>
+      <div class="search-box">
+        <input type="text" id="stockInput" placeholder="股票代碼" value="2330">
+        <button class="btn" onclick="analyze()">🔮 辨識</button>
+      </div>
+    </header>
+    <div id="content"><div class="loading"><div class="spinner"></div><p>載入中...</p></div></div>
+  </div>
+  <script>
+    const patterns = {
+      hammer: { name: '🔨 錘子線', type: 'bullish', desc: '下影線長，實體小，出現在下跌趨勢末端，為反轉信號。' },
+      hangingMan: { name: '🎭 吊人線', type: 'bearish', desc: '與錘子線形態相同，但出現在上漲趨勢末端，為賣出信號。' },
+      doji: { name: '✝️ 十字線', type: 'neutral', desc: '開盤價與收盤價相近，表示多空拉鋸，趨勢可能反轉。' },
+      engulfingBull: { name: '🐂 多頭吞噬', type: 'bullish', desc: '陽線完全吞噬前一根陰線，強烈買入信號。' },
+      engulfingBear: { name: '🐻 空頭吞噬', type: 'bearish', desc: '陰線完全吞噬前一根陽線，強烈賣出信號。' },
+      morningStar: { name: '🌅 晨星', type: 'bullish', desc: '三根K線組合，由下跌轉上漲的信號。' },
+      eveningStar: { name: '🌆 暮星', type: 'bearish', desc: '三根K線組合，由上漲轉下跌的信號。' },
+      threeWhite: { name: '⬜ 三白兵', type: 'bullish', desc: '連續三根上漲陽線，強勢多頭信號。' }
+    };
+    
+    function detectPatterns(history) {
+      const detected = [];
+      const len = history.length;
+      if (len < 3) return detected;
+      
+      const last = history[len - 1];
+      const prev = history[len - 2];
+      const body = Math.abs(last.close - last.open);
+      const upperShadow = last.high - Math.max(last.close, last.open);
+      const lowerShadow = Math.min(last.close, last.open) - last.low;
+      
+      // 錘子線
+      if (lowerShadow > body * 2 && upperShadow < body * 0.5 && last.close < prev.close) {
+        detected.push({ ...patterns.hammer, confidence: 75 });
+      }
+      
+      // 十字線
+      if (body < (last.high - last.low) * 0.1) {
+        detected.push({ ...patterns.doji, confidence: 80 });
+      }
+      
+      // 多頭吞噬
+      if (last.close > last.open && prev.close < prev.open && 
+          last.close > prev.open && last.open < prev.close) {
+        detected.push({ ...patterns.engulfingBull, confidence: 85 });
+      }
+      
+      // 空頭吞噬
+      if (last.close < last.open && prev.close > prev.open &&
+          last.close < prev.open && last.open > prev.close) {
+        detected.push({ ...patterns.engulfingBear, confidence: 85 });
+      }
+      
+      // 三白兵
+      if (len >= 3) {
+        const h3 = history.slice(-3);
+        if (h3.every(h => h.close > h.open) && h3[2].close > h3[1].close && h3[1].close > h3[0].close) {
+          detected.push({ ...patterns.threeWhite, confidence: 70 });
+        }
+      }
+      
+      return detected.length > 0 ? detected : [{ name: '📊 無明顯型態', type: 'neutral', desc: '目前K線無明顯的技術型態，建議觀望。', confidence: 50 }];
+    }
+    
+    async function analyze() {
+      const stockId = document.getElementById('stockInput').value.trim();
+      if (!stockId) return alert('請輸入股票代碼');
+      document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p>AI 正在辨識K線型態...</p></div>';
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        renderAnalysis(stockId, data);
+      } catch (e) {
+        document.getElementById('content').innerHTML = `<div class="main-card"><p style="color:#f85149;">分析失敗: ${e.message}</p></div>`;
+      }
+    }
+    
+    function renderAnalysis(stockId, data) {
+      const { history, stockName, currentPrice } = data;
+      const detected = detectPatterns(history);
+      const mainPattern = detected[0];
+      
+      document.getElementById('content').innerHTML = `
+        <div class="result-card">
+          <div class="title">AI 辨識結果 - ${stockName} (${stockId})</div>
+          <div class="pattern">${mainPattern.name}</div>
+          <div class="suggestion">💡 ${mainPattern.desc}</div>
+        </div>
+        <div class="main-card">
+          <div style="color:#c9d1d9; margin-bottom:16px;">📈 近期K線走勢</div>
+          <div class="chart-container"><canvas id="chart"></canvas></div>
+        </div>
+        <div class="pattern-grid">
+          ${detected.map(p => `
+            <div class="pattern-card detected">
+              <div class="header">
+                <span class="name">${p.name}</span>
+                <span class="badge ${p.type}">${p.type === 'bullish' ? '看多' : p.type === 'bearish' ? '看空' : '中性'}</span>
+              </div>
+              <div class="desc">${p.desc}</div>
+              <div class="confidence">
+                <span style="font-size:0.8rem; color:#8b949e;">信心度</span>
+                <div class="confidence-bar"><div class="confidence-fill" style="width:${p.confidence}%;"></div></div>
+                <span style="font-size:0.8rem; color:#a371f7;">${p.confidence}%</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      
+      const labels = history.slice(-30).map(h => new Date(h.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'}));
+      const prices = history.slice(-30).map(h => h.close);
+      new Chart(document.getElementById('chart'), {
+        type: 'line',
+        data: { labels, datasets: [{ data: prices, borderColor: '#a371f7', backgroundColor: 'rgba(163,113,247,0.1)', fill: true, tension: 0.3, pointRadius: 2 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 10 } }, y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } } }
+        }
+      });
+    }
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    document.getElementById('stockInput').value = urlParams.get('stock') || '2330';
+    analyze();
+  </script>
+</body>
+</html>

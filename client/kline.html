@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🕯️ K線圖表 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1/dist/chartjs-chart-financial.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; flex-wrap: wrap; gap: 12px; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .search-box { display: flex; gap: 10px; align-items: center; }
+    .search-box input { padding: 10px 16px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; width: 120px; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #238636; color: white; }
+    .btn:hover { background: #2ea043; }
+    .btn-group { display: flex; gap: 4px; }
+    .btn-group .btn { padding: 8px 12px; background: #21262d; }
+    .btn-group .btn.active { background: #238636; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .stock-header { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+    .stock-info .name { font-size: 1.3rem; font-weight: 700; color: #c9d1d9; }
+    .stock-info .price { font-size: 2rem; font-weight: 700; color: #58a6ff; }
+    .stock-info .change.up { color: #f85149; }
+    .stock-info .change.down { color: #3fb950; }
+    .ohlc-grid { display: flex; gap: 24px; }
+    .ohlc-item { text-align: center; }
+    .ohlc-item .label { color: #8b949e; font-size: 0.8rem; }
+    .ohlc-item .value { font-weight: 600; font-size: 1.1rem; }
+    .main-card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 20px; margin-bottom: 20px; }
+    .chart-container { height: 400px; }
+    .volume-container { height: 120px; margin-top: 20px; }
+    .loading { text-align: center; padding: 40px; color: #8b949e; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🕯️ K線圖表</h1></div>
+      <div class="search-box">
+        <input type="text" id="stockInput" placeholder="股票代碼" value="2330">
+        <button class="btn" onclick="analyze()">🔍 查詢</button>
+      </div>
+    </header>
+    <div id="content"><div class="loading"><div class="spinner"></div><p>載入中...</p></div></div>
+  </div>
+  <script>
+    async function analyze() {
+      const stockId = document.getElementById('stockInput').value.trim();
+      if (!stockId) return alert('請輸入股票代碼');
+      document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p>載入K線資料...</p></div>';
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        renderChart(stockId, data);
+      } catch (e) {
+        document.getElementById('content').innerHTML = `<div class="main-card"><p style="color:#f85149;">錯誤: ${e.message}</p></div>`;
+      }
+    }
+    function renderChart(stockId, data) {
+      const { history, currentPrice, stockName, changePercent } = data;
+      const isUp = changePercent >= 0;
+      const last = history[history.length - 1];
+      document.getElementById('content').innerHTML = `
+        <div class="stock-header">
+          <div class="stock-info">
+            <div class="name">${stockName} (${stockId})</div>
+            <div class="price">$${currentPrice.toFixed(2)}</div>
+            <div class="change ${isUp ? 'up' : 'down'}">${isUp ? '▲' : '▼'} ${Math.abs(changePercent).toFixed(2)}%</div>
+          </div>
+          <div class="ohlc-grid">
+            <div class="ohlc-item"><div class="label">開盤</div><div class="value">$${last.open?.toFixed(2) || '--'}</div></div>
+            <div class="ohlc-item"><div class="label">最高</div><div class="value" style="color:#f85149;">$${last.high?.toFixed(2) || '--'}</div></div>
+            <div class="ohlc-item"><div class="label">最低</div><div class="value" style="color:#3fb950;">$${last.low?.toFixed(2) || '--'}</div></div>
+            <div class="ohlc-item"><div class="label">收盤</div><div class="value">$${last.close?.toFixed(2) || '--'}</div></div>
+          </div>
+        </div>
+        <div class="main-card">
+          <div class="chart-container"><canvas id="klineChart"></canvas></div>
+          <div class="volume-container"><canvas id="volumeChart"></canvas></div>
+        </div>
+      `;
+      const labels = history.map(h => new Date(h.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'}));
+      const closes = history.map(h => h.close);
+      const volumes = history.map(h => h.volume || 0);
+      const colors = history.map((h, i) => i === 0 ? '#8b949e' : (h.close >= history[i-1].close ? '#f85149' : '#3fb950'));
+      new Chart(document.getElementById('klineChart'), {
+        type: 'line',
+        data: { labels, datasets: [{ data: closes, borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.1, pointRadius: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 12 } }, y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } } }
+        }
+      });
+      new Chart(document.getElementById('volumeChart'), {
+        type: 'bar',
+        data: { labels, datasets: [{ data: volumes, backgroundColor: colors }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { display: false }, y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', callback: v => (v/1000000).toFixed(0) + 'M' } } }
+        }
+      });
+    }
+    const urlParams = new URLSearchParams(window.location.search);
+    document.getElementById('stockInput').value = urlParams.get('stock') || '2330';
+    analyze();
+  </script>
+</body>
+</html>

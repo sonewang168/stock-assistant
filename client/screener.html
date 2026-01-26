@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔍 股票篩選 - 股海秘書</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:'Noto Sans TC',sans-serif}body{background:#0d1117;min-height:100vh;color:#e6edf3}.container{max-width:1200px;margin:0 auto;padding:20px}.header{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;background:#161b22;border-radius:12px;margin-bottom:20px;border:1px solid #30363d}.header h1{font-size:1.4rem;color:#58a6ff}.back-link{color:#58a6ff;text-decoration:none;font-size:0.9rem}.btn{padding:10px 20px;border-radius:8px;border:none;font-weight:600;cursor:pointer;background:#238636;color:white}.filter-card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px;margin-bottom:20px}.filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}.filter-item label{display:block;color:#8b949e;font-size:0.85rem;margin-bottom:8px}.filter-item select,.filter-item input{width:100%;padding:10px;border-radius:8px;border:1px solid #30363d;background:#0d1117;color:#e6edf3}.result-table{width:100%;border-collapse:collapse;background:#161b22;border-radius:12px;overflow:hidden}.result-table th,.result-table td{padding:14px 16px;text-align:left;border-bottom:1px solid #21262d}.result-table th{background:#21262d;color:#8b949e;font-weight:600}.result-table .up{color:#f85149}.result-table .down{color:#3fb950}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header"><div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🔍 股票篩選器</h1></div><button class="btn">🔍 篩選</button></header>
+    <div class="filter-card">
+      <div class="filter-grid">
+        <div class="filter-item"><label>產業</label><select><option>全部</option><option>半導體</option><option>金融</option><option>電子</option></select></div>
+        <div class="filter-item"><label>股價範圍</label><input type="text" placeholder="例：50-200"></div>
+        <div class="filter-item"><label>殖利率 ></label><input type="number" placeholder="例：5"></div>
+        <div class="filter-item"><label>本益比 <</label><input type="number" placeholder="例：15"></div>
+        <div class="filter-item"><label>波浪位置</label><select><option>全部</option><option>第1-2浪</option><option>第3浪</option><option>第4-5浪</option></select></div>
+        <div class="filter-item"><label>RSI</label><select><option>全部</option><option>超賣(<30)</option><option>中性</option><option>超買(>70)</option></select></div>
+      </div>
+    </div>
+    <table class="result-table">
+      <thead><tr><th>股票</th><th>股價</th><th>漲跌</th><th>殖利率</th><th>本益比</th><th>波浪</th></tr></thead>
+      <tbody>
+        <tr><td>2330 台積電</td><td>$695</td><td class="up">+1.5%</td><td>2.1%</td><td>22.5</td><td>第3浪</td></tr>
+        <tr><td>2881 富邦金</td><td>$68</td><td class="up">+0.8%</td><td>5.2%</td><td>10.2</td><td>第2浪</td></tr>
+        <tr><td>2882 國泰金</td><td>$53</td><td class="down">-0.5%</td><td>6.8%</td><td>9.8</td><td>第2浪</td></tr>
+        <tr><td>0056 高股息</td><td>$36</td><td class="up">+0.3%</td><td>6.1%</td><td>--</td><td>第3浪</td></tr>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

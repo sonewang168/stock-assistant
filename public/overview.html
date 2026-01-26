@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📋 個股概況 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .search-box { display: flex; gap: 10px; }
+    .search-box input { padding: 10px 16px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; width: 120px; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #238636; color: white; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .stock-header { background: linear-gradient(135deg, #161b22, #21262d); border-radius: 12px; border: 1px solid #30363d; padding: 24px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; }
+    .stock-main .name { font-size: 1.8rem; font-weight: 700; color: #c9d1d9; }
+    .stock-main .code { font-size: 1rem; color: #8b949e; }
+    .stock-main .price { font-size: 2.5rem; font-weight: 700; color: #58a6ff; margin: 12px 0; }
+    .stock-main .change.up { color: #f85149; }
+    .stock-main .change.down { color: #3fb950; }
+    .quick-stats { display: flex; gap: 24px; }
+    .quick-stat { text-align: center; }
+    .quick-stat .label { color: #8b949e; font-size: 0.8rem; }
+    .quick-stat .value { font-size: 1.2rem; font-weight: 600; margin-top: 4px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; }
+    .card h3 { color: #58a6ff; font-size: 1rem; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid #21262d; }
+    .stat-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #21262d; }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-row .label { color: #8b949e; }
+    .stat-row .value { font-weight: 600; }
+    .chart-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; }
+    .chart-container { height: 300px; }
+    .loading { text-align: center; padding: 40px; color: #8b949e; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>📋 個股概況</h1></div>
+      <div class="search-box">
+        <input type="text" id="stockInput" placeholder="股票代碼" value="2330">
+        <button class="btn" onclick="loadStock()">🔍 查詢</button>
+      </div>
+    </header>
+    <div id="content"><div class="loading"><div class="spinner"></div><p>載入中...</p></div></div>
+  </div>
+  <script>
+    async function loadStock() {
+      const stockId = document.getElementById('stockInput').value.trim();
+      if (!stockId) return alert('請輸入股票代碼');
+      document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p>載入個股資料...</p></div>';
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        renderOverview(stockId, data);
+      } catch (e) {
+        document.getElementById('content').innerHTML = `<div class="card"><p style="color:#f85149;">載入失敗: ${e.message}</p></div>`;
+      }
+    }
+    function renderOverview(stockId, data) {
+      const { history, currentPrice, stockName, changePercent, currentWave } = data;
+      const prices = history.map(h => h.close);
+      const volumes = history.map(h => h.volume || 0);
+      const isUp = changePercent >= 0;
+      const high52 = Math.max(...prices);
+      const low52 = Math.min(...prices);
+      const avgVol = volumes.reduce((a,b)=>a+b,0) / volumes.length;
+      const ma5 = prices.slice(-5).reduce((a,b)=>a+b,0)/5;
+      const ma20 = prices.slice(-20).reduce((a,b)=>a+b,0)/20;
+      const ma60 = prices.slice(-60).reduce((a,b)=>a+b,0)/60;
+      
+      document.getElementById('content').innerHTML = `
+        <div class="stock-header">
+          <div class="stock-main">
+            <div class="name">${stockName}</div>
+            <div class="code">${stockId}.TW</div>
+            <div class="price">$${currentPrice.toFixed(2)}</div>
+            <div class="change ${isUp ? 'up' : 'down'}">${isUp ? '▲' : '▼'} ${Math.abs(changePercent).toFixed(2)}% (${isUp ? '+' : ''}${(currentPrice * changePercent / 100).toFixed(2)})</div>
+          </div>
+          <div class="quick-stats">
+            <div class="quick-stat"><div class="label">波浪位置</div><div class="value">第 ${currentWave} 浪</div></div>
+            <div class="quick-stat"><div class="label">區間高點</div><div class="value" style="color:#f85149;">$${high52.toFixed(2)}</div></div>
+            <div class="quick-stat"><div class="label">區間低點</div><div class="value" style="color:#3fb950;">$${low52.toFixed(2)}</div></div>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="card">
+            <h3>📊 價格資訊</h3>
+            <div class="stat-row"><span class="label">開盤價</span><span class="value">$${history[history.length-1].open?.toFixed(2) || '--'}</span></div>
+            <div class="stat-row"><span class="label">最高價</span><span class="value" style="color:#f85149;">$${history[history.length-1].high?.toFixed(2) || '--'}</span></div>
+            <div class="stat-row"><span class="label">最低價</span><span class="value" style="color:#3fb950;">$${history[history.length-1].low?.toFixed(2) || '--'}</span></div>
+            <div class="stat-row"><span class="label">收盤價</span><span class="value">$${currentPrice.toFixed(2)}</span></div>
+          </div>
+          <div class="card">
+            <h3>📈 均線位置</h3>
+            <div class="stat-row"><span class="label">MA5</span><span class="value" style="color:${currentPrice > ma5 ? '#f85149' : '#3fb950'};">$${ma5.toFixed(2)}</span></div>
+            <div class="stat-row"><span class="label">MA20</span><span class="value" style="color:${currentPrice > ma20 ? '#f85149' : '#3fb950'};">$${ma20.toFixed(2)}</span></div>
+            <div class="stat-row"><span class="label">MA60</span><span class="value" style="color:${currentPrice > ma60 ? '#f85149' : '#3fb950'};">$${ma60.toFixed(2)}</span></div>
+            <div class="stat-row"><span class="label">均線排列</span><span class="value">${ma5 > ma20 && ma20 > ma60 ? '多頭' : ma5 < ma20 && ma20 < ma60 ? '空頭' : '糾結'}</span></div>
+          </div>
+          <div class="card">
+            <h3>📉 成交量</h3>
+            <div class="stat-row"><span class="label">今日成交量</span><span class="value">${(volumes[volumes.length-1]/1000).toFixed(0)}K</span></div>
+            <div class="stat-row"><span class="label">平均成交量</span><span class="value">${(avgVol/1000).toFixed(0)}K</span></div>
+            <div class="stat-row"><span class="label">量比</span><span class="value">${(volumes[volumes.length-1]/avgVol).toFixed(2)}</span></div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <h3 style="color:#58a6ff; margin-bottom:16px;">📈 走勢圖</h3>
+          <div class="chart-container"><canvas id="priceChart"></canvas></div>
+        </div>
+      `;
+      new Chart(document.getElementById('priceChart'), {
+        type: 'line',
+        data: { labels: history.map(h => new Date(h.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})),
+          datasets: [{ data: prices, borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 10 } }, y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } } }
+        }
+      });
+    }
+    const urlParams = new URLSearchParams(window.location.search);
+    document.getElementById('stockInput').value = urlParams.get('stock') || '2330';
+    loadStock();
+  </script>
+</body>
+</html>

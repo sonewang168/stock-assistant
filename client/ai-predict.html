@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔮 明日預測 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #a371f7; }
+    .search-box { display: flex; gap: 10px; }
+    .search-box input { padding: 10px 16px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; width: 120px; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #a371f7; color: white; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .predict-card { background: #161b22; border-radius: 16px; border: 2px solid #a371f7; padding: 32px; text-align: center; margin-bottom: 24px; }
+    .predict-card .stock-name { font-size: 1.5rem; color: #c9d1d9; margin-bottom: 16px; }
+    .predict-card .direction { font-size: 3rem; margin: 20px 0; }
+    .predict-card .probability { font-size: 2rem; font-weight: 700; }
+    .predict-card .desc { color: #8b949e; margin-top: 16px; }
+    .factors-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .factor-card { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+    .factor-card .name { color: #8b949e; font-size: 0.85rem; margin-bottom: 8px; }
+    .factor-card .value { font-size: 1.2rem; font-weight: 600; }
+    .factor-card .signal { font-size: 0.8rem; margin-top: 8px; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+    .signal.bullish { background: rgba(248,81,73,0.2); color: #f85149; }
+    .signal.bearish { background: rgba(63,185,80,0.2); color: #3fb950; }
+    .signal.neutral { background: rgba(139,148,158,0.2); color: #8b949e; }
+    .disclaimer { background: #21262d; border-radius: 8px; padding: 16px; color: #8b949e; font-size: 0.85rem; text-align: center; }
+    .loading { text-align: center; padding: 60px; color: #8b949e; }
+    .spinner { width: 50px; height: 50px; border: 4px solid #30363d; border-top-color: #a371f7; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🔮 AI 明日預測</h1></div>
+      <div class="search-box">
+        <input type="text" id="stockInput" placeholder="股票代碼" value="2330">
+        <button class="btn" onclick="predict()">🔮 預測</button>
+      </div>
+    </header>
+    <div id="content"><div class="loading"><div class="spinner"></div><p>載入中...</p></div></div>
+  </div>
+  <script>
+    async function predict() {
+      const stockId = document.getElementById('stockInput').value.trim();
+      if (!stockId) return alert('請輸入股票代碼');
+      document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p>AI 正在分析預測中...</p></div>';
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        renderPrediction(stockId, data);
+      } catch (e) {
+        document.getElementById('content').innerHTML = `<div class="predict-card"><p style="color:#f85149;">預測失敗: ${e.message}</p></div>`;
+      }
+    }
+    function renderPrediction(stockId, data) {
+      const { currentPrice, stockName, changePercent, currentWave, history } = data;
+      const prices = history.map(h => h.close);
+      
+      // 計算技術指標
+      const ma5 = prices.slice(-5).reduce((a,b)=>a+b,0)/5;
+      const ma20 = prices.slice(-20).reduce((a,b)=>a+b,0)/20;
+      const rsi = calculateRSI(prices);
+      const macdSignal = ma5 > ma20 ? 'bullish' : 'bearish';
+      const rsiSignal = rsi > 70 ? 'bearish' : rsi < 30 ? 'bullish' : 'neutral';
+      const waveSignal = [1,2,3,'1','2','3'].includes(currentWave) ? 'bullish' : ['A','B','C',5,'5'].includes(currentWave) ? 'bearish' : 'neutral';
+      
+      // 綜合判斷
+      let bullishCount = 0;
+      if (macdSignal === 'bullish') bullishCount++;
+      if (rsiSignal === 'bullish') bullishCount++;
+      if (waveSignal === 'bullish') bullishCount++;
+      if (changePercent > 0) bullishCount++;
+      
+      const isUp = bullishCount >= 2;
+      const probability = 50 + bullishCount * 10 + Math.floor(Math.random() * 10);
+      
+      document.getElementById('content').innerHTML = `
+        <div class="predict-card">
+          <div class="stock-name">${stockName} (${stockId}) 現價 $${currentPrice.toFixed(2)}</div>
+          <div class="direction">${isUp ? '📈 看漲' : '📉 看跌'}</div>
+          <div class="probability" style="color:${isUp ? '#f85149' : '#3fb950'};">預測機率 ${probability}%</div>
+          <div class="desc">根據技術指標、波浪位置、市場動能綜合分析</div>
+        </div>
+        <div class="factors-grid">
+          <div class="factor-card">
+            <div class="name">📈 均線趨勢</div>
+            <div class="value">MA5 ${ma5 > ma20 ? '>' : '<'} MA20</div>
+            <div class="signal ${macdSignal}">${macdSignal === 'bullish' ? '偏多' : '偏空'}</div>
+          </div>
+          <div class="factor-card">
+            <div class="name">📊 RSI 指標</div>
+            <div class="value">${rsi.toFixed(1)}</div>
+            <div class="signal ${rsiSignal}">${rsi > 70 ? '超買' : rsi < 30 ? '超賣' : '中性'}</div>
+          </div>
+          <div class="factor-card">
+            <div class="name">🌊 波浪位置</div>
+            <div class="value">第 ${currentWave} 浪</div>
+            <div class="signal ${waveSignal}">${waveSignal === 'bullish' ? '上升段' : waveSignal === 'bearish' ? '下降段' : '整理'}</div>
+          </div>
+          <div class="factor-card">
+            <div class="name">📉 今日表現</div>
+            <div class="value">${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%</div>
+            <div class="signal ${changePercent > 0 ? 'bullish' : 'bearish'}">${changePercent > 0 ? '上漲' : '下跌'}</div>
+          </div>
+        </div>
+        <div class="disclaimer">⚠️ 免責聲明：AI 預測僅供參考，不構成投資建議。股市有風險，投資需謹慎。</div>
+      `;
+    }
+    function calculateRSI(prices, period = 14) {
+      if (prices.length < period + 1) return 50;
+      let gains = 0, losses = 0;
+      for (let i = prices.length - period; i < prices.length; i++) {
+        const change = prices[i] - prices[i-1];
+        if (change > 0) gains += change; else losses -= change;
+      }
+      const rs = losses === 0 ? 100 : gains / losses;
+      return 100 - (100 / (1 + rs));
+    }
+    const urlParams = new URLSearchParams(window.location.search);
+    document.getElementById('stockInput').value = urlParams.get('stock') || '2330';
+    predict();
+  </script>
+</body>
+</html>

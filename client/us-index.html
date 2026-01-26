@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🇺🇸 美股指數 - 股海秘書</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .btn { padding: 8px 16px; border-radius: 6px; border: none; background: #21262d; color: #c9d1d9; cursor: pointer; }
+    .index-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px; }
+    .index-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 24px; }
+    .index-card .name { color: #8b949e; font-size: 0.9rem; margin-bottom: 8px; }
+    .index-card .value { font-size: 2rem; font-weight: 700; color: #c9d1d9; }
+    .index-card .change { font-size: 1.1rem; margin-top: 8px; }
+    .index-card .change.up { color: #3fb950; }
+    .index-card .change.down { color: #f85149; }
+    .index-card .detail { display: flex; gap: 16px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #21262d; font-size: 0.85rem; color: #8b949e; }
+    .futures-section { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .futures-section h3 { color: #d29922; margin-bottom: 16px; }
+    .futures-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .futures-item { background: #0d1117; border-radius: 8px; padding: 16px; }
+    .futures-item .name { color: #8b949e; font-size: 0.85rem; }
+    .futures-item .value { font-size: 1.3rem; font-weight: 600; margin-top: 4px; }
+    .info-box { background: #21262d; border-radius: 8px; padding: 16px; }
+    .info-box h4 { color: #58a6ff; margin-bottom: 8px; }
+    .info-box p { color: #8b949e; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🇺🇸 美股指數</h1></div>
+      <button class="btn" onclick="refresh()">🔄 更新</button>
+    </header>
+    <div class="index-grid">
+      <div class="index-card">
+        <div class="name">道瓊工業指數 (DJIA)</div>
+        <div class="value" id="djia">43,840.91</div>
+        <div class="change up" id="djiaChange">▲ +1.26% (+547.87)</div>
+        <div class="detail"><span>開: 43,320</span><span>高: 43,912</span><span>低: 43,256</span></div>
+      </div>
+      <div class="index-card">
+        <div class="name">那斯達克指數 (NASDAQ)</div>
+        <div class="value" id="nasdaq">19,572.60</div>
+        <div class="change up" id="nasdaqChange">▲ +1.77% (+340.88)</div>
+        <div class="detail"><span>開: 19,280</span><span>高: 19,621</span><span>低: 19,198</span></div>
+      </div>
+      <div class="index-card">
+        <div class="name">S&P 500</div>
+        <div class="value" id="sp500">6,086.37</div>
+        <div class="change up" id="sp500Change">▲ +1.09% (+65.97)</div>
+        <div class="detail"><span>開: 6,028</span><span>高: 6,099</span><span>低: 6,011</span></div>
+      </div>
+      <div class="index-card">
+        <div class="name">費城半導體 (SOX)</div>
+        <div class="value" id="sox">5,248.30</div>
+        <div class="change up" id="soxChange">▲ +2.35% (+120.42)</div>
+        <div class="detail"><span>開: 5,140</span><span>高: 5,280</span><span>低: 5,105</span></div>
+      </div>
+    </div>
+    <div class="futures-section">
+      <h3>📊 期貨即時</h3>
+      <div class="futures-grid">
+        <div class="futures-item"><div class="name">道瓊期貨</div><div class="value" style="color:#3fb950;">43,865 ▲</div></div>
+        <div class="futures-item"><div class="name">那斯達克期貨</div><div class="value" style="color:#3fb950;">19,590 ▲</div></div>
+        <div class="futures-item"><div class="name">台指期貨</div><div class="value" style="color:#f85149;">23,450 ▼</div></div>
+        <div class="futures-item"><div class="name">VIX 恐慌指數</div><div class="value" style="color:#c9d1d9;">14.28</div></div>
+      </div>
+    </div>
+    <div class="info-box">
+      <h4>💡 交易時間</h4>
+      <p>美股交易時間：台灣時間 22:30 - 05:00（冬令）/ 21:30 - 04:00（夏令）</p>
+      <p style="margin-top:8px;">盤前交易：16:00 - 21:30 / 盤後交易：05:00 - 08:00</p>
+    </div>
+  </div>
+  <script>
+    function refresh() { location.reload(); }
+  </script>
+</body>
+</html>

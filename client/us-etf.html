@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📦 美股 ETF - 股海秘書</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .etf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .etf-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; }
+    .etf-card .symbol { font-size: 1.2rem; font-weight: 700; color: #58a6ff; }
+    .etf-card .name { color: #8b949e; font-size: 0.85rem; margin-top: 4px; }
+    .etf-card .price { font-size: 1.5rem; font-weight: 700; margin: 12px 0; }
+    .etf-card .change { font-size: 0.95rem; }
+    .etf-card .change.up { color: #3fb950; }
+    .etf-card .change.down { color: #f85149; }
+    .etf-card .stats { display: flex; gap: 16px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #21262d; font-size: 0.85rem; color: #8b949e; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>📦 美股 ETF</h1></div>
+    </header>
+    <div class="etf-grid">
+      <div class="etf-card">
+        <div class="symbol">SPY</div>
+        <div class="name">SPDR S&P 500 ETF Trust</div>
+        <div class="price">$605.82</div>
+        <div class="change up">▲ +1.05% (+$6.30)</div>
+        <div class="stats"><span>成交量: 52.3M</span><span>AUM: $5,230億</span></div>
+      </div>
+      <div class="etf-card">
+        <div class="symbol">QQQ</div>
+        <div class="name">Invesco QQQ Trust</div>
+        <div class="price">$518.45</div>
+        <div class="change up">▲ +1.52% (+$7.76)</div>
+        <div class="stats"><span>成交量: 38.5M</span><span>AUM: $2,890億</span></div>
+      </div>
+      <div class="etf-card">
+        <div class="symbol">SMH</div>
+        <div class="name">VanEck Semiconductor ETF</div>
+        <div class="price">$268.90</div>
+        <div class="change up">▲ +2.35% (+$6.16)</div>
+        <div class="stats"><span>成交量: 12.8M</span><span>AUM: $156億</span></div>
+      </div>
+      <div class="etf-card">
+        <div class="symbol">ARKK</div>
+        <div class="name">ARK Innovation ETF</div>
+        <div class="price">$52.18</div>
+        <div class="change down">▼ -0.85% (-$0.45)</div>
+        <div class="stats"><span>成交量: 8.2M</span><span>AUM: $68億</span></div>
+      </div>
+      <div class="etf-card">
+        <div class="symbol">VOO</div>
+        <div class="name">Vanguard S&P 500 ETF</div>
+        <div class="price">$556.32</div>
+        <div class="change up">▲ +1.02% (+$5.62)</div>
+        <div class="stats"><span>成交量: 5.6M</span><span>AUM: $4,520億</span></div>
+      </div>
+      <div class="etf-card">
+        <div class="symbol">SOXX</div>
+        <div class="name">iShares Semiconductor ETF</div>
+        <div class="price">$245.67</div>
+        <div class="change up">▲ +2.18% (+$5.24)</div>
+        <div class="stats"><span>成交量: 4.2M</span><span>AUM: $125億</span></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

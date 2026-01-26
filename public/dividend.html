@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>💰 股息試算 - 股海秘書</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #d29922; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .calc-card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 24px; margin-bottom: 20px; }
+    .calc-card h3 { color: #d29922; margin-bottom: 20px; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .form-group { }
+    .form-group label { display: block; color: #8b949e; font-size: 0.85rem; margin-bottom: 8px; }
+    .form-group input { width: 100%; padding: 12px 16px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; font-size: 1rem; }
+    .form-group input:focus { outline: none; border-color: #d29922; }
+    .btn { padding: 12px 24px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #d29922; color: white; width: 100%; font-size: 1rem; margin-top: 16px; }
+    .btn:hover { background: #e6ac00; }
+    .result-card { background: linear-gradient(135deg, #d29922 0%, #f39c12 100%); border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 20px; }
+    .result-card .title { color: rgba(255,255,255,0.9); font-size: 1rem; }
+    .result-card .amount { font-size: 3rem; font-weight: 700; color: white; margin: 12px 0; }
+    .result-card .sub { color: rgba(255,255,255,0.8); }
+    .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .detail-card { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 16px; text-align: center; }
+    .detail-card .label { color: #8b949e; font-size: 0.85rem; }
+    .detail-card .value { font-size: 1.5rem; font-weight: 700; margin-top: 8px; color: #d29922; }
+    .info-box { background: #21262d; border-radius: 8px; padding: 16px; margin-top: 20px; }
+    .info-box h4 { color: #58a6ff; margin-bottom: 8px; }
+    .info-box p { color: #c9d1d9; font-size: 0.9rem; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>💰 股息試算</h1></div>
+    </header>
+    <div class="calc-card">
+      <h3>📊 股息計算機</h3>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>股票代碼</label>
+          <input type="text" id="stockId" placeholder="例：2330" value="2330">
+        </div>
+        <div class="form-group">
+          <label>持有張數</label>
+          <input type="number" id="shares" placeholder="張數" value="10">
+        </div>
+        <div class="form-group">
+          <label>股價 (元)</label>
+          <input type="number" id="price" placeholder="現價" value="600">
+        </div>
+        <div class="form-group">
+          <label>現金股利 (元)</label>
+          <input type="number" id="cashDiv" placeholder="每股" value="3" step="0.1">
+        </div>
+        <div class="form-group">
+          <label>股票股利 (元)</label>
+          <input type="number" id="stockDiv" placeholder="每股" value="0" step="0.1">
+        </div>
+      </div>
+      <button class="btn" onclick="calculate()">🧮 計算股息</button>
+    </div>
+    <div id="result"></div>
+  </div>
+  <script>
+    function calculate() {
+      const shares = parseInt(document.getElementById('shares').value) || 0;
+      const price = parseFloat(document.getElementById('price').value) || 0;
+      const cashDiv = parseFloat(document.getElementById('cashDiv').value) || 0;
+      const stockDiv = parseFloat(document.getElementById('stockDiv').value) || 0;
+      
+      const totalShares = shares * 1000; // 1張 = 1000股
+      const cashDividend = totalShares * cashDiv;
+      const stockDividendShares = totalShares * stockDiv / 10;
+      const stockDividendValue = stockDividendShares * price;
+      const totalDividend = cashDividend + stockDividendValue;
+      const cost = shares * 1000 * price;
+      const yieldRate = cost > 0 ? (totalDividend / cost * 100) : 0;
+      
+      document.getElementById('result').innerHTML = `
+        <div class="result-card">
+          <div class="title">預估總股息</div>
+          <div class="amount">$${totalDividend.toLocaleString()}</div>
+          <div class="sub">殖利率 ${yieldRate.toFixed(2)}%</div>
+        </div>
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="label">現金股利</div>
+            <div class="value">$${cashDividend.toLocaleString()}</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">股票股利</div>
+            <div class="value">${stockDividendShares.toFixed(0)} 股</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">股票價值</div>
+            <div class="value">$${stockDividendValue.toLocaleString()}</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">投資成本</div>
+            <div class="value" style="color:#58a6ff;">$${cost.toLocaleString()}</div>
+          </div>
+        </div>
+        <div class="info-box">
+          <h4>💡 注意事項</h4>
+          <p>• 現金股利會在發放日直接匯入您的銀行帳戶</p>
+          <p>• 股票股利會以新股形式配發到您的證券帳戶</p>
+          <p>• 實際配發金額以公司公告為準</p>
+          <p>• 股利需繳納所得稅，請留意相關稅務規定</p>
+        </div>
+      `;
+    }
+    calculate();
+  </script>
+</body>
+</html>

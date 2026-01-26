@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📊 支撐壓力分析 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .search-box { display: flex; gap: 10px; }
+    .search-box input { padding: 10px 16px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; width: 120px; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #238636; color: white; }
+    .btn:hover { background: #2ea043; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .back-link:hover { text-decoration: underline; }
+    
+    .main-card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 24px; margin-bottom: 20px; }
+    .card-title { font-size: 1.1rem; color: #c9d1d9; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .chart-container { height: 400px; margin-bottom: 24px; }
+    
+    .levels-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .level-card { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+    .level-card h3 { font-size: 0.9rem; color: #8b949e; margin-bottom: 12px; }
+    .level-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #21262d; }
+    .level-item:last-child { border-bottom: none; }
+    .level-price { font-weight: 700; font-size: 1.1rem; }
+    .level-price.resistance { color: #f85149; }
+    .level-price.support { color: #3fb950; }
+    .level-info { color: #8b949e; font-size: 0.85rem; }
+    
+    .current-price { text-align: center; padding: 20px; background: #21262d; border-radius: 8px; margin-bottom: 20px; }
+    .current-price .price { font-size: 2rem; font-weight: 700; color: #58a6ff; }
+    .current-price .change { font-size: 1rem; margin-top: 8px; }
+    .current-price .change.up { color: #f85149; }
+    .current-price .change.down { color: #3fb950; }
+    
+    .analysis-box { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-top: 16px; }
+    .analysis-box h4 { color: #58a6ff; margin-bottom: 12px; }
+    .analysis-box p { color: #c9d1d9; line-height: 1.6; font-size: 0.9rem; }
+    
+    .loading { text-align: center; padding: 40px; color: #8b949e; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div>
+        <a href="analysis.html" class="back-link">← 返回分析中心</a>
+        <h1>📊 支撐壓力分析</h1>
+      </div>
+      <div class="search-box">
+        <input type="text" id="stockInput" placeholder="股票代碼" value="2330">
+        <button class="btn" onclick="analyze()">🔍 分析</button>
+      </div>
+    </header>
+
+    <div id="content">
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>載入中...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let priceChart = null;
+    
+    async function analyze() {
+      const stockId = document.getElementById('stockInput').value.trim();
+      if (!stockId) return alert('請輸入股票代碼');
+      
+      document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p>分析中...</p></div>';
+      
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        
+        renderAnalysis(stockId, data);
+      } catch (e) {
+        document.getElementById('content').innerHTML = `<div class="main-card"><p style="color:#f85149;">分析失敗: ${e.message}</p></div>`;
+      }
+    }
+    
+    function calculateSupportResistance(history, currentPrice) {
+      if (!history || history.length < 20) return { supports: [], resistances: [] };
+      
+      const prices = history.map(h => h.close);
+      const highs = history.map(h => h.high);
+      const lows = history.map(h => h.low);
+      
+      // 找出局部高低點
+      const pivotHighs = [];
+      const pivotLows = [];
+      
+      for (let i = 5; i < prices.length - 5; i++) {
+        const isHigh = highs[i] === Math.max(...highs.slice(i-5, i+6));
+        const isLow = lows[i] === Math.min(...lows.slice(i-5, i+6));
+        
+        if (isHigh) pivotHighs.push({ price: highs[i], index: i, date: history[i].date });
+        if (isLow) pivotLows.push({ price: lows[i], index: i, date: history[i].date });
+      }
+      
+      // 聚類相近價位
+      const clusterLevels = (pivots, threshold) => {
+        const clusters = [];
+        const sorted = [...pivots].sort((a, b) => a.price - b.price);
+        
+        for (const p of sorted) {
+          const existing = clusters.find(c => Math.abs(c.price - p.price) / c.price < threshold);
+          if (existing) {
+            existing.count++;
+            existing.price = (existing.price * (existing.count - 1) + p.price) / existing.count;
+          } else {
+            clusters.push({ price: p.price, count: 1 });
+          }
+        }
+        return clusters.sort((a, b) => b.count - a.count).slice(0, 5);
+      };
+      
+      const resistanceLevels = clusterLevels(pivotHighs, 0.02)
+        .filter(l => l.price > currentPrice)
+        .sort((a, b) => a.price - b.price);
+      
+      const supportLevels = clusterLevels(pivotLows, 0.02)
+        .filter(l => l.price < currentPrice)
+        .sort((a, b) => b.price - a.price);
+      
+      // 加入移動平均線作為動態支撐壓力
+      const ma20 = prices.slice(-20).reduce((a, b) => a + b, 0) / 20;
+      const ma60 = prices.length >= 60 ? prices.slice(-60).reduce((a, b) => a + b, 0) / 60 : ma20;
+      const ma120 = prices.length >= 120 ? prices.slice(-120).reduce((a, b) => a + b, 0) / 120 : ma60;
+      
+      return {
+        resistances: resistanceLevels.slice(0, 3),
+        supports: supportLevels.slice(0, 3),
+        ma: { ma20, ma60, ma120 }
+      };
+    }
+    
+    function renderAnalysis(stockId, data) {
+      const { history, currentPrice, stockName } = data;
+      const levels = calculateSupportResistance(history, currentPrice);
+      
+      const changePercent = data.changePercent || 0;
+      const isUp = changePercent >= 0;
+      
+      // 找最近支撐和壓力
+      const nearestSupport = levels.supports[0]?.price || levels.ma.ma20;
+      const nearestResistance = levels.resistances[0]?.price || currentPrice * 1.05;
+      const supportDist = ((currentPrice - nearestSupport) / currentPrice * 100).toFixed(2);
+      const resistDist = ((nearestResistance - currentPrice) / currentPrice * 100).toFixed(2);
+      
+      let suggestion = '';
+      if (supportDist < 2) {
+        suggestion = '⚠️ 股價接近支撐位，若跌破需注意風險。建議設定停損點。';
+      } else if (resistDist < 2) {
+        suggestion = '📈 股價接近壓力位，可能面臨賣壓。突破則有上漲空間。';
+      } else {
+        suggestion = '📊 股價位於支撐與壓力之間，可觀察量能變化決定方向。';
+      }
+      
+      document.getElementById('content').innerHTML = `
+        <div class="current-price">
+          <div style="font-size: 1.2rem; color: #8b949e; margin-bottom: 8px;">${stockName} (${stockId})</div>
+          <div class="price">$${currentPrice.toFixed(2)}</div>
+          <div class="change ${isUp ? 'up' : 'down'}">${isUp ? '▲' : '▼'} ${Math.abs(changePercent).toFixed(2)}%</div>
+        </div>
+        
+        <div class="main-card">
+          <div class="card-title">📈 價格走勢與支撐壓力</div>
+          <div class="chart-container"><canvas id="priceChart"></canvas></div>
+        </div>
+        
+        <div class="levels-grid">
+          <div class="level-card">
+            <h3>🔴 壓力位 (Resistance)</h3>
+            ${levels.resistances.length > 0 ? levels.resistances.map((r, i) => `
+              <div class="level-item">
+                <div>
+                  <div class="level-price resistance">$${r.price.toFixed(2)}</div>
+                  <div class="level-info">距離 +${((r.price - currentPrice) / currentPrice * 100).toFixed(2)}%</div>
+                </div>
+                <div class="level-info">強度 ${r.count} 次觸及</div>
+              </div>
+            `).join('') : '<div class="level-item"><div class="level-info">無明顯壓力位</div></div>'}
+            <div class="level-item" style="border-top: 1px solid #30363d; margin-top: 8px; padding-top: 12px;">
+              <div>
+                <div class="level-price" style="color: #d29922;">MA20: $${levels.ma.ma20.toFixed(2)}</div>
+              </div>
+              <div class="level-info">${currentPrice > levels.ma.ma20 ? '股價在上' : '股價在下'}</div>
+            </div>
+          </div>
+          
+          <div class="level-card">
+            <h3>🟢 支撐位 (Support)</h3>
+            ${levels.supports.length > 0 ? levels.supports.map((s, i) => `
+              <div class="level-item">
+                <div>
+                  <div class="level-price support">$${s.price.toFixed(2)}</div>
+                  <div class="level-info">距離 -${((currentPrice - s.price) / currentPrice * 100).toFixed(2)}%</div>
+                </div>
+                <div class="level-info">強度 ${s.count} 次觸及</div>
+              </div>
+            `).join('') : '<div class="level-item"><div class="level-info">無明顯支撐位</div></div>'}
+            <div class="level-item" style="border-top: 1px solid #30363d; margin-top: 8px; padding-top: 12px;">
+              <div>
+                <div class="level-price" style="color: #a371f7;">MA60: $${levels.ma.ma60.toFixed(2)}</div>
+              </div>
+              <div class="level-info">${currentPrice > levels.ma.ma60 ? '股價在上' : '股價在下'}</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="analysis-box">
+          <h4>💡 分析建議</h4>
+          <p>${suggestion}</p>
+          <p style="margin-top: 12px; color: #8b949e;">
+            最近支撐: $${nearestSupport.toFixed(2)} (距離 ${supportDist}%) | 
+            最近壓力: $${nearestResistance.toFixed(2)} (距離 ${resistDist}%)
+          </p>
+        </div>
+      `;
+      
+      renderChart(history, currentPrice, levels);
+    }
+    
+    function renderChart(history, currentPrice, levels) {
+      const ctx = document.getElementById('priceChart').getContext('2d');
+      if (priceChart) priceChart.destroy();
+      
+      const labels = history.map(h => new Date(h.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'}));
+      const prices = history.map(h => h.close);
+      
+      const annotations = {};
+      
+      // 支撐線
+      levels.supports.forEach((s, i) => {
+        annotations[`support_${i}`] = {
+          type: 'line',
+          yMin: s.price, yMax: s.price,
+          borderColor: '#3fb950',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          label: { display: i === 0, content: `支撐 $${s.price.toFixed(0)}`, position: 'start', backgroundColor: '#3fb950', color: 'white', font: { size: 10 } }
+        };
+      });
+      
+      // 壓力線
+      levels.resistances.forEach((r, i) => {
+        annotations[`resistance_${i}`] = {
+          type: 'line',
+          yMin: r.price, yMax: r.price,
+          borderColor: '#f85149',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          label: { display: i === 0, content: `壓力 $${r.price.toFixed(0)}`, position: 'start', backgroundColor: '#f85149', color: 'white', font: { size: 10 } }
+        };
+      });
+      
+      // 現價線
+      annotations['current'] = {
+        type: 'line',
+        yMin: currentPrice, yMax: currentPrice,
+        borderColor: '#58a6ff',
+        borderWidth: 2,
+        label: { display: true, content: `現價 $${currentPrice.toFixed(0)}`, position: 'end', backgroundColor: '#58a6ff', color: 'white', font: { size: 10 } }
+      };
+      
+      priceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data: prices,
+            borderColor: '#58a6ff',
+            backgroundColor: 'rgba(88,166,255,0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, annotation: { annotations } },
+          scales: {
+            x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 10 } },
+            y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } }
+          }
+        }
+      });
+    }
+    
+    // 初始化
+    const urlParams = new URLSearchParams(window.location.search);
+    const initStock = urlParams.get('stock') || '2330';
+    document.getElementById('stockInput').value = initStock;
+    analyze();
+  </script>
+</body>
+</html>

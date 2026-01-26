@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔥 類股熱力圖 - 股海秘書</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .btn { padding: 8px 16px; border-radius: 6px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; cursor: pointer; margin-left: 8px; }
+    .btn:hover { background: #30363d; }
+    .btn.active { background: #238636; border-color: #238636; color: white; }
+    
+    .stats-bar { display: flex; gap: 20px; padding: 16px 20px; background: #161b22; border-radius: 12px; border: 1px solid #30363d; margin-bottom: 20px; flex-wrap: wrap; }
+    .stat-item { display: flex; align-items: center; gap: 8px; }
+    .stat-label { color: #8b949e; font-size: 0.85rem; }
+    .stat-value { font-weight: 700; }
+    .stat-value.up { color: #f85149; }
+    .stat-value.down { color: #3fb950; }
+    
+    .heatmap-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+    .sector-block { border-radius: 8px; padding: 12px; text-align: center; cursor: pointer; transition: all 0.2s; min-height: 80px; display: flex; flex-direction: column; justify-content: center; }
+    .sector-block:hover { transform: scale(1.02); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .sector-block .name { font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
+    .sector-block .change { font-size: 1.1rem; font-weight: 700; }
+    .sector-block .count { font-size: 0.7rem; opacity: 0.8; margin-top: 4px; }
+    
+    .detail-panel { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 20px; margin-top: 20px; display: none; }
+    .detail-panel.show { display: block; }
+    .detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .detail-header h3 { color: #c9d1d9; }
+    .close-btn { background: none; border: none; color: #8b949e; font-size: 1.5rem; cursor: pointer; }
+    .stock-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .stock-item { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .stock-item:hover { border-color: #58a6ff; }
+    .stock-item .info .name { font-weight: 600; color: #c9d1d9; }
+    .stock-item .info .code { font-size: 0.8rem; color: #8b949e; }
+    .stock-item .change { font-weight: 700; }
+    .stock-item .change.up { color: #f85149; }
+    .stock-item .change.down { color: #3fb950; }
+    
+    .legend { display: flex; justify-content: center; gap: 16px; margin-top: 20px; font-size: 0.85rem; color: #8b949e; }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-color { width: 20px; height: 12px; border-radius: 2px; }
+    
+    .loading { text-align: center; padding: 60px; color: #8b949e; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div>
+        <a href="analysis.html" class="back-link">← 返回分析中心</a>
+        <h1>🔥 類股熱力圖</h1>
+      </div>
+      <div>
+        <button class="btn active" onclick="setView('sector')">類股</button>
+        <button class="btn" onclick="setView('cap')">市值</button>
+        <button class="btn" onclick="refresh()">🔄 更新</button>
+      </div>
+    </header>
+
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-label">上漲類股</span>
+        <span class="stat-value up" id="upSectors">--</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">下跌類股</span>
+        <span class="stat-value down" id="downSectors">--</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">最強類股</span>
+        <span class="stat-value up" id="topSector">--</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">最弱類股</span>
+        <span class="stat-value down" id="bottomSector">--</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">更新時間</span>
+        <span class="stat-value" id="updateTime">--</span>
+      </div>
+    </div>
+
+    <div id="content">
+      <div class="loading"><div class="spinner"></div><p>載入類股資料...</p></div>
+    </div>
+    
+    <div class="legend">
+      <div class="legend-item"><div class="legend-color" style="background:#b91c1c;"></div>大漲 >3%</div>
+      <div class="legend-item"><div class="legend-color" style="background:#dc2626;"></div>漲 1-3%</div>
+      <div class="legend-item"><div class="legend-color" style="background:#f87171;"></div>小漲 0-1%</div>
+      <div class="legend-item"><div class="legend-color" style="background:#6b7280;"></div>平盤</div>
+      <div class="legend-item"><div class="legend-color" style="background:#4ade80;"></div>小跌 0-1%</div>
+      <div class="legend-item"><div class="legend-color" style="background:#22c55e;"></div>跌 1-3%</div>
+      <div class="legend-item"><div class="legend-color" style="background:#16a34a;"></div>大跌 >3%</div>
+    </div>
+    
+    <div class="detail-panel" id="detailPanel">
+      <div class="detail-header">
+        <h3 id="detailTitle">類股詳情</h3>
+        <button class="close-btn" onclick="closeDetail()">×</button>
+      </div>
+      <div class="stock-list" id="stockList"></div>
+    </div>
+  </div>
+
+  <script>
+    // 類股定義
+    const sectors = {
+      '半導體': ['2330', '2454', '3711', '2303', '3034', '6770', '2344', '3450'],
+      '電子零組件': ['2317', '2382', '3008', '2474', '2313', '3037', '2308'],
+      '金融保險': ['2881', '2882', '2891', '2886', '2884', '2885', '2887'],
+      '傳產': ['1301', '1303', '1326', '2002', '2207', '1402', '2912'],
+      '航運': ['2603', '2609', '2615', '2618', '2610', '5765'],
+      '鋼鐵': ['2002', '2006', '2014', '2015', '2020', '2022'],
+      '營建': ['2504', '2520', '2542', '2545', '2547', '5522'],
+      '生技醫療': ['4142', '1760', '4743', '6472', '6446', '1733'],
+      '通信網路': ['2412', '3045', '4904', '2498', '6285'],
+      'AI伺服器': ['2382', '3231', '2360', '2324', '3706'],
+      '電動車': ['2207', '2227', '3702', '2231', '1513'],
+      'ETF': ['0050', '0056', '00878', '00919', '00929'],
+      '觀光餐飲': ['2707', '2706', '2723', '2727', '2729'],
+      '光電': ['3481', '2409', '3008', '2393', '6176']
+    };
+    
+    let sectorData = {};
+    
+    async function loadData() {
+      document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p>載入類股資料...</p></div>';
+      
+      // 模擬資料（實際應從 API 取得）
+      const mockData = {};
+      for (const [sector, stocks] of Object.entries(sectors)) {
+        const change = (Math.random() - 0.5) * 6; // -3% ~ +3%
+        const stockCount = stocks.length;
+        const upCount = Math.floor(Math.random() * stockCount);
+        mockData[sector] = {
+          change: change,
+          upCount: upCount,
+          downCount: stockCount - upCount,
+          totalCount: stockCount,
+          stocks: stocks.map(code => ({
+            code,
+            name: getStockName(code),
+            change: (Math.random() - 0.5) * 8
+          })).sort((a, b) => b.change - a.change)
+        };
+      }
+      
+      sectorData = mockData;
+      renderHeatmap();
+    }
+    
+    function getStockName(code) {
+      const names = {
+        '2330': '台積電', '2454': '聯發科', '2317': '鴻海', '2881': '富邦金',
+        '2882': '國泰金', '2303': '聯電', '1301': '台塑', '2002': '中鋼',
+        '2603': '長榮', '2412': '中華電', '0050': '台灣50', '0056': '高股息',
+        '3711': '日月光', '2891': '中信金', '3034': '聯詠', '2382': '廣達',
+        '6770': '力積電', '2344': '華邦電', '2886': '兆豐金', '2207': '和泰車'
+      };
+      return names[code] || code;
+    }
+    
+    function getColor(change) {
+      if (change >= 3) return '#b91c1c';
+      if (change >= 1) return '#dc2626';
+      if (change > 0) return '#f87171';
+      if (change > -0.5 && change < 0.5) return '#6b7280';
+      if (change > -1) return '#4ade80';
+      if (change > -3) return '#22c55e';
+      return '#16a34a';
+    }
+    
+    function renderHeatmap() {
+      const sorted = Object.entries(sectorData).sort((a, b) => b[1].change - a[1].change);
+      
+      let upCount = 0, downCount = 0;
+      sorted.forEach(([_, data]) => {
+        if (data.change > 0) upCount++;
+        else if (data.change < 0) downCount++;
+      });
+      
+      document.getElementById('upSectors').textContent = upCount;
+      document.getElementById('downSectors').textContent = downCount;
+      document.getElementById('topSector').textContent = `${sorted[0][0]} +${sorted[0][1].change.toFixed(2)}%`;
+      document.getElementById('bottomSector').textContent = `${sorted[sorted.length-1][0]} ${sorted[sorted.length-1][1].change.toFixed(2)}%`;
+      document.getElementById('updateTime').textContent = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+      
+      const html = sorted.map(([sector, data]) => {
+        const color = getColor(data.change);
+        const textColor = Math.abs(data.change) > 1.5 ? 'white' : '#e6edf3';
+        const arrow = data.change >= 0 ? '▲' : '▼';
+        
+        return `
+          <div class="sector-block" style="background:${color}; color:${textColor};" onclick="showDetail('${sector}')">
+            <div class="name">${sector}</div>
+            <div class="change">${arrow} ${Math.abs(data.change).toFixed(2)}%</div>
+            <div class="count">${data.upCount}↑ ${data.downCount}↓</div>
+          </div>
+        `;
+      }).join('');
+      
+      document.getElementById('content').innerHTML = `<div class="heatmap-container">${html}</div>`;
+    }
+    
+    function showDetail(sector) {
+      const data = sectorData[sector];
+      if (!data) return;
+      
+      document.getElementById('detailTitle').textContent = `${sector} 類股成分`;
+      document.getElementById('stockList').innerHTML = data.stocks.map(s => `
+        <div class="stock-item" onclick="window.open('wave.html?stock=${s.code}', '_blank')">
+          <div class="info">
+            <div class="name">${s.name}</div>
+            <div class="code">${s.code}</div>
+          </div>
+          <div class="change ${s.change >= 0 ? 'up' : 'down'}">
+            ${s.change >= 0 ? '▲' : '▼'} ${Math.abs(s.change).toFixed(2)}%
+          </div>
+        </div>
+      `).join('');
+      
+      document.getElementById('detailPanel').classList.add('show');
+    }
+    
+    function closeDetail() {
+      document.getElementById('detailPanel').classList.remove('show');
+    }
+    
+    function setView(type) {
+      document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      loadData();
+    }
+    
+    function refresh() {
+      loadData();
+    }
+    
+    loadData();
+  </script>
+</body>
+</html>

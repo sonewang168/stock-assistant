@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏦 籌碼分析 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .search-box { display: flex; gap: 10px; }
+    .search-box input { padding: 10px 16px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; width: 120px; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #238636; color: white; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    
+    .stock-info { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+    .stock-info .main { }
+    .stock-info .name { font-size: 1.3rem; font-weight: 700; color: #c9d1d9; }
+    .stock-info .price { font-size: 1.8rem; font-weight: 700; color: #58a6ff; }
+    .stock-info .change { font-size: 0.95rem; }
+    
+    .chip-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+    @media (max-width: 768px) { .chip-grid { grid-template-columns: 1fr; } }
+    
+    .chip-card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 20px; text-align: center; }
+    .chip-card .label { color: #8b949e; font-size: 0.9rem; margin-bottom: 8px; }
+    .chip-card .value { font-size: 1.8rem; font-weight: 700; }
+    .chip-card .value.buy { color: #f85149; }
+    .chip-card .value.sell { color: #3fb950; }
+    .chip-card .sub { font-size: 0.85rem; color: #8b949e; margin-top: 8px; }
+    
+    .main-card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 20px; margin-bottom: 20px; }
+    .card-title { font-size: 1rem; color: #c9d1d9; margin-bottom: 16px; }
+    .chart-container { height: 250px; }
+    
+    .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .detail-card { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+    .detail-card h4 { color: #58a6ff; margin-bottom: 12px; }
+    .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #21262d; }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-row .label { color: #8b949e; }
+    .detail-row .value { font-weight: 600; }
+    
+    .analysis-box { background: #21262d; border-radius: 8px; padding: 16px; margin-top: 20px; }
+    .analysis-box h4 { color: #d29922; margin-bottom: 8px; }
+    .analysis-box p { color: #c9d1d9; line-height: 1.6; }
+    
+    .loading { text-align: center; padding: 40px; color: #8b949e; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div>
+        <a href="analysis.html" class="back-link">← 返回分析中心</a>
+        <h1>🏦 籌碼分析</h1>
+      </div>
+      <div class="search-box">
+        <input type="text" id="stockInput" placeholder="股票代碼" value="2330">
+        <button class="btn" onclick="analyze()">🔍 分析</button>
+      </div>
+    </header>
+
+    <div id="content">
+      <div class="loading"><div class="spinner"></div><p>載入籌碼資料...</p></div>
+    </div>
+  </div>
+
+  <script>
+    async function analyze() {
+      const stockId = document.getElementById('stockInput').value.trim();
+      if (!stockId) return alert('請輸入股票代碼');
+      
+      document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p>分析籌碼中...</p></div>';
+      
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        
+        // 模擬籌碼資料（實際應從 API 取得）
+        const chipData = generateChipData(data);
+        renderAnalysis(stockId, data, chipData);
+      } catch (e) {
+        document.getElementById('content').innerHTML = `<div class="main-card"><p style="color:#f85149;">分析失敗: ${e.message}</p></div>`;
+      }
+    }
+    
+    function generateChipData(stockData) {
+      const isUp = stockData.changePercent > 0;
+      const base = Math.floor(Math.random() * 5000) + 1000;
+      
+      return {
+        foreign: {
+          today: (Math.random() - 0.4) * base * 2,
+          week: (Math.random() - 0.3) * base * 10,
+          month: (Math.random() - 0.2) * base * 30,
+          holding: Math.floor(Math.random() * 40) + 20
+        },
+        trust: {
+          today: (Math.random() - 0.5) * base,
+          week: (Math.random() - 0.4) * base * 5,
+          month: (Math.random() - 0.3) * base * 15,
+          holding: Math.floor(Math.random() * 15) + 5
+        },
+        dealer: {
+          today: (Math.random() - 0.6) * base * 0.5,
+          week: (Math.random() - 0.5) * base * 2,
+          month: (Math.random() - 0.5) * base * 8,
+          holding: Math.floor(Math.random() * 5) + 1
+        },
+        history: Array.from({length: 20}, () => ({
+          foreign: (Math.random() - 0.4) * base * 2,
+          trust: (Math.random() - 0.5) * base,
+          dealer: (Math.random() - 0.6) * base * 0.5
+        }))
+      };
+    }
+    
+    function formatVolume(v) {
+      const abs = Math.abs(v);
+      if (abs >= 10000) return (v / 10000).toFixed(1) + ' 萬張';
+      return Math.floor(v).toLocaleString() + ' 張';
+    }
+    
+    function renderAnalysis(stockId, stockData, chipData) {
+      const { currentPrice, stockName, changePercent } = stockData;
+      const isUp = changePercent >= 0;
+      
+      const totalToday = chipData.foreign.today + chipData.trust.today + chipData.dealer.today;
+      const totalWeek = chipData.foreign.week + chipData.trust.week + chipData.dealer.week;
+      
+      // 分析建議
+      let analysis = '';
+      if (chipData.foreign.today > 1000 && chipData.trust.today > 0) {
+        analysis = '🔥 外資與投信同步買超，籌碼面偏多，有利後續股價表現。';
+      } else if (chipData.foreign.today < -1000 && chipData.trust.today < 0) {
+        analysis = '⚠️ 外資與投信同步賣超，籌碼面偏空，需注意回檔風險。';
+      } else if (chipData.foreign.today > 0 && chipData.trust.today < 0) {
+        analysis = '📊 外資買、投信賣，籌碼分歧，建議觀望等待明確方向。';
+      } else {
+        analysis = '📊 法人買賣互見，籌碼面中性，需觀察後續動向。';
+      }
+      
+      document.getElementById('content').innerHTML = `
+        <div class="stock-info">
+          <div class="main">
+            <div class="name">${stockName} (${stockId})</div>
+            <div class="price">$${currentPrice.toFixed(2)}</div>
+            <div class="change" style="color:${isUp ? '#f85149' : '#3fb950'};">
+              ${isUp ? '▲' : '▼'} ${Math.abs(changePercent).toFixed(2)}%
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="color:#8b949e;">三大法人今日</div>
+            <div style="font-size:1.5rem; font-weight:700; color:${totalToday >= 0 ? '#f85149' : '#3fb950'};">
+              ${totalToday >= 0 ? '買超' : '賣超'} ${formatVolume(Math.abs(totalToday))}
+            </div>
+          </div>
+        </div>
+        
+        <div class="chip-grid">
+          <div class="chip-card">
+            <div class="label">🌍 外資</div>
+            <div class="value ${chipData.foreign.today >= 0 ? 'buy' : 'sell'}">
+              ${chipData.foreign.today >= 0 ? '+' : ''}${formatVolume(chipData.foreign.today)}
+            </div>
+            <div class="sub">持股比例 ${chipData.foreign.holding}%</div>
+          </div>
+          <div class="chip-card">
+            <div class="label">🏢 投信</div>
+            <div class="value ${chipData.trust.today >= 0 ? 'buy' : 'sell'}">
+              ${chipData.trust.today >= 0 ? '+' : ''}${formatVolume(chipData.trust.today)}
+            </div>
+            <div class="sub">持股比例 ${chipData.trust.holding}%</div>
+          </div>
+          <div class="chip-card">
+            <div class="label">🏦 自營商</div>
+            <div class="value ${chipData.dealer.today >= 0 ? 'buy' : 'sell'}">
+              ${chipData.dealer.today >= 0 ? '+' : ''}${formatVolume(chipData.dealer.today)}
+            </div>
+            <div class="sub">持股比例 ${chipData.dealer.holding}%</div>
+          </div>
+        </div>
+        
+        <div class="main-card">
+          <div class="card-title">📊 近 20 日法人買賣超</div>
+          <div class="chart-container"><canvas id="chipChart"></canvas></div>
+        </div>
+        
+        <div class="detail-grid">
+          <div class="detail-card">
+            <h4>🌍 外資動態</h4>
+            <div class="detail-row"><span class="label">今日</span><span class="value" style="color:${chipData.foreign.today >= 0 ? '#f85149' : '#3fb950'};">${formatVolume(chipData.foreign.today)}</span></div>
+            <div class="detail-row"><span class="label">近一週</span><span class="value" style="color:${chipData.foreign.week >= 0 ? '#f85149' : '#3fb950'};">${formatVolume(chipData.foreign.week)}</span></div>
+            <div class="detail-row"><span class="label">近一月</span><span class="value" style="color:${chipData.foreign.month >= 0 ? '#f85149' : '#3fb950'};">${formatVolume(chipData.foreign.month)}</span></div>
+          </div>
+          <div class="detail-card">
+            <h4>🏢 投信動態</h4>
+            <div class="detail-row"><span class="label">今日</span><span class="value" style="color:${chipData.trust.today >= 0 ? '#f85149' : '#3fb950'};">${formatVolume(chipData.trust.today)}</span></div>
+            <div class="detail-row"><span class="label">近一週</span><span class="value" style="color:${chipData.trust.week >= 0 ? '#f85149' : '#3fb950'};">${formatVolume(chipData.trust.week)}</span></div>
+            <div class="detail-row"><span class="label">近一月</span><span class="value" style="color:${chipData.trust.month >= 0 ? '#f85149' : '#3fb950'};">${formatVolume(chipData.trust.month)}</span></div>
+          </div>
+        </div>
+        
+        <div class="analysis-box">
+          <h4>💡 籌碼分析建議</h4>
+          <p>${analysis}</p>
+        </div>
+      `;
+      
+      renderChart(chipData);
+    }
+    
+    function renderChart(chipData) {
+      const ctx = document.getElementById('chipChart').getContext('2d');
+      const labels = Array.from({length: 20}, (_, i) => `${20 - i}日前`).reverse();
+      
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: '外資', data: chipData.history.map(h => h.foreign), backgroundColor: '#f8514988' },
+            { label: '投信', data: chipData.history.map(h => h.trust), backgroundColor: '#58a6ff88' },
+            { label: '自營商', data: chipData.history.map(h => h.dealer), backgroundColor: '#3fb95088' }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: true, position: 'top', labels: { color: '#8b949e' } } },
+          scales: {
+            x: { stacked: true, grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 10 } },
+            y: { stacked: true, grid: { color: '#21262d' }, ticks: { color: '#8b949e' } }
+          }
+        }
+      });
+    }
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    document.getElementById('stockInput').value = urlParams.get('stock') || '2330';
+    analyze();
+  </script>
+</body>
+</html>

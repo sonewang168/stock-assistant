@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏦 法人持股 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .search-box { display: flex; gap: 10px; }
+    .search-box input { padding: 10px 16px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; width: 120px; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #238636; color: white; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .stock-info { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 20px; margin-bottom: 20px; text-align: center; }
+    .stock-info .name { font-size: 1.3rem; font-weight: 700; color: #c9d1d9; }
+    .stock-info .price { font-size: 2rem; font-weight: 700; color: #58a6ff; margin: 8px 0; }
+    .holding-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+    @media (max-width: 768px) { .holding-grid { grid-template-columns: 1fr; } }
+    .holding-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; text-align: center; }
+    .holding-card .label { color: #8b949e; font-size: 0.9rem; }
+    .holding-card .percent { font-size: 2rem; font-weight: 700; margin: 8px 0; }
+    .holding-card .change { font-size: 0.9rem; }
+    .main-card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 20px; }
+    .chart-container { height: 300px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🏦 法人持股</h1></div>
+      <div class="search-box">
+        <input type="text" id="stockInput" placeholder="股票代碼" value="2330">
+        <button class="btn" onclick="query()">🔍 查詢</button>
+      </div>
+    </header>
+    <div class="stock-info">
+      <div class="name">台積電 (2330)</div>
+      <div class="price">$695.00</div>
+    </div>
+    <div class="holding-grid">
+      <div class="holding-card">
+        <div class="label">🌍 外資持股</div>
+        <div class="percent" style="color:#58a6ff;">72.5%</div>
+        <div class="change" style="color:#f85149;">▲ +0.3% (本週)</div>
+      </div>
+      <div class="holding-card">
+        <div class="label">🏢 投信持股</div>
+        <div class="percent" style="color:#a371f7;">2.8%</div>
+        <div class="change" style="color:#f85149;">▲ +0.1% (本週)</div>
+      </div>
+      <div class="holding-card">
+        <div class="label">🏦 自營商持股</div>
+        <div class="percent" style="color:#d29922;">0.5%</div>
+        <div class="change" style="color:#3fb950;">▼ -0.05% (本週)</div>
+      </div>
+    </div>
+    <div class="main-card">
+      <div style="color:#c9d1d9;margin-bottom:16px;">📊 近20週法人持股變化</div>
+      <div class="chart-container"><canvas id="chart"></canvas></div>
+    </div>
+  </div>
+  <script>
+    const weeks = Array.from({length:20}, (_,i) => `W${i+1}`);
+    const foreign = Array.from({length:20}, () => 70 + Math.random() * 5);
+    const trust = Array.from({length:20}, () => 2 + Math.random() * 1);
+    new Chart(document.getElementById('chart'), {
+      type: 'line',
+      data: { labels: weeks, datasets: [
+        { label: '外資', data: foreign, borderColor: '#58a6ff', tension: 0.3, pointRadius: 2 },
+        { label: '投信', data: trust, borderColor: '#a371f7', tension: 0.3, pointRadius: 2 }
+      ]},
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'top', labels: { color: '#8b949e' } } },
+        scales: { x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } }, y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', callback: v => v + '%' } } }
+      }
+    });
+    function query() { location.href = '?stock=' + document.getElementById('stockInput').value; }
+  </script>
+</body>
+</html>

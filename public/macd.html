@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📈 MACD & KD 指標 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .search-box { display: flex; gap: 10px; }
+    .search-box input { padding: 10px 16px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; width: 120px; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #238636; color: white; }
+    .btn:hover { background: #2ea043; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    
+    .main-card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 24px; margin-bottom: 20px; }
+    .card-title { font-size: 1.1rem; color: #c9d1d9; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .chart-container { height: 250px; margin-bottom: 16px; }
+    
+    .indicator-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .indicator-card { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 16px; text-align: center; }
+    .indicator-card .label { color: #8b949e; font-size: 0.85rem; margin-bottom: 8px; }
+    .indicator-card .value { font-size: 1.5rem; font-weight: 700; }
+    .indicator-card .signal { font-size: 0.85rem; margin-top: 8px; padding: 4px 12px; border-radius: 4px; display: inline-block; }
+    .signal.buy { background: rgba(63,185,80,0.2); color: #3fb950; }
+    .signal.sell { background: rgba(248,81,73,0.2); color: #f85149; }
+    .signal.neutral { background: rgba(139,148,158,0.2); color: #8b949e; }
+    
+    .signal-box { background: #21262d; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+    .signal-box h3 { color: #c9d1d9; margin-bottom: 12px; }
+    .signal-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #30363d; }
+    .signal-item:last-child { border-bottom: none; }
+    
+    .legend { display: flex; gap: 20px; justify-content: center; margin-top: 8px; font-size: 0.85rem; color: #8b949e; }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+    
+    .loading { text-align: center; padding: 40px; color: #8b949e; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div>
+        <a href="analysis.html" class="back-link">← 返回分析中心</a>
+        <h1>📈 MACD & KD 技術指標</h1>
+      </div>
+      <div class="search-box">
+        <input type="text" id="stockInput" placeholder="股票代碼" value="2330">
+        <button class="btn" onclick="analyze()">🔍 分析</button>
+      </div>
+    </header>
+
+    <div id="content">
+      <div class="loading"><div class="spinner"></div><p>載入中...</p></div>
+    </div>
+  </div>
+
+  <script>
+    let priceChart = null, macdChart = null, kdChart = null;
+    
+    async function analyze() {
+      const stockId = document.getElementById('stockInput').value.trim();
+      if (!stockId) return alert('請輸入股票代碼');
+      
+      document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p>分析中...</p></div>';
+      
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        
+        renderAnalysis(stockId, data);
+      } catch (e) {
+        document.getElementById('content').innerHTML = `<div class="main-card"><p style="color:#f85149;">分析失敗: ${e.message}</p></div>`;
+      }
+    }
+    
+    function calculateMACD(prices) {
+      const ema = (data, period) => {
+        const k = 2 / (period + 1);
+        let emaArr = [data[0]];
+        for (let i = 1; i < data.length; i++) {
+          emaArr.push(data[i] * k + emaArr[i-1] * (1 - k));
+        }
+        return emaArr;
+      };
+      
+      const ema12 = ema(prices, 12);
+      const ema26 = ema(prices, 26);
+      const dif = ema12.map((v, i) => v - ema26[i]);
+      const macd = ema(dif, 9);
+      const osc = dif.map((v, i) => (v - macd[i]) * 2);
+      
+      return { dif, macd, osc };
+    }
+    
+    function calculateKD(history) {
+      const k = [], d = [];
+      const period = 9;
+      
+      for (let i = 0; i < history.length; i++) {
+        if (i < period - 1) {
+          k.push(50);
+          d.push(50);
+          continue;
+        }
+        
+        const slice = history.slice(i - period + 1, i + 1);
+        const highest = Math.max(...slice.map(h => h.high));
+        const lowest = Math.min(...slice.map(h => h.low));
+        const close = history[i].close;
+        
+        const rsv = highest === lowest ? 50 : ((close - lowest) / (highest - lowest)) * 100;
+        const prevK = k[i - 1] || 50;
+        const prevD = d[i - 1] || 50;
+        
+        k.push((2/3) * prevK + (1/3) * rsv);
+        d.push((2/3) * prevD + (1/3) * k[k.length - 1]);
+      }
+      
+      return { k, d };
+    }
+    
+    function getSignal(type, values) {
+      const len = values.length;
+      if (type === 'macd') {
+        const { dif, macd, osc } = values;
+        const lastDif = dif[len-1], lastMacd = macd[len-1], lastOsc = osc[len-1];
+        const prevOsc = osc[len-2];
+        
+        if (lastDif > lastMacd && prevOsc < 0 && lastOsc > 0) return { signal: '黃金交叉', type: 'buy', desc: 'DIF 向上穿越 MACD，買入訊號' };
+        if (lastDif < lastMacd && prevOsc > 0 && lastOsc < 0) return { signal: '死亡交叉', type: 'sell', desc: 'DIF 向下穿越 MACD，賣出訊號' };
+        if (lastDif > 0 && lastMacd > 0) return { signal: '多頭趨勢', type: 'buy', desc: 'DIF 與 MACD 皆在零軸上方' };
+        if (lastDif < 0 && lastMacd < 0) return { signal: '空頭趨勢', type: 'sell', desc: 'DIF 與 MACD 皆在零軸下方' };
+        return { signal: '盤整', type: 'neutral', desc: '無明顯趨勢' };
+      } else {
+        const { k, d } = values;
+        const lastK = k[len-1], lastD = d[len-1];
+        const prevK = k[len-2], prevD = d[len-2];
+        
+        if (lastK > lastD && prevK < prevD && lastK < 20) return { signal: '低檔黃金交叉', type: 'buy', desc: 'K 值在低檔向上穿越 D 值，強烈買入訊號' };
+        if (lastK > lastD && prevK < prevD) return { signal: '黃金交叉', type: 'buy', desc: 'K 值向上穿越 D 值，買入訊號' };
+        if (lastK < lastD && prevK > prevD && lastK > 80) return { signal: '高檔死亡交叉', type: 'sell', desc: 'K 值在高檔向下穿越 D 值，強烈賣出訊號' };
+        if (lastK < lastD && prevK > prevD) return { signal: '死亡交叉', type: 'sell', desc: 'K 值向下穿越 D 值，賣出訊號' };
+        if (lastK > 80) return { signal: '超買區', type: 'sell', desc: 'K 值 > 80，可能面臨回檔' };
+        if (lastK < 20) return { signal: '超賣區', type: 'buy', desc: 'K 值 < 20，可能即將反彈' };
+        return { signal: '中性區', type: 'neutral', desc: '無明顯訊號' };
+      }
+    }
+    
+    function renderAnalysis(stockId, data) {
+      const { history, currentPrice, stockName } = data;
+      const prices = history.map(h => h.close);
+      
+      const macdData = calculateMACD(prices);
+      const kdData = calculateKD(history);
+      
+      const macdSignal = getSignal('macd', macdData);
+      const kdSignal = getSignal('kd', kdData);
+      
+      const lastK = kdData.k[kdData.k.length - 1];
+      const lastD = kdData.d[kdData.d.length - 1];
+      const lastDif = macdData.dif[macdData.dif.length - 1];
+      const lastMacd = macdData.macd[macdData.macd.length - 1];
+      
+      document.getElementById('content').innerHTML = `
+        <div class="indicator-grid">
+          <div class="indicator-card">
+            <div class="label">股票</div>
+            <div class="value" style="color: #58a6ff;">${stockName}</div>
+            <div class="signal neutral">${stockId}</div>
+          </div>
+          <div class="indicator-card">
+            <div class="label">現價</div>
+            <div class="value">$${currentPrice.toFixed(2)}</div>
+            <div class="signal ${data.changePercent >= 0 ? 'buy' : 'sell'}">${data.changePercent >= 0 ? '▲' : '▼'} ${Math.abs(data.changePercent).toFixed(2)}%</div>
+          </div>
+          <div class="indicator-card">
+            <div class="label">K / D 值</div>
+            <div class="value">${lastK.toFixed(1)} / ${lastD.toFixed(1)}</div>
+            <div class="signal ${kdSignal.type}">${kdSignal.signal}</div>
+          </div>
+          <div class="indicator-card">
+            <div class="label">DIF / MACD</div>
+            <div class="value">${lastDif.toFixed(2)} / ${lastMacd.toFixed(2)}</div>
+            <div class="signal ${macdSignal.type}">${macdSignal.signal}</div>
+          </div>
+        </div>
+        
+        <div class="main-card">
+          <div class="card-title">📈 股價走勢</div>
+          <div class="chart-container"><canvas id="priceChart"></canvas></div>
+        </div>
+        
+        <div class="main-card">
+          <div class="card-title">📊 MACD 指標</div>
+          <div class="chart-container"><canvas id="macdChart"></canvas></div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#f85149;"></div>DIF</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#58a6ff;"></div>MACD</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#3fb950;"></div>柱狀 (正)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#da3633;"></div>柱狀 (負)</div>
+          </div>
+        </div>
+        
+        <div class="main-card">
+          <div class="card-title">📉 KD 指標</div>
+          <div class="chart-container"><canvas id="kdChart"></canvas></div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#f85149;"></div>K 值</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#58a6ff;"></div>D 值</div>
+          </div>
+        </div>
+        
+        <div class="signal-box">
+          <h3>📋 訊號分析</h3>
+          <div class="signal-item">
+            <div>
+              <strong>MACD</strong>
+              <div style="color:#8b949e; font-size:0.85rem;">${macdSignal.desc}</div>
+            </div>
+            <span class="signal ${macdSignal.type}">${macdSignal.signal}</span>
+          </div>
+          <div class="signal-item">
+            <div>
+              <strong>KD</strong>
+              <div style="color:#8b949e; font-size:0.85rem;">${kdSignal.desc}</div>
+            </div>
+            <span class="signal ${kdSignal.type}">${kdSignal.signal}</span>
+          </div>
+          <div class="signal-item">
+            <div>
+              <strong>綜合建議</strong>
+              <div style="color:#8b949e; font-size:0.85rem;">
+                ${macdSignal.type === kdSignal.type ? 
+                  (macdSignal.type === 'buy' ? 'MACD 與 KD 同步看多，可考慮進場' : 
+                   macdSignal.type === 'sell' ? 'MACD 與 KD 同步看空，建議減碼' : '觀望等待明確訊號') :
+                  '指標分歧，建議等待確認'}
+              </div>
+            </div>
+            <span class="signal ${macdSignal.type === kdSignal.type ? macdSignal.type : 'neutral'}">
+              ${macdSignal.type === kdSignal.type ? (macdSignal.type === 'buy' ? '看多' : macdSignal.type === 'sell' ? '看空' : '觀望') : '待確認'}
+            </span>
+          </div>
+        </div>
+      `;
+      
+      renderCharts(history, macdData, kdData);
+    }
+    
+    function renderCharts(history, macdData, kdData) {
+      const labels = history.map(h => new Date(h.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'}));
+      const prices = history.map(h => h.close);
+      
+      // 價格圖
+      const ctx1 = document.getElementById('priceChart').getContext('2d');
+      priceChart = new Chart(ctx1, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{ data: prices, borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 10 } },
+            y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } }
+          }
+        }
+      });
+      
+      // MACD 圖
+      const oscColors = macdData.osc.map(v => v >= 0 ? '#3fb950' : '#da3633');
+      const ctx2 = document.getElementById('macdChart').getContext('2d');
+      macdChart = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { type: 'line', data: macdData.dif, borderColor: '#f85149', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+            { type: 'line', data: macdData.macd, borderColor: '#58a6ff', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+            { data: macdData.osc, backgroundColor: oscColors, borderWidth: 0 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 10 } },
+            y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } }
+          }
+        }
+      });
+      
+      // KD 圖
+      const ctx3 = document.getElementById('kdChart').getContext('2d');
+      kdChart = new Chart(ctx3, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { data: kdData.k, borderColor: '#f85149', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+            { data: kdData.d, borderColor: '#58a6ff', borderWidth: 2, pointRadius: 0, tension: 0.3 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, annotation: {
+            annotations: {
+              line80: { type: 'line', yMin: 80, yMax: 80, borderColor: '#f8514966', borderDash: [5,5] },
+              line20: { type: 'line', yMin: 20, yMax: 20, borderColor: '#3fb95066', borderDash: [5,5] }
+            }
+          }},
+          scales: {
+            x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 10 } },
+            y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' }, min: 0, max: 100 }
+          }
+        }
+      });
+    }
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    document.getElementById('stockInput').value = urlParams.get('stock') || '2330';
+    analyze();
+  </script>
+</body>
+</html>

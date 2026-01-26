@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📰 財經新聞 - 股海秘書</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .search-box { display: flex; gap: 10px; }
+    .search-box input { padding: 10px 16px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; width: 150px; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #238636; color: white; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+    .tab { padding: 10px 20px; border-radius: 8px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; cursor: pointer; }
+    .tab.active { background: #238636; border-color: #238636; color: white; }
+    .news-list { display: flex; flex-direction: column; gap: 16px; }
+    .news-item { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; transition: all 0.2s; cursor: pointer; }
+    .news-item:hover { border-color: #58a6ff; transform: translateX(4px); }
+    .news-item .source { color: #58a6ff; font-size: 0.8rem; font-weight: 600; }
+    .news-item .title { font-size: 1.1rem; font-weight: 600; color: #c9d1d9; margin: 8px 0; line-height: 1.4; }
+    .news-item .summary { color: #8b949e; font-size: 0.9rem; line-height: 1.5; }
+    .news-item .meta { display: flex; gap: 16px; margin-top: 12px; font-size: 0.8rem; color: #8b949e; }
+    .news-item .tag { padding: 2px 8px; border-radius: 4px; background: #21262d; color: #58a6ff; }
+    .loading { text-align: center; padding: 40px; color: #8b949e; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>📰 財經新聞</h1></div>
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="搜尋關鍵字...">
+        <button class="btn" onclick="searchNews()">🔍</button>
+      </div>
+    </header>
+    <div class="tabs">
+      <div class="tab active" onclick="loadCategory('all')">全部</div>
+      <div class="tab" onclick="loadCategory('tw')">台股</div>
+      <div class="tab" onclick="loadCategory('us')">美股</div>
+      <div class="tab" onclick="loadCategory('ai')">AI科技</div>
+      <div class="tab" onclick="loadCategory('chip')">半導體</div>
+    </div>
+    <div id="content" class="news-list"></div>
+  </div>
+  <script>
+    const mockNews = [
+      { source: '經濟日報', title: '台積電法說會釋正向訊息 外資看好後市', summary: '台積電第四季法說會釋出正向展望，預期AI需求持續強勁，帶動先進製程產能利用率提升...', time: '2小時前', tags: ['台積電', '半導體'] },
+      { source: '工商時報', title: '美股四大指數齊揚 道瓊再創新高', summary: '美股昨日表現強勁，道瓊工業指數上漲逾300點，創歷史新高。科技股領漲，那斯達克指數也創新高...', time: '3小時前', tags: ['美股', '道瓊'] },
+      { source: '鉅亨網', title: 'AI伺服器需求爆發 供應鏈受惠', summary: '隨著各大科技巨頭加大AI投資，伺服器代工廠訂單滿載，相關供應鏈股價表現亮眼...', time: '4小時前', tags: ['AI', '伺服器'] },
+      { source: 'MoneyDJ', title: '外資連買台股 集中火力買超權值股', summary: '外資連續第五個交易日買超台股，主要集中在台積電、聯發科等權值股，顯示看好台股後市...', time: '5小時前', tags: ['外資', '台股'] },
+      { source: '自由財經', title: 'DRAM報價止跌回穩 記憶體族群反彈', summary: 'DRAM現貨價格連續數週持穩，市場預期報價即將落底，帶動記憶體類股股價反彈...', time: '6小時前', tags: ['DRAM', '記憶體'] },
+      { source: '中央社', title: '央行維持利率不變 關注通膨走勢', summary: '央行理監事會決議維持政策利率不變，但強調將密切關注國內外經濟金融情勢變化...', time: '7小時前', tags: ['央行', '利率'] },
+      { source: 'Yahoo財經', title: '輝達財報超預期 AI概念股全面走揚', summary: '輝達公布財報優於市場預期，帶動全球AI概念股走揚，台股相關族群也跟著受惠...', time: '8小時前', tags: ['輝達', 'AI'] },
+      { source: '聯合報', title: '電動車銷量創新高 零組件廠營收看增', summary: '全球電動車銷量持續攀升，台灣電動車零組件供應商營收有望創新高...', time: '10小時前', tags: ['電動車', '零組件'] }
+    ];
+    
+    function loadCategory(cat) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      renderNews(mockNews);
+    }
+    function searchNews() {
+      const keyword = document.getElementById('searchInput').value.trim();
+      const filtered = keyword ? mockNews.filter(n => n.title.includes(keyword) || n.tags.some(t => t.includes(keyword))) : mockNews;
+      renderNews(filtered);
+    }
+    function renderNews(news) {
+      document.getElementById('content').innerHTML = news.map(n => `
+        <div class="news-item">
+          <div class="source">${n.source}</div>
+          <div class="title">${n.title}</div>
+          <div class="summary">${n.summary}</div>
+          <div class="meta">
+            <span>🕐 ${n.time}</span>
+            ${n.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+          </div>
+        </div>
+      `).join('') || '<div class="loading">找不到相關新聞</div>';
+    }
+    renderNews(mockNews);
+  </script>
+</body>
+</html>

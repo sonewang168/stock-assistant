@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚖️ 個股比較 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; flex-wrap: wrap; gap: 12px; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .search-box { display: flex; gap: 8px; align-items: center; }
+    .search-box input { padding: 10px 14px; border-radius: 8px; border: 1px solid #30363d; background: #0d1117; color: #e6edf3; width: 100px; }
+    .search-box span { color: #8b949e; font-size: 1.2rem; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; background: #238636; color: white; }
+    .btn:hover { background: #2ea043; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    
+    .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    @media (max-width: 768px) { .compare-grid { grid-template-columns: 1fr; } }
+    
+    .stock-card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; overflow: hidden; }
+    .stock-card.a { border-color: #f85149; }
+    .stock-card.b { border-color: #58a6ff; }
+    .stock-header { padding: 16px 20px; text-align: center; }
+    .stock-header.a { background: linear-gradient(135deg, #f8514933, #da363333); }
+    .stock-header.b { background: linear-gradient(135deg, #58a6ff33, #1f6feb33); }
+    .stock-header .name { font-size: 1.3rem; font-weight: 700; }
+    .stock-header .price { font-size: 1.8rem; font-weight: 700; margin: 8px 0; }
+    .stock-header.a .price { color: #f85149; }
+    .stock-header.b .price { color: #58a6ff; }
+    .stock-header .change { font-size: 0.95rem; }
+    
+    .stock-body { padding: 16px 20px; }
+    .stat-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #21262d; }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-row .label { color: #8b949e; }
+    .stat-row .value { font-weight: 600; }
+    
+    .chart-card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 20px; margin-bottom: 20px; }
+    .chart-title { font-size: 1rem; color: #c9d1d9; margin-bottom: 16px; }
+    .chart-container { height: 300px; }
+    .legend { display: flex; justify-content: center; gap: 24px; margin-top: 12px; font-size: 0.85rem; }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+    
+    .compare-table { background: #161b22; border-radius: 12px; border: 1px solid #30363d; overflow: hidden; }
+    .compare-table table { width: 100%; border-collapse: collapse; }
+    .compare-table th, .compare-table td { padding: 12px 16px; text-align: center; border-bottom: 1px solid #21262d; }
+    .compare-table th { background: #21262d; color: #8b949e; font-weight: 600; }
+    .compare-table td:first-child { text-align: left; color: #8b949e; }
+    .compare-table .winner { color: #3fb950; font-weight: 700; }
+    .compare-table .loser { color: #8b949e; }
+    
+    .loading { text-align: center; padding: 60px; color: #8b949e; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #30363d; border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div>
+        <a href="analysis.html" class="back-link">← 返回分析中心</a>
+        <h1>⚖️ 個股比較</h1>
+      </div>
+      <div class="search-box">
+        <input type="text" id="stockA" placeholder="股票A" value="2330">
+        <span>VS</span>
+        <input type="text" id="stockB" placeholder="股票B" value="2454">
+        <button class="btn" onclick="compare()">⚔️ 比較</button>
+      </div>
+    </header>
+
+    <div id="content">
+      <div class="loading"><div class="spinner"></div><p>載入中...</p></div>
+    </div>
+  </div>
+
+  <script>
+    async function compare() {
+      const stockA = document.getElementById('stockA').value.trim();
+      const stockB = document.getElementById('stockB').value.trim();
+      if (!stockA || !stockB) return alert('請輸入兩個股票代碼');
+      
+      document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p>比較分析中...</p></div>';
+      
+      try {
+        const [resA, resB] = await Promise.all([
+          fetch(`/api/line/wave/analyze/${stockA}`),
+          fetch(`/api/line/wave/analyze/${stockB}`)
+        ]);
+        
+        const dataA = await resA.json();
+        const dataB = await resB.json();
+        
+        if (dataA.error) throw new Error(`${stockA}: ${dataA.error}`);
+        if (dataB.error) throw new Error(`${stockB}: ${dataB.error}`);
+        
+        renderComparison(dataA, dataB);
+      } catch (e) {
+        document.getElementById('content').innerHTML = `<div class="chart-card"><p style="color:#f85149;">比較失敗: ${e.message}</p></div>`;
+      }
+    }
+    
+    function calculateMetrics(data) {
+      const prices = data.history.map(h => h.close);
+      const volumes = data.history.map(h => h.volume || 0);
+      
+      // 波動率
+      const returns = [];
+      for (let i = 1; i < prices.length; i++) {
+        returns.push((prices[i] - prices[i-1]) / prices[i-1]);
+      }
+      const volatility = Math.sqrt(returns.map(r => r * r).reduce((a, b) => a + b, 0) / returns.length) * Math.sqrt(252) * 100;
+      
+      // 區間漲跌
+      const periodReturn = ((prices[prices.length-1] - prices[0]) / prices[0] * 100);
+      
+      // 均量
+      const avgVolume = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+      
+      // 最高最低
+      const high = Math.max(...prices);
+      const low = Math.min(...prices);
+      
+      return {
+        volatility: volatility.toFixed(2),
+        periodReturn: periodReturn.toFixed(2),
+        avgVolume: avgVolume,
+        high: high.toFixed(2),
+        low: low.toFixed(2),
+        range: ((high - low) / low * 100).toFixed(2)
+      };
+    }
+    
+    function renderComparison(dataA, dataB) {
+      const metricsA = calculateMetrics(dataA);
+      const metricsB = calculateMetrics(dataB);
+      
+      const isUpA = dataA.changePercent >= 0;
+      const isUpB = dataB.changePercent >= 0;
+      
+      document.getElementById('content').innerHTML = `
+        <div class="compare-grid">
+          <div class="stock-card a">
+            <div class="stock-header a">
+              <div class="name">${dataA.stockName} (${dataA.stockId})</div>
+              <div class="price">$${dataA.currentPrice.toFixed(2)}</div>
+              <div class="change" style="color:${isUpA ? '#f85149' : '#3fb950'};">
+                ${isUpA ? '▲' : '▼'} ${Math.abs(dataA.changePercent).toFixed(2)}%
+              </div>
+            </div>
+            <div class="stock-body">
+              <div class="stat-row"><span class="label">波浪位置</span><span class="value">第 ${dataA.currentWave} 浪</span></div>
+              <div class="stat-row"><span class="label">區間漲跌</span><span class="value" style="color:${metricsA.periodReturn >= 0 ? '#f85149' : '#3fb950'};">${metricsA.periodReturn}%</span></div>
+              <div class="stat-row"><span class="label">波動率</span><span class="value">${metricsA.volatility}%</span></div>
+              <div class="stat-row"><span class="label">區間高點</span><span class="value">$${metricsA.high}</span></div>
+              <div class="stat-row"><span class="label">區間低點</span><span class="value">$${metricsA.low}</span></div>
+              <div class="stat-row"><span class="label">振幅</span><span class="value">${metricsA.range}%</span></div>
+            </div>
+          </div>
+          
+          <div class="stock-card b">
+            <div class="stock-header b">
+              <div class="name">${dataB.stockName} (${dataB.stockId})</div>
+              <div class="price">$${dataB.currentPrice.toFixed(2)}</div>
+              <div class="change" style="color:${isUpB ? '#f85149' : '#3fb950'};">
+                ${isUpB ? '▲' : '▼'} ${Math.abs(dataB.changePercent).toFixed(2)}%
+              </div>
+            </div>
+            <div class="stock-body">
+              <div class="stat-row"><span class="label">波浪位置</span><span class="value">第 ${dataB.currentWave} 浪</span></div>
+              <div class="stat-row"><span class="label">區間漲跌</span><span class="value" style="color:${metricsB.periodReturn >= 0 ? '#f85149' : '#3fb950'};">${metricsB.periodReturn}%</span></div>
+              <div class="stat-row"><span class="label">波動率</span><span class="value">${metricsB.volatility}%</span></div>
+              <div class="stat-row"><span class="label">區間高點</span><span class="value">$${metricsB.high}</span></div>
+              <div class="stat-row"><span class="label">區間低點</span><span class="value">$${metricsB.low}</span></div>
+              <div class="stat-row"><span class="label">振幅</span><span class="value">${metricsB.range}%</span></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="chart-card">
+          <div class="chart-title">📈 走勢比較（標準化）</div>
+          <div class="chart-container"><canvas id="compareChart"></canvas></div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#f85149;"></div>${dataA.stockName}</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#58a6ff;"></div>${dataB.stockName}</div>
+          </div>
+        </div>
+        
+        <div class="compare-table">
+          <table>
+            <thead>
+              <tr>
+                <th>指標</th>
+                <th style="color:#f85149;">${dataA.stockName}</th>
+                <th style="color:#58a6ff;">${dataB.stockName}</th>
+                <th>勝出</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>今日漲跌</td>
+                <td class="${dataA.changePercent > dataB.changePercent ? 'winner' : 'loser'}">${dataA.changePercent.toFixed(2)}%</td>
+                <td class="${dataB.changePercent > dataA.changePercent ? 'winner' : 'loser'}">${dataB.changePercent.toFixed(2)}%</td>
+                <td>${dataA.changePercent > dataB.changePercent ? dataA.stockName : dataB.stockName}</td>
+              </tr>
+              <tr>
+                <td>區間漲跌</td>
+                <td class="${parseFloat(metricsA.periodReturn) > parseFloat(metricsB.periodReturn) ? 'winner' : 'loser'}">${metricsA.periodReturn}%</td>
+                <td class="${parseFloat(metricsB.periodReturn) > parseFloat(metricsA.periodReturn) ? 'winner' : 'loser'}">${metricsB.periodReturn}%</td>
+                <td>${parseFloat(metricsA.periodReturn) > parseFloat(metricsB.periodReturn) ? dataA.stockName : dataB.stockName}</td>
+              </tr>
+              <tr>
+                <td>波動率（低較穩）</td>
+                <td class="${parseFloat(metricsA.volatility) < parseFloat(metricsB.volatility) ? 'winner' : 'loser'}">${metricsA.volatility}%</td>
+                <td class="${parseFloat(metricsB.volatility) < parseFloat(metricsA.volatility) ? 'winner' : 'loser'}">${metricsB.volatility}%</td>
+                <td>${parseFloat(metricsA.volatility) < parseFloat(metricsB.volatility) ? dataA.stockName : dataB.stockName}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+      
+      renderChart(dataA, dataB);
+    }
+    
+    function renderChart(dataA, dataB) {
+      const ctx = document.getElementById('compareChart').getContext('2d');
+      
+      // 標準化：以第一天為 100
+      const normalize = (history) => {
+        const first = history[0].close;
+        return history.map(h => (h.close / first) * 100);
+      };
+      
+      const labelsA = dataA.history.map(h => new Date(h.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'}));
+      const pricesA = normalize(dataA.history);
+      const pricesB = normalize(dataB.history);
+      
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labelsA,
+          datasets: [
+            { data: pricesA, borderColor: '#f85149', borderWidth: 2, pointRadius: 0, tension: 0.3 },
+            { data: pricesB, borderColor: '#58a6ff', borderWidth: 2, pointRadius: 0, tension: 0.3 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 10 } },
+            y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', callback: v => v.toFixed(0) } }
+          }
+        }
+      });
+    }
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('a')) document.getElementById('stockA').value = urlParams.get('a');
+    if (urlParams.get('b')) document.getElementById('stockB').value = urlParams.get('b');
+    compare();
+  </script>
+</body>
+</html>

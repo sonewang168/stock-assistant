@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎤 川普一句話 - 股海秘書</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #f85149; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .quote-card { background: linear-gradient(135deg, #1a1f35, #2d1f3d); border: 2px solid #f85149; border-radius: 16px; padding: 32px; margin-bottom: 24px; text-align: center; }
+    .quote-card .emoji { font-size: 4rem; margin-bottom: 16px; }
+    .quote-card .quote { font-size: 1.5rem; font-style: italic; color: #e6edf3; line-height: 1.6; margin-bottom: 16px; }
+    .quote-card .source { color: #8b949e; font-size: 0.9rem; }
+    .impact-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    .impact-card h3 { color: #d29922; margin-bottom: 12px; }
+    .impact-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #21262d; }
+    .impact-item:last-child { border-bottom: none; }
+    .impact-item .sector { color: #c9d1d9; }
+    .impact-item .effect { font-weight: 600; }
+    .impact-item .effect.positive { color: #f85149; }
+    .impact-item .effect.negative { color: #3fb950; }
+    .history-list { display: flex; flex-direction: column; gap: 12px; }
+    .history-item { background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 16px; }
+    .history-item .date { color: #8b949e; font-size: 0.8rem; }
+    .history-item .text { color: #c9d1d9; margin-top: 8px; font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🎤 川普一句話</h1></div>
+    </header>
+    <div class="quote-card">
+      <div class="emoji">🇺🇸</div>
+      <div class="quote">"We're going to put tariffs on chips coming from Taiwan. They took our chip business from us."</div>
+      <div class="source">— Donald Trump, 2026/01/25</div>
+    </div>
+    <div class="impact-card">
+      <h3>📊 市場影響評估</h3>
+      <div class="impact-item"><span class="sector">🇹🇼 台灣半導體</span><span class="effect negative">⚠️ 短期利空</span></div>
+      <div class="impact-item"><span class="sector">🇺🇸 美國晶片股</span><span class="effect positive">📈 利多</span></div>
+      <div class="impact-item"><span class="sector">📱 科技硬體</span><span class="effect negative">成本上升風險</span></div>
+      <div class="impact-item"><span class="sector">🤖 AI 相關</span><span class="effect">中性觀望</span></div>
+    </div>
+    <div class="impact-card">
+      <h3>📜 歷史發言紀錄</h3>
+      <div class="history-list">
+        <div class="history-item">
+          <div class="date">2026/01/20</div>
+          <div class="text">"China needs to play fair. Big tariffs coming if they don't."</div>
+        </div>
+        <div class="history-item">
+          <div class="date">2026/01/15</div>
+          <div class="text">"The stock market loves me. It's going to be HUGE!"</div>
+        </div>
+        <div class="history-item">
+          <div class="date">2026/01/10</div>
+          <div class="text">"We're bringing manufacturing back to America. More jobs, more winning."</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

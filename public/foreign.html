@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌍 外資動態 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #58a6ff; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .btn { padding: 8px 16px; border-radius: 6px; border: none; background: #21262d; color: #c9d1d9; cursor: pointer; }
+    
+    .summary-bar { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; margin-bottom: 20px; display: flex; justify-content: space-around; flex-wrap: wrap; gap: 16px; }
+    .summary-item { text-align: center; }
+    .summary-item .label { color: #8b949e; font-size: 0.85rem; }
+    .summary-item .value { font-size: 1.5rem; font-weight: 700; margin-top: 4px; }
+    
+    .main-card { background: #161b22; border-radius: 12px; border: 1px solid #30363d; padding: 20px; margin-bottom: 20px; }
+    .card-title { color: #c9d1d9; margin-bottom: 16px; }
+    .chart-container { height: 300px; }
+    
+    .rank-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+    @media (max-width: 768px) { .rank-grid { grid-template-columns: 1fr; } }
+    .rank-card { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+    .rank-card h4 { color: #58a6ff; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .rank-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #21262d; }
+    .rank-item:last-child { border-bottom: none; }
+    .rank-item .stock { color: #c9d1d9; }
+    .rank-item .amount { font-weight: 600; }
+    .rank-item .amount.buy { color: #f85149; }
+    .rank-item .amount.sell { color: #3fb950; }
+    
+    .loading { text-align: center; padding: 40px; color: #8b949e; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🌍 外資動態</h1></div>
+      <button class="btn" onclick="refresh()">🔄 更新</button>
+    </header>
+    
+    <div class="summary-bar">
+      <div class="summary-item">
+        <div class="label">今日外資買賣超</div>
+        <div class="value" style="color:#f85149;">+128.5 億</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">本週累計</div>
+        <div class="value" style="color:#f85149;">+456.2 億</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">本月累計</div>
+        <div class="value" style="color:#3fb950;">-234.8 億</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">期貨淨多單</div>
+        <div class="value" style="color:#f85149;">+18,542 口</div>
+      </div>
+    </div>
+    
+    <div class="main-card">
+      <div class="card-title">📊 近30日外資買賣超</div>
+      <div class="chart-container"><canvas id="foreignChart"></canvas></div>
+    </div>
+    
+    <div class="rank-grid">
+      <div class="rank-card">
+        <h4>🔥 今日買超排行</h4>
+        <div class="rank-item"><span class="stock">2330 台積電</span><span class="amount buy">+15,234 張</span></div>
+        <div class="rank-item"><span class="stock">2454 聯發科</span><span class="amount buy">+8,562 張</span></div>
+        <div class="rank-item"><span class="stock">2317 鴻海</span><span class="amount buy">+6,128 張</span></div>
+        <div class="rank-item"><span class="stock">2881 富邦金</span><span class="amount buy">+4,521 張</span></div>
+        <div class="rank-item"><span class="stock">2882 國泰金</span><span class="amount buy">+3,845 張</span></div>
+      </div>
+      <div class="rank-card">
+        <h4>💨 今日賣超排行</h4>
+        <div class="rank-item"><span class="stock">2603 長榮</span><span class="amount sell">-12,456 張</span></div>
+        <div class="rank-item"><span class="stock">2609 陽明</span><span class="amount sell">-8,234 張</span></div>
+        <div class="rank-item"><span class="stock">2002 中鋼</span><span class="amount sell">-5,678 張</span></div>
+        <div class="rank-item"><span class="stock">2303 聯電</span><span class="amount sell">-4,123 張</span></div>
+        <div class="rank-item"><span class="stock">2615 萬海</span><span class="amount sell">-3,456 張</span></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const data = Array.from({length: 30}, () => (Math.random() - 0.4) * 300);
+    new Chart(document.getElementById('foreignChart'), {
+      type: 'bar',
+      data: {
+        labels: data.map((_, i) => `${30-i}`),
+        datasets: [{ data, backgroundColor: data.map(d => d >= 0 ? '#f8514988' : '#3fb95088') }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } },
+          y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', callback: v => v + '億' } }
+        }
+      }
+    });
+    function refresh() { location.reload(); }
+  </script>
+</body>
+</html>

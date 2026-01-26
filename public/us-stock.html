@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🇺🇸 美股分析 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:'Noto Sans TC',sans-serif}body{background:#0d1117;min-height:100vh;color:#e6edf3}.container{max-width:1200px;margin:0 auto;padding:20px}.header{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;background:#161b22;border-radius:12px;margin-bottom:20px;border:1px solid #30363d}.header h1{font-size:1.4rem;color:#58a6ff}.search-box{display:flex;gap:10px}.search-box input{padding:10px 16px;border-radius:8px;border:1px solid #30363d;background:#0d1117;color:#e6edf3;width:120px}.btn{padding:10px 20px;border-radius:8px;border:none;font-weight:600;cursor:pointer;background:#238636;color:white}.back-link{color:#58a6ff;text-decoration:none;font-size:0.9rem}.stock-header{background:#161b22;border-radius:12px;border:1px solid #30363d;padding:24px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}.stock-main .name{font-size:1.5rem;font-weight:700;color:#c9d1d9}.stock-main .price{font-size:2.2rem;font-weight:700;color:#58a6ff;margin:8px 0}.stock-main .change.up{color:#3fb950}.stock-main .change.down{color:#f85149}.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px}.info-item{text-align:center}.info-item .label{color:#8b949e;font-size:0.8rem}.info-item .value{font-weight:600;margin-top:4px}.main-card{background:#161b22;border-radius:12px;border:1px solid #30363d;padding:20px;margin-bottom:20px}.chart-container{height:300px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🇺🇸 美股分析</h1></div>
+      <div class="search-box"><input type="text" id="symbol" placeholder="股票代碼" value="NVDA"><button class="btn" onclick="analyze()">🔍 查詢</button></div>
+    </header>
+    <div id="content">
+      <div class="stock-header">
+        <div class="stock-main"><div class="name">NVIDIA Corp (NVDA)</div><div class="price">$875.42</div><div class="change up">▲ +3.25% (+$27.52)</div></div>
+        <div class="info-grid">
+          <div class="info-item"><div class="label">開盤</div><div class="value">$852.00</div></div>
+          <div class="info-item"><div class="label">最高</div><div class="value" style="color:#3fb950">$882.50</div></div>
+          <div class="info-item"><div class="label">最低</div><div class="value" style="color:#f85149">$848.30</div></div>
+          <div class="info-item"><div class="label">成交量</div><div class="value">42.5M</div></div>
+          <div class="info-item"><div class="label">市值</div><div class="value">$2.15T</div></div>
+          <div class="info-item"><div class="label">本益比</div><div class="value">65.2</div></div>
+        </div>
+      </div>
+      <div class="main-card"><div class="chart-container"><canvas id="chart"></canvas></div></div>
+    </div>
+  </div>
+  <script>
+    const mockData = Array.from({length:60}, (_,i) => 800 + Math.random() * 100);
+    new Chart(document.getElementById('chart'), {
+      type:'line', data:{labels:mockData.map((_,i)=>i), datasets:[{data:mockData,borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,0.1)',fill:true,tension:0.3,pointRadius:0}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{grid:{color:'#21262d'},ticks:{color:'#8b949e'}}}}
+    });
+    function analyze() { location.href = '?symbol=' + document.getElementById('symbol').value; }
+  </script>
+</body>
+</html>

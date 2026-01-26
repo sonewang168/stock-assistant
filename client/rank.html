@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏆 排行榜 - 股海秘書</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+    body { background: #0d1117; min-height: 100vh; color: #e6edf3; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; background: #161b22; border-radius: 12px; margin-bottom: 20px; border: 1px solid #30363d; }
+    .header h1 { font-size: 1.4rem; color: #d29922; }
+    .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
+    .rank-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+    .rank-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; }
+    .rank-card h3 { color: #d29922; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .rank-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #21262d; }
+    .rank-item:last-child { border-bottom: none; }
+    .rank-item .left { display: flex; align-items: center; gap: 12px; }
+    .rank-item .num { width: 24px; height: 24px; border-radius: 50%; background: #21262d; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 600; }
+    .rank-item .num.gold { background: #d29922; color: #0d1117; }
+    .rank-item .num.silver { background: #8b949e; color: #0d1117; }
+    .rank-item .num.bronze { background: #cd7f32; color: #0d1117; }
+    .rank-item .stock { color: #c9d1d9; }
+    .rank-item .value { font-weight: 600; }
+    .rank-item .value.up { color: #f85149; }
+    .rank-item .value.down { color: #3fb950; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🏆 股票排行榜</h1></div>
+    </header>
+    <div class="rank-grid">
+      <div class="rank-card">
+        <h3>📈 今日漲幅榜</h3>
+        <div class="rank-item"><div class="left"><span class="num gold">1</span><span class="stock">3047 訊舟</span></div><span class="value up">▲ +10.00%</span></div>
+        <div class="rank-item"><div class="left"><span class="num silver">2</span><span class="stock">6770 力積電</span></div><span class="value up">▲ +8.52%</span></div>
+        <div class="rank-item"><div class="left"><span class="num bronze">3</span><span class="stock">3450 聯鈞</span></div><span class="value up">▲ +7.85%</span></div>
+        <div class="rank-item"><div class="left"><span class="num">4</span><span class="stock">2603 長榮</span></div><span class="value up">▲ +6.23%</span></div>
+        <div class="rank-item"><div class="left"><span class="num">5</span><span class="stock">2344 華邦電</span></div><span class="value up">▲ +5.67%</span></div>
+      </div>
+      <div class="rank-card">
+        <h3>📉 今日跌幅榜</h3>
+        <div class="rank-item"><div class="left"><span class="num gold">1</span><span class="stock">6456 GIS-KY</span></div><span class="value down">▼ -9.85%</span></div>
+        <div class="rank-item"><div class="left"><span class="num silver">2</span><span class="stock">3034 聯詠</span></div><span class="value down">▼ -6.52%</span></div>
+        <div class="rank-item"><div class="left"><span class="num bronze">3</span><span class="stock">2609 陽明</span></div><span class="value down">▼ -5.23%</span></div>
+        <div class="rank-item"><div class="left"><span class="num">4</span><span class="stock">2615 萬海</span></div><span class="value down">▼ -4.56%</span></div>
+        <div class="rank-item"><div class="left"><span class="num">5</span><span class="stock">2002 中鋼</span></div><span class="value down">▼ -3.21%</span></div>
+      </div>
+      <div class="rank-card">
+        <h3>🔥 成交量排行</h3>
+        <div class="rank-item"><div class="left"><span class="num gold">1</span><span class="stock">2330 台積電</span></div><span class="value">45,678 張</span></div>
+        <div class="rank-item"><div class="left"><span class="num silver">2</span><span class="stock">2317 鴻海</span></div><span class="value">38,456 張</span></div>
+        <div class="rank-item"><div class="left"><span class="num bronze">3</span><span class="stock">2603 長榮</span></div><span class="value">32,145 張</span></div>
+        <div class="rank-item"><div class="left"><span class="num">4</span><span class="stock">2303 聯電</span></div><span class="value">28,965 張</span></div>
+        <div class="rank-item"><div class="left"><span class="num">5</span><span class="stock">2881 富邦金</span></div><span class="value">25,123 張</span></div>
+      </div>
+      <div class="rank-card">
+        <h3>💰 外資買超排行</h3>
+        <div class="rank-item"><div class="left"><span class="num gold">1</span><span class="stock">2330 台積電</span></div><span class="value up">+15,234 張</span></div>
+        <div class="rank-item"><div class="left"><span class="num silver">2</span><span class="stock">2454 聯發科</span></div><span class="value up">+8,562 張</span></div>
+        <div class="rank-item"><div class="left"><span class="num bronze">3</span><span class="stock">2317 鴻海</span></div><span class="value up">+6,128 張</span></div>
+        <div class="rank-item"><div class="left"><span class="num">4</span><span class="stock">2881 富邦金</span></div><span class="value up">+4,521 張</span></div>
+        <div class="rank-item"><div class="left"><span class="num">5</span><span class="stock">2882 國泰金</span></div><span class="value up">+3,845 張</span></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

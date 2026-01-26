@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📈 績效追蹤 - 股海秘書</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:'Noto Sans TC',sans-serif}body{background:#0d1117;min-height:100vh;color:#e6edf3}.container{max-width:1000px;margin:0 auto;padding:20px}.header{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;background:#161b22;border-radius:12px;margin-bottom:20px;border:1px solid #30363d}.header h1{font-size:1.4rem;color:#58a6ff}.back-link{color:#58a6ff;text-decoration:none;font-size:0.9rem}.summary-card{background:linear-gradient(135deg,#238636,#2ea043);border-radius:16px;padding:32px;text-align:center;margin-bottom:24px}.summary-card .title{color:rgba(255,255,255,0.9)}.summary-card .value{font-size:3rem;font-weight:700;color:white;margin:12px 0}.summary-card .sub{color:rgba(255,255,255,0.8)}.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:20px}.stat-card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px;text-align:center}.stat-card .label{color:#8b949e;font-size:0.85rem}.stat-card .value{font-size:1.5rem;font-weight:700;margin-top:8px}.main-card{background:#161b22;border-radius:12px;border:1px solid #30363d;padding:20px}.chart-container{height:300px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header"><div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>📈 績效追蹤</h1></div></header>
+    <div class="summary-card"><div class="title">總報酬率</div><div class="value">+18.5%</div><div class="sub">總獲利 $185,000</div></div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">投入成本</div><div class="value" style="color:#58a6ff;">$1,000,000</div></div>
+      <div class="stat-card"><div class="label">目前市值</div><div class="value" style="color:#3fb950;">$1,185,000</div></div>
+      <div class="stat-card"><div class="label">已實現獲利</div><div class="value" style="color:#f85149;">$85,000</div></div>
+      <div class="stat-card"><div class="label">未實現獲利</div><div class="value" style="color:#d29922;">$100,000</div></div>
+    </div>
+    <div class="main-card"><div class="chart-container"><canvas id="chart"></canvas></div></div>
+  </div>
+  <script>
+    const data = [1000000,1020000,1050000,1030000,1080000,1120000,1100000,1150000,1140000,1180000,1185000];
+    new Chart(document.getElementById('chart'), {
+      type:'line', data:{labels:data.map((_,i)=>`${i+1}月`), datasets:[{data:data,borderColor:'#3fb950',backgroundColor:'rgba(63,185,80,0.1)',fill:true,tension:0.3,pointRadius:3}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'#21262d'},ticks:{color:'#8b949e'}},y:{grid:{color:'#21262d'},ticks:{color:'#8b949e',callback:v=>'$'+(v/10000)+'萬'}}}}
+    });
+  </script>
+</body>
+</html>
