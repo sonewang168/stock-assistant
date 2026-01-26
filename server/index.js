@@ -58,6 +58,9 @@ app.use('/api/', limiter);
 // 靜態檔案（前端）
 app.use(express.static(path.join(__dirname, '../client')));
 
+// 🆕 波浪分析網頁版（public 資料夾）
+app.use(express.static(path.join(__dirname, '../public')));
+
 // ==================== API 路由 ====================
 
 app.use('/api/stock', stockRoutes);

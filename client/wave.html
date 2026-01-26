@@ -4,8 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🌊 艾略特波浪理論分析 - 股海秘書</title>
+  <!-- Chart.js 和插件 -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
@@ -291,6 +294,85 @@
       border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    
+    /* 🆕 縮放控制按鈕 */
+    .chart-controls {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+      padding: 8px 12px; background: #21262d; border-radius: 8px;
+    }
+    .zoom-btn {
+      padding: 8px 14px; border-radius: 6px; border: 1px solid #30363d;
+      background: #0d1117; color: #c9d1d9; cursor: pointer;
+      font-size: 0.9rem; transition: all 0.2s;
+    }
+    .zoom-btn:hover { background: #30363d; border-color: #58a6ff; }
+    .zoom-btn.theory-btn {
+      margin-left: auto; background: #1f6feb; border-color: #1f6feb; color: white;
+    }
+    .zoom-btn.theory-btn:hover { background: #388bfd; }
+    .chart-hint {
+      color: #8b949e; font-size: 0.75rem; margin-left: 8px;
+    }
+    
+    /* 🆕 波浪理論教學 Modal */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85); display: flex;
+      align-items: center; justify-content: center; z-index: 1000;
+      opacity: 0; visibility: hidden; transition: all 0.3s;
+    }
+    .modal-overlay.show { opacity: 1; visibility: visible; }
+    .modal-content {
+      background: #161b22; border-radius: 16px; border: 1px solid #30363d;
+      max-width: 95vw; max-height: 90vh; overflow-y: auto;
+      padding: 0; position: relative;
+    }
+    .modal-header {
+      position: sticky; top: 0; background: #21262d;
+      padding: 16px 24px; border-bottom: 1px solid #30363d;
+      display: flex; justify-content: space-between; align-items: center;
+      z-index: 10;
+    }
+    .modal-header h2 { font-size: 1.3rem; color: #58a6ff; }
+    .modal-close {
+      background: #da3633; color: white; border: none;
+      width: 36px; height: 36px; border-radius: 50%;
+      font-size: 1.2rem; cursor: pointer; transition: all 0.2s;
+    }
+    .modal-close:hover { background: #f85149; transform: scale(1.1); }
+    .modal-body { padding: 24px; }
+    .modal-body img {
+      width: 100%; max-width: 1000px; height: auto;
+      border-radius: 12px; margin-bottom: 20px;
+    }
+    
+    /* 波浪說明卡片 */
+    .wave-theory-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px; margin-top: 20px;
+    }
+    .wave-theory-card {
+      background: #0d1117; border: 1px solid #30363d; border-radius: 12px;
+      padding: 16px; transition: all 0.2s;
+    }
+    .wave-theory-card:hover { border-color: #58a6ff; transform: translateY(-2px); }
+    .wave-theory-card h3 {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 1rem; margin-bottom: 10px;
+    }
+    .wave-theory-card h3 .wave-num {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.9rem;
+    }
+    .wave-theory-card p { color: #8b949e; font-size: 0.85rem; line-height: 1.6; }
+    .wave-theory-card .keywords {
+      margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .wave-theory-card .keyword {
+      padding: 3px 8px; border-radius: 4px; font-size: 0.7rem;
+      background: rgba(88, 166, 255, 0.15); color: #58a6ff;
+    }
   </style>
 </head>
 <body>
@@ -320,6 +402,14 @@
         <div class="card-body">
           <!-- Chart with Wave Labels -->
           <div class="chart-section">
+            <!-- 🆕 縮放控制按鈕 -->
+            <div class="chart-controls">
+              <button class="zoom-btn" onclick="zoomIn()" title="放大">➕</button>
+              <button class="zoom-btn" onclick="zoomOut()" title="縮小">➖</button>
+              <button class="zoom-btn" onclick="resetZoom()" title="重置">🔄</button>
+              <span class="chart-hint">🖱️ 滾輪縮放 | 拖曳平移</span>
+              <button class="zoom-btn theory-btn" onclick="showTheory()" title="波浪理論教學">📚 波浪理論</button>
+            </div>
             <div class="chart-container"><canvas id="priceChart"></canvas></div>
             <div class="chart-legend">
               <div class="legend-item"><div class="legend-dot" style="background:#238636;"></div>推動浪 (1,3,5)</div>
@@ -560,6 +650,18 @@
       
       try {
         const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        
+        // 檢查回應類型
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error('API 回應非 JSON:', contentType);
+          throw new Error('伺服器回應格式錯誤，請確認 API 是否正確部署');
+        }
+        
+        if (!res.ok) {
+          throw new Error(`HTTP 錯誤: ${res.status}`);
+        }
+        
         const data = await res.json();
         if (data.error) throw new Error(data.error);
         
@@ -569,6 +671,7 @@
         
         renderAnalysis(data);
       } catch (e) {
+        console.error('分析錯誤:', e);
         alert('分析失敗: ' + e.message);
       }
     }
@@ -764,6 +867,9 @@
       const annotations = {};
       const waves = data.waves || [];
       
+      // 🆕 記錄已使用的位置，避免重疊
+      const usedPositions = [];
+      
       // 為每個波浪找到對應的價格位置並標記
       waves.forEach((w, i) => {
         const waveLabel = String(w.wave);
@@ -781,10 +887,20 @@
           }
         }
         
-        // 確保標記不重疊 - 往後找更接近的點
+        // 確保標記不重疊
         if (bestIdx >= 0 && bestIdx < prices.length) {
-          // 微調位置避免重疊
-          const isHigh = [1, 3, 5, 'A', 'C'].includes(w.wave) ? (w.end > w.start) : (w.end < w.start);
+          // 🆕 檢查是否與已有標記重疊，若重疊則微調位置
+          let yAdjust = 0;
+          const isHigh = w.end > w.start;
+          
+          // 檢查重疊
+          for (const pos of usedPositions) {
+            if (Math.abs(pos.x - bestIdx) < 3 && Math.abs(pos.y - w.end) < (Math.max(...prices) - Math.min(...prices)) * 0.05) {
+              yAdjust += isHigh ? -25 : 25;
+            }
+          }
+          
+          usedPositions.push({ x: bestIdx, y: w.end });
           
           annotations['wave_' + i] = {
             type: 'label',
@@ -793,10 +909,12 @@
             content: waveLabel,
             backgroundColor: color,
             color: 'white',
-            font: { size: 12, weight: 'bold' },
-            padding: { top: 4, bottom: 4, left: 7, right: 7 },
-            borderRadius: 12,
-            yAdjust: isHigh ? -15 : 15  // 高點往上移，低點往下移
+            font: { size: 14, weight: 'bold' },  // 🆕 加大字體
+            padding: { top: 5, bottom: 5, left: 9, right: 9 },  // 🆕 加大 padding
+            borderRadius: 14,
+            borderWidth: 2,  // 🆕 加邊框
+            borderColor: 'white',
+            yAdjust: (isHigh ? -20 : 20) + yAdjust  // 高點往上移，低點往下移
           };
         }
       });
@@ -808,7 +926,7 @@
           yMin: data.currentPrice,
           yMax: data.currentPrice,
           borderColor: '#58a6ff',
-          borderWidth: 1,
+          borderWidth: 2,
           borderDash: [5, 5],
           label: {
             display: true,
@@ -816,7 +934,7 @@
             position: 'end',
             backgroundColor: '#58a6ff',
             color: 'white',
-            font: { size: 10 }
+            font: { size: 11, weight: 'bold' }
           }
         };
       }
@@ -832,7 +950,7 @@
             fill: true,
             tension: 0.3,
             pointRadius: 1,
-            pointHoverRadius: 5
+            pointHoverRadius: 6
           }]
         },
         options: {
@@ -840,11 +958,33 @@
           maintainAspectRatio: false,
           plugins: { 
             legend: { display: false },
-            annotation: { annotations }
+            annotation: { annotations },
+            // 🆕 縮放插件設定（簡化版）
+            zoom: {
+              pan: {
+                enabled: true,
+                mode: 'xy'
+              },
+              zoom: {
+                wheel: {
+                  enabled: true
+                },
+                pinch: {
+                  enabled: true
+                },
+                mode: 'xy'
+              }
+            }
           },
           scales: {
-            x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', maxTicksLimit: 15, maxRotation: 45 } },
-            y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e' } }
+            x: { 
+              grid: { color: '#21262d' }, 
+              ticks: { color: '#8b949e', maxTicksLimit: 20, maxRotation: 45 }
+            },
+            y: { 
+              grid: { color: '#21262d' }, 
+              ticks: { color: '#8b949e' }
+            }
           }
         }
       });
@@ -996,6 +1136,247 @@
           </div>
         `).join('');
     }
+    
+    // ========== 🆕 縮放功能 ==========
+    function zoomIn() {
+      if (priceChart) {
+        priceChart.zoom(1.2);
+      }
+    }
+    
+    function zoomOut() {
+      if (priceChart) {
+        priceChart.zoom(0.8);
+      }
+    }
+    
+    function resetZoom() {
+      if (priceChart) {
+        priceChart.resetZoom();
+      }
+    }
+    
+    // ========== 🆕 波浪理論教學 ==========
+    function showTheory() {
+      document.getElementById('theoryModal').classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+    
+    function hideTheory() {
+      document.getElementById('theoryModal').classList.remove('show');
+      document.body.style.overflow = '';
+    }
+    
+    // 點擊背景關閉
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal-overlay')) {
+        hideTheory();
+      }
+    });
+    
+    // ESC 鍵關閉
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        hideTheory();
+      }
+    });
   </script>
+  
+  <!-- 🆕 波浪理論教學 Modal -->
+  <div id="theoryModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📚 艾略特波浪理論教學</h2>
+        <button class="modal-close" onclick="hideTheory()">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- 主圖 -->
+        <div style="text-align: center; margin-bottom: 24px;">
+          <img src="https://i.imgur.com/YourWaveTheoryImage.png" alt="艾略特波浪理論" 
+               onerror="this.style.display='none'" />
+        </div>
+        
+        <!-- 理論說明 -->
+        <div style="background: #0d1117; border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #30363d;">
+          <h3 style="color: #58a6ff; margin-bottom: 12px;">📖 什麼是艾略特波浪理論？</h3>
+          <p style="color: #c9d1d9; line-height: 1.8; font-size: 0.95rem;">
+            艾略特波浪理論由 Ralph Nelson Elliott 在 1930 年代提出，認為市場價格變動遵循一種可預測的自然規律。
+            <br><br>
+            完整的市場循環包含 <strong style="color: #238636;">8 個波浪</strong>：
+            <br>• <strong>推動浪 (1-5)</strong>：順著主要趨勢方向的 5 個波浪
+            <br>• <strong>修正浪 (A-B-C)</strong>：逆著主要趨勢方向的 3 個波浪
+          </p>
+        </div>
+        
+        <!-- 波浪卡片 -->
+        <h3 style="color: #c9d1d9; margin-bottom: 16px;">🌊 各波浪特性</h3>
+        <div class="wave-theory-grid">
+          <!-- 第 1 浪 -->
+          <div class="wave-theory-card">
+            <h3><span class="wave-num" style="background:#238636; color:white;">1</span> 第 1 浪 - 初升段</h3>
+            <p>股票首次出現上漲，通常是因為該支股票的價格很便宜，適合買在很短時間內買了一部分該支股票，進而導致了價格上漲。</p>
+            <div class="keywords">
+              <span class="keyword">便宜買入</span>
+              <span class="keyword">獲利了結</span>
+              <span class="keyword">懷疑階段</span>
+            </div>
+          </div>
+          
+          <!-- 第 2 浪 -->
+          <div class="wave-theory-card">
+            <h3><span class="wave-num" style="background:#1f6feb; color:white;">2</span> 第 2 浪 - 回調段</h3>
+            <p>原來已經持有該支股票的一部分人認為股票價格過高，獲利了結，進而導致了股票價格的下跌。但該支股票並沒有跌到波浪1的最低點。</p>
+            <div class="keywords">
+              <span class="keyword">獲利了結</span>
+              <span class="keyword">不破起點</span>
+              <span class="keyword">回調 38%-62%</span>
+            </div>
+          </div>
+          
+          <!-- 第 3 浪 -->
+          <div class="wave-theory-card">
+            <h3><span class="wave-num" style="background:#238636; color:white;">3</span> 第 3 浪 - 主升段 ⭐</h3>
+            <p>通常是最強勢也是最長的一浪。該支股票吸引了公眾的目光，更多的人開始買入，並開始買入，這導致了股票價格的持續攀升。這一浪的高點突破了波浪1的最高點。</p>
+            <div class="keywords">
+              <span class="keyword" style="background:rgba(35,134,54,0.3); color:#3fb950;">最長波浪</span>
+              <span class="keyword">公眾參與</span>
+              <span class="keyword">量價齊揚</span>
+            </div>
+          </div>
+          
+          <!-- 第 4 浪 -->
+          <div class="wave-theory-card">
+            <h3><span class="wave-num" style="background:#1f6feb; color:white;">4</span> 第 4 浪 - 整理段</h3>
+            <p>一部分人認為股票價格過高，開始獲利了結。這一浪通常不會太強，因為還有更多的人看好該支股票的漲勢。</p>
+            <div class="keywords">
+              <span class="keyword">不重疊第1浪</span>
+              <span class="keyword">整理蓄勢</span>
+              <span class="keyword">回調較淺</span>
+            </div>
+          </div>
+          
+          <!-- 第 5 浪 -->
+          <div class="wave-theory-card">
+            <h3><span class="wave-num" style="background:#238636; color:white;">5</span> 第 5 浪 - 末升段 ⚠️</h3>
+            <p>波浪5通常是市場上絕大多數人關注該支股票的時刻，而且通常較不理性。人們可能會看到該公司的CEO登上各種媒體的封面，成為年度人物。人們會找各種奇怪的理由買入該支股票。</p>
+            <div class="keywords">
+              <span class="keyword" style="background:rgba(210,153,34,0.3); color:#d29922;">嚴重高估</span>
+              <span class="keyword">媒體關注</span>
+              <span class="keyword">準備出場</span>
+            </div>
+          </div>
+          
+          <!-- A 浪 -->
+          <div class="wave-theory-card">
+            <h3><span class="wave-num" style="background:#da3633; color:white;">A</span> A 浪 - 下跌開始</h3>
+            <p>A浪是下跌的開始，但投資者大多認為是上升行情尚未逆轉，僅為一個暫時的回檔現象。實際上，A浪的下跌在第5浪中通常已有警告訊號。</p>
+            <div class="keywords">
+              <span class="keyword" style="background:rgba(218,54,51,0.3); color:#f85149;">下跌開始</span>
+              <span class="keyword">多數未逃</span>
+              <span class="keyword">僥倖心理</span>
+            </div>
+          </div>
+          
+          <!-- B 浪 -->
+          <div class="wave-theory-card">
+            <h3><span class="wave-num" style="background:#d29922; color:white;">B</span> B 浪 - 反彈陷阱</h3>
+            <p>B浪是對A浪的反彈，但是成交量不大，一般而言是多頭的逃命線。由於大多數投資者會以為是另一波段的漲勢，因而B浪形成「多頭陷阱」。</p>
+            <div class="keywords">
+              <span class="keyword" style="background:rgba(210,153,34,0.3); color:#d29922;">多頭陷阱</span>
+              <span class="keyword">逃命線</span>
+              <span class="keyword">量能萎縮</span>
+            </div>
+          </div>
+          
+          <!-- C 浪 -->
+          <div class="wave-theory-card">
+            <h3><span class="wave-num" style="background:#da3633; color:white;">C</span> C 浪 - 主跌段 💀</h3>
+            <p>C浪是一段破壞力較強的下跌，跌幅大、持續時間長，而且出現全面性下跌。投資者在此被困住，最後絕望賣出。</p>
+            <div class="keywords">
+              <span class="keyword" style="background:rgba(218,54,51,0.3); color:#f85149;">全面下跌</span>
+              <span class="keyword">跌幅最大</span>
+              <span class="keyword">絕望出場</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 三大規則 -->
+        <div style="background: #0d1117; border-radius: 12px; padding: 20px; margin-top: 24px; border: 1px solid #30363d;">
+          <h3 style="color: #58a6ff; margin-bottom: 12px;">📋 艾略特三大鐵律</h3>
+          <div style="display: grid; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #161b22; border-radius: 8px;">
+              <span style="background: #238636; color: white; padding: 4px 10px; border-radius: 4px; font-weight: 700;">1</span>
+              <span style="color: #c9d1d9;">第 2 浪的低點<strong style="color: #f85149;">不能跌破</strong>第 1 浪的起點</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #161b22; border-radius: 8px;">
+              <span style="background: #238636; color: white; padding: 4px 10px; border-radius: 4px; font-weight: 700;">2</span>
+              <span style="color: #c9d1d9;">第 3 浪<strong style="color: #f85149;">不能是最短</strong>的推動浪（1、3、5 中）</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #161b22; border-radius: 8px;">
+              <span style="background: #238636; color: white; padding: 4px 10px; border-radius: 4px; font-weight: 700;">3</span>
+              <span style="color: #c9d1d9;">第 4 浪的低點<strong style="color: #f85149;">不能重疊</strong>第 1 浪的價格區間</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 操作建議表 -->
+        <div style="background: #0d1117; border-radius: 12px; padding: 20px; margin-top: 24px; border: 1px solid #30363d;">
+          <h3 style="color: #58a6ff; margin-bottom: 12px;">💡 各波浪操作建議</h3>
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+            <thead>
+              <tr style="border-bottom: 1px solid #30363d;">
+                <th style="padding: 10px; text-align: left; color: #8b949e;">波浪</th>
+                <th style="padding: 10px; text-align: left; color: #8b949e;">建議操作</th>
+                <th style="padding: 10px; text-align: left; color: #8b949e;">風險等級</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom: 1px solid #21262d;">
+                <td style="padding: 10px;"><span style="background:#238636; color:white; padding:2px 8px; border-radius:4px;">1</span></td>
+                <td style="padding: 10px; color: #c9d1d9;">小量試單，設停損於起漲點下方</td>
+                <td style="padding: 10px;"><span style="color:#d29922;">中等</span></td>
+              </tr>
+              <tr style="border-bottom: 1px solid #21262d;">
+                <td style="padding: 10px;"><span style="background:#1f6feb; color:white; padding:2px 8px; border-radius:4px;">2</span></td>
+                <td style="padding: 10px; color: #c9d1d9;">等待回調至 38%-62% 斐波那契位置進場</td>
+                <td style="padding: 10px;"><span style="color:#3fb950;">較低</span></td>
+              </tr>
+              <tr style="border-bottom: 1px solid #21262d;">
+                <td style="padding: 10px;"><span style="background:#238636; color:white; padding:2px 8px; border-radius:4px;">3</span></td>
+                <td style="padding: 10px; color: #c9d1d9;">⭐ 最佳進場點！突破第1浪高點加碼</td>
+                <td style="padding: 10px;"><span style="color:#3fb950;">較低</span></td>
+              </tr>
+              <tr style="border-bottom: 1px solid #21262d;">
+                <td style="padding: 10px;"><span style="background:#1f6feb; color:white; padding:2px 8px; border-radius:4px;">4</span></td>
+                <td style="padding: 10px; color: #c9d1d9;">持有觀望，回調不深可小量加碼</td>
+                <td style="padding: 10px;"><span style="color:#d29922;">中等</span></td>
+              </tr>
+              <tr style="border-bottom: 1px solid #21262d;">
+                <td style="padding: 10px;"><span style="background:#238636; color:white; padding:2px 8px; border-radius:4px;">5</span></td>
+                <td style="padding: 10px; color: #c9d1d9;">⚠️ 準備出場！分批獲利了結</td>
+                <td style="padding: 10px;"><span style="color:#f85149;">較高</span></td>
+              </tr>
+              <tr style="border-bottom: 1px solid #21262d;">
+                <td style="padding: 10px;"><span style="background:#da3633; color:white; padding:2px 8px; border-radius:4px;">A</span></td>
+                <td style="padding: 10px; color: #c9d1d9;">停損出場，不要抄底</td>
+                <td style="padding: 10px;"><span style="color:#f85149;">高</span></td>
+              </tr>
+              <tr style="border-bottom: 1px solid #21262d;">
+                <td style="padding: 10px;"><span style="background:#d29922; color:white; padding:2px 8px; border-radius:4px;">B</span></td>
+                <td style="padding: 10px; color: #c9d1d9;">⚠️ 多頭陷阱！反彈減碼</td>
+                <td style="padding: 10px;"><span style="color:#f85149;">極高</span></td>
+              </tr>
+              <tr>
+                <td style="padding: 10px;"><span style="background:#da3633; color:white; padding:2px 8px; border-radius:4px;">C</span></td>
+                <td style="padding: 10px; color: #c9d1d9;">觀望等待，接近尾聲可留意轉折</td>
+                <td style="padding: 10px;"><span style="color:#f85149;">極高</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+      </div>
+    </div>
+  </div>
 </body>
 </html>

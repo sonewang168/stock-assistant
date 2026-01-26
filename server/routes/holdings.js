@@ -7,15 +7,13 @@ const router = express.Router();
 const { pool } = require('../db');
 const stockService = require('../services/stockService');
 
-/**
- * GET /api/holdings
- * 取得所有持股（含即時價格與損益）
- */
-router.get('/', async (req, res) => {
+// 手續費常數
+const FEE_RATE = 0.001425;
+const TAX_RATE = 0.003;
+
+// 確保資料表存在
+async function ensureTable() {
   try {
-    const userId = req.query.userId || 'default';
-    
-    // 建立資料表（如果不存在）- 加入 lots 和 odd_shares 欄位
     await pool.query(`
       CREATE TABLE IF NOT EXISTS holdings (
         id SERIAL PRIMARY KEY,
@@ -28,6 +26,9 @@ router.get('/', async (req, res) => {
         bid_price DECIMAL(10,2),
         won_price DECIMAL(10,2),
         is_won BOOLEAN DEFAULT false,
+        is_sold BOOLEAN DEFAULT false,
+        sold_price DECIMAL(10,2),
+        sold_date DATE,
         target_price_high DECIMAL(10,2),
         target_price_low DECIMAL(10,2),
         notify_enabled BOOLEAN DEFAULT true,
@@ -39,16 +40,93 @@ router.get('/', async (req, res) => {
     `);
     
     // 嘗試新增欄位（如果不存在）
-    try {
-      await pool.query(`ALTER TABLE holdings ADD COLUMN IF NOT EXISTS lots INTEGER DEFAULT 0`);
-      await pool.query(`ALTER TABLE holdings ADD COLUMN IF NOT EXISTS odd_shares INTEGER DEFAULT 0`);
-    } catch (e) {}
+    const columns = [
+      'ALTER TABLE holdings ADD COLUMN IF NOT EXISTS lots INTEGER DEFAULT 0',
+      'ALTER TABLE holdings ADD COLUMN IF NOT EXISTS odd_shares INTEGER DEFAULT 0',
+      'ALTER TABLE holdings ADD COLUMN IF NOT EXISTS is_sold BOOLEAN DEFAULT false',
+      'ALTER TABLE holdings ADD COLUMN IF NOT EXISTS sold_price DECIMAL(10,2)',
+      'ALTER TABLE holdings ADD COLUMN IF NOT EXISTS sold_date DATE'
+    ];
+    
+    for (const sql of columns) {
+      try { await pool.query(sql); } catch (e) {}
+    }
+  } catch (e) {
+    console.error('建立 holdings 資料表錯誤:', e.message);
+  }
+}
+
+/**
+ * GET /api/holdings/alerts
+ * 取得需要通知的持股（供排程使用）
+ * 注意：這個路由必須在 /:id 前面，否則會被攔截
+ */
+router.get('/alerts', async (req, res) => {
+  try {
+    await ensureTable();
     
     const sql = `
       SELECT * FROM holdings
-      WHERE user_id = $1
-      ORDER BY created_at DESC
+      WHERE notify_enabled = true AND is_won = true AND (is_sold = false OR is_sold IS NULL)
+      AND (target_price_high IS NOT NULL OR target_price_low IS NOT NULL)
     `;
+    
+    const result = await pool.query(sql);
+    const alerts = [];
+    
+    for (const row of result.rows) {
+      try {
+        const stockData = await stockService.getRealtimePrice(row.stock_id);
+        if (stockData) {
+          const currentPrice = stockData.price;
+          
+          if (row.target_price_high && currentPrice >= parseFloat(row.target_price_high)) {
+            alerts.push({
+              ...row,
+              currentPrice,
+              alertType: 'HIGH',
+              message: `📈 ${row.stock_name || row.stock_id} 已達上漲目標價 $${row.target_price_high}！目前 $${currentPrice}`
+            });
+          }
+          
+          if (row.target_price_low && currentPrice <= parseFloat(row.target_price_low)) {
+            alerts.push({
+              ...row,
+              currentPrice,
+              alertType: 'LOW',
+              message: `📉 ${row.stock_name || row.stock_id} 已跌破下跌目標價 $${row.target_price_low}！目前 $${currentPrice}`
+            });
+          }
+        }
+      } catch (e) {
+        console.log(`無法檢查 ${row.stock_id} 警報`);
+      }
+      
+      await new Promise(r => setTimeout(r, 200));
+    }
+    
+    res.json({ alerts });
+  } catch (error) {
+    console.error('檢查持股警報錯誤:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/holdings
+ * 取得所有持股（含即時價格與損益）
+ */
+router.get('/', async (req, res) => {
+  try {
+    await ensureTable();
+    
+    const userId = req.query.userId || 'default';
+    const showSold = req.query.sold === 'true';
+    
+    // 根據參數決定查詢持股中或已賣出
+    const sql = showSold 
+      ? `SELECT * FROM holdings WHERE user_id = $1 AND is_sold = true ORDER BY sold_date DESC, updated_at DESC`
+      : `SELECT * FROM holdings WHERE user_id = $1 AND (is_sold = false OR is_sold IS NULL) ORDER BY created_at DESC`;
     
     const result = await pool.query(sql, [userId]);
     const holdings = [];
@@ -57,43 +135,86 @@ router.get('/', async (req, res) => {
     let totalLots = 0;
     let totalOddShares = 0;
     let wonCount = 0;
+    let totalNetProfit = 0;
     
     for (const row of result.rows) {
-      // 計算張數和零股
       const lots = parseInt(row.lots) || Math.floor((parseInt(row.shares) || 0) / 1000);
       const oddShares = row.odd_shares !== undefined && row.odd_shares !== null 
         ? parseInt(row.odd_shares) 
         : ((parseInt(row.shares) || 0) % 1000);
       const totalShares = lots * 1000 + oddShares;
       
-      // 取得即時價格
       let currentPrice = null;
       let profit = 0;
       let profitPercent = 0;
+      let netProfit = 0;
+      let buyFee = 0;
+      let sellFee = 0;
+      let tax = 0;
       
-      try {
-        const stockData = await stockService.getRealtimePrice(row.stock_id);
-        if (stockData) {
-          currentPrice = stockData.price;
+      const costPrice = parseFloat(row.won_price) || parseFloat(row.bid_price) || 0;
+      
+      if (showSold) {
+        // 已賣出：計算實際損益
+        const soldPrice = parseFloat(row.sold_price) || 0;
+        if (costPrice > 0 && soldPrice > 0 && totalShares > 0) {
+          const cost = costPrice * totalShares;
+          const value = soldPrice * totalShares;
+          profit = value - cost;
+          buyFee = Math.round(cost * FEE_RATE);
+          sellFee = Math.round(value * FEE_RATE);
+          tax = Math.round(value * TAX_RATE);
+          netProfit = profit - buyFee - sellFee - tax;
+          profitPercent = ((netProfit / cost) * 100).toFixed(2);
           
-          // 計算損益（以標得價為成本）
-          const costPrice = parseFloat(row.won_price) || parseFloat(row.bid_price) || 0;
-          
-          if (costPrice > 0 && totalShares > 0 && row.is_won) {
-            const cost = costPrice * totalShares;
-            const value = currentPrice * totalShares;
-            profit = value - cost;
-            profitPercent = ((currentPrice - costPrice) / costPrice * 100).toFixed(2);
-            
-            totalCost += cost;
-            totalValue += value;
-            totalLots += lots;
-            totalOddShares += oddShares;
-            wonCount++;
-          }
+          totalCost += cost;
+          totalNetProfit += netProfit;
+          wonCount++;
         }
-      } catch (e) {
-        console.log(`無法取得 ${row.stock_id} 即時價格`);
+        currentPrice = soldPrice;
+        
+        // 🆕 已賣出也自動補上缺少的股票名稱
+        if (!row.stock_name || row.stock_name === row.stock_id) {
+          try {
+            const stockData = await stockService.getRealtimePrice(row.stock_id);
+            if (stockData && stockData.name && stockData.name !== row.stock_id) {
+              row.stock_name = stockData.name;
+              pool.query('UPDATE holdings SET stock_name = $1 WHERE id = $2', [stockData.name, row.id])
+                .catch(e => console.log('更新股票名稱失敗:', e.message));
+            }
+          } catch (e) {}
+        }
+      } else {
+        // 持股中：取得即時價格
+        try {
+          const stockData = await stockService.getRealtimePrice(row.stock_id);
+          if (stockData) {
+            currentPrice = stockData.price;
+            
+            // 🆕 自動補上缺少的股票名稱
+            if ((!row.stock_name || row.stock_name === row.stock_id) && stockData.name && stockData.name !== row.stock_id) {
+              row.stock_name = stockData.name;
+              // 異步更新資料庫（不等待）
+              pool.query('UPDATE holdings SET stock_name = $1 WHERE id = $2', [stockData.name, row.id])
+                .catch(e => console.log('更新股票名稱失敗:', e.message));
+            }
+            
+            if (costPrice > 0 && totalShares > 0 && row.is_won) {
+              const cost = costPrice * totalShares;
+              const value = currentPrice * totalShares;
+              profit = value - cost;
+              profitPercent = ((currentPrice - costPrice) / costPrice * 100).toFixed(2);
+              
+              totalCost += cost;
+              totalValue += value;
+              totalLots += lots;
+              totalOddShares += oddShares;
+              wonCount++;
+            }
+          }
+        } catch (e) {
+          console.log(`無法取得 ${row.stock_id} 即時價格`);
+        }
       }
       
       holdings.push({
@@ -103,15 +224,23 @@ router.get('/', async (req, res) => {
         totalShares,
         currentPrice,
         profit,
-        profitPercent: parseFloat(profitPercent)
+        profitPercent: parseFloat(profitPercent),
+        netProfit,
+        buyFee,
+        sellFee,
+        tax
       });
       
-      // 避免太快打 API
       await new Promise(r => setTimeout(r, 200));
     }
     
     // 統計資料
-    const stats = {
+    const stats = showSold ? {
+      count: wonCount,
+      totalCost,
+      totalNetProfit,
+      totalProfitPercent: totalCost > 0 ? ((totalNetProfit / totalCost) * 100).toFixed(2) : 0
+    } : {
       count: wonCount,
       totalLots,
       totalOddShares,
@@ -137,6 +266,8 @@ router.get('/', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
+    await ensureTable();
+    
     const {
       stock_id,
       lots = 0,
@@ -156,12 +287,10 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: '請輸入股票代碼' });
     }
     
-    // 計算總股數
     const totalShares = (parseInt(lots) || 0) * 1000 + (parseInt(odd_shares) || 0) || parseInt(shares) || 0;
     const finalLots = parseInt(lots) || Math.floor(totalShares / 1000);
     const finalOddShares = odd_shares !== undefined ? parseInt(odd_shares) : (totalShares % 1000);
     
-    // 嘗試取得股票名稱
     let stockName = stock_id;
     try {
       const stockData = await stockService.getRealtimePrice(stock_id);
@@ -210,18 +339,24 @@ router.put('/:id', async (req, res) => {
       bid_price,
       won_price,
       is_won,
+      is_sold,
+      sold_price,
       target_price_high,
       target_price_low,
       notify_enabled,
       notes
     } = req.body;
     
-    // 計算總股數
     let totalShares = shares;
     if (lots !== undefined || odd_shares !== undefined) {
       const l = parseInt(lots) || 0;
       const o = parseInt(odd_shares) || 0;
       totalShares = l * 1000 + o;
+    }
+    
+    let soldDate = null;
+    if (is_sold === true && sold_price) {
+      soldDate = new Date().toISOString().split('T')[0];
     }
     
     const sql = `
@@ -232,17 +367,21 @@ router.put('/:id', async (req, res) => {
         bid_price = COALESCE($4, bid_price),
         won_price = COALESCE($5, won_price),
         is_won = COALESCE($6, is_won),
-        target_price_high = COALESCE($7, target_price_high),
-        target_price_low = COALESCE($8, target_price_low),
-        notify_enabled = COALESCE($9, notify_enabled),
-        notes = COALESCE($10, notes),
+        is_sold = COALESCE($7, is_sold),
+        sold_price = COALESCE($8, sold_price),
+        sold_date = COALESCE($9, sold_date),
+        target_price_high = COALESCE($10, target_price_high),
+        target_price_low = COALESCE($11, target_price_low),
+        notify_enabled = COALESCE($12, notify_enabled),
+        notes = COALESCE($13, notes),
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $11
+      WHERE id = $14
       RETURNING *
     `;
     
     const result = await pool.query(sql, [
       lots, odd_shares, totalShares, bid_price, won_price, is_won,
+      is_sold, sold_price, soldDate,
       target_price_high, target_price_low, notify_enabled, notes, id
     ]);
     
@@ -275,60 +414,6 @@ router.delete('/:id', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('刪除持股錯誤:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * GET /api/holdings/alerts
- * 取得需要通知的持股（供排程使用）
- */
-router.get('/alerts', async (req, res) => {
-  try {
-    const sql = `
-      SELECT * FROM holdings
-      WHERE notify_enabled = true AND is_won = true
-      AND (target_price_high IS NOT NULL OR target_price_low IS NOT NULL)
-    `;
-    
-    const result = await pool.query(sql);
-    const alerts = [];
-    
-    for (const row of result.rows) {
-      try {
-        const stockData = await stockService.getRealtimePrice(row.stock_id);
-        if (stockData) {
-          const currentPrice = stockData.price;
-          
-          // 檢查是否觸發目標價
-          if (row.target_price_high && currentPrice >= parseFloat(row.target_price_high)) {
-            alerts.push({
-              ...row,
-              currentPrice,
-              alertType: 'HIGH',
-              message: `📈 ${row.stock_name || row.stock_id} 已達上漲目標價 $${row.target_price_high}！目前 $${currentPrice}`
-            });
-          }
-          
-          if (row.target_price_low && currentPrice <= parseFloat(row.target_price_low)) {
-            alerts.push({
-              ...row,
-              currentPrice,
-              alertType: 'LOW',
-              message: `📉 ${row.stock_name || row.stock_id} 已跌破下跌目標價 $${row.target_price_low}！目前 $${currentPrice}`
-            });
-          }
-        }
-      } catch (e) {
-        console.log(`無法檢查 ${row.stock_id} 警報`);
-      }
-      
-      await new Promise(r => setTimeout(r, 200));
-    }
-    
-    res.json({ alerts });
-  } catch (error) {
-    console.error('檢查持股警報錯誤:', error);
     res.status(500).json({ error: error.message });
   }
 });

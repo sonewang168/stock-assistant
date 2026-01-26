@@ -5,6 +5,14 @@
 const axios = require('axios');
 const { pool } = require('../db');
 
+// 載入股票代碼對照表
+let twStocks = null;
+try {
+  twStocks = require('../data/twStocks');
+} catch (e) {
+  console.log('⚠️ 未載入股票對照表，將使用預設查詢順序');
+}
+
 class StockService {
   
   /**
@@ -25,22 +33,232 @@ class StockService {
         return await this.getUSStockPrice(stockId.toUpperCase());
       }
       
-      // 台股：先嘗試上市
-      let data = await this.fetchTWSE(stockId);
+      // 判斷是否為盤後時段（台灣時間 13:35 ~ 隔日 08:55）
+      const now = new Date();
+      const twHour = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Taipei', hour: '2-digit', hour12: false }));
+      const twMinute = parseInt(now.toLocaleString('en-US', { timeZone: 'Asia/Taipei', minute: '2-digit' }));
+      const isAfterMarket = (twHour > 13 || (twHour === 13 && twMinute >= 35)) || twHour < 9;
       
-      // 如果失敗，嘗試上櫃
-      if (!data) {
-        data = await this.fetchOTC(stockId);
+      console.log(`⏰ ${stockId} 台灣時間: ${twHour}:${twMinute}, 盤後: ${isAfterMarket}`);
+      
+      // 🆕 盤後時段：優先用 Yahoo Finance（更穩定）
+      if (isAfterMarket) {
+        console.log(`📊 ${stockId} 盤後時段，優先使用 Yahoo Finance`);
+        const closingData = await this.fetchClosingPrice(stockId);
+        if (closingData && closingData.price > 0) {
+          // 取得基本資料（名稱等）- 使用對照表優化
+          let baseData = null;
+          const stockInfo = twStocks ? twStocks.getStockInfo(stockId) : null;
+          
+          if (stockInfo && stockInfo.market === 'OTC') {
+            baseData = await this.fetchOTC(stockId);
+            if (!baseData) baseData = await this.fetchTWSE(stockId);
+          } else {
+            baseData = await this.fetchTWSE(stockId);
+            if (!baseData) baseData = await this.fetchOTC(stockId);
+          }
+          
+          if (baseData) {
+            baseData.price = closingData.price;
+            baseData.change = closingData.change || (closingData.price - baseData.yesterday);
+            baseData.changePercent = baseData.yesterday ? 
+              ((baseData.change / baseData.yesterday) * 100).toFixed(2) : 0;
+            baseData.colorMode = 'tw';
+            // 補上名稱
+            if (stockInfo && stockInfo.name) baseData.name = stockInfo.name;
+            console.log(`✅ ${stockId} Yahoo 收盤價: ${closingData.price}`);
+            return baseData;
+          }
+        }
+      }
+      
+      // 盤中或 Yahoo 失敗：使用 TWSE/OTC 即時報價
+      // 使用對照表優化查詢順序
+      let data = null;
+      const stockInfo = twStocks ? twStocks.getStockInfo(stockId) : null;
+      
+      if (stockInfo) {
+        // 有對照表資料，直接查對應市場
+        if (stockInfo.market === 'OTC') {
+          console.log(`📋 ${stockId} (${stockInfo.name}) 為上櫃股票`);
+          data = await this.fetchOTC(stockId);
+        } else {
+          console.log(`📋 ${stockId} (${stockInfo.name}) 為上市股票`);
+          data = await this.fetchTWSE(stockId);
+        }
+        // 如果查詢失敗，試試另一個市場
+        if (!data) {
+          data = stockInfo.market === 'OTC' ? await this.fetchTWSE(stockId) : await this.fetchOTC(stockId);
+        }
+        // 補上名稱
+        if (data && !data.name) {
+          data.name = stockInfo.name;
+        }
+      } else {
+        // 沒有對照表，依序嘗試
+        data = await this.fetchTWSE(stockId);
+        if (!data) {
+          data = await this.fetchOTC(stockId);
+        }
+      }
+      
+      // 備援：如果即時價等於昨收，再試一次 Yahoo
+      if (data && data.price === data.yesterday) {
+        console.log(`⚠️ ${stockId} 即時價等於昨收，嘗試 Yahoo...`);
+        const closingData = await this.fetchClosingPrice(stockId);
+        if (closingData && closingData.price > 0 && closingData.price !== data.yesterday) {
+          data.price = closingData.price;
+          data.change = closingData.change || (data.price - data.yesterday);
+          data.changePercent = ((data.change / data.yesterday) * 100).toFixed(2);
+        }
       }
       
       if (data) {
         data = this.calculateChange(data);
-        data.colorMode = 'tw'; // 台灣：紅漲綠跌
+        data.colorMode = 'tw';
       }
       
       return data;
     } catch (error) {
       console.error(`取得 ${stockId} 股價失敗:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * 🆕 抓取今日收盤價（盤後使用）
+   */
+  async fetchClosingPrice(stockId) {
+    try {
+      // 方法1: Yahoo Finance 台股
+      const yahooData = await this.fetchTWStockFromYahoo(stockId);
+      if (yahooData && yahooData.price > 0) {
+        return yahooData;
+      }
+      
+      // 方法2: Google Finance
+      const googleData = await this.fetchTWStockFromGoogle(stockId);
+      if (googleData && googleData.price > 0) {
+        return googleData;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`抓取 ${stockId} 收盤價失敗:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * 🆕 從 Yahoo Finance 抓取台股
+   */
+  async fetchTWStockFromYahoo(stockId) {
+    try {
+      const symbol = `${stockId}.TW`;
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
+      
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json'
+        },
+        timeout: 10000
+      });
+
+      const result = response.data?.chart?.result?.[0];
+      if (!result) {
+        // 嘗試上櫃 .TWO
+        return await this.fetchTWStockFromYahooOTC(stockId);
+      }
+
+      const meta = result.meta;
+      const price = meta.regularMarketPrice || 0;
+      const previousClose = meta.previousClose || meta.chartPreviousClose || 0;
+      const change = price - previousClose;
+
+      console.log(`📊 Yahoo TW ${stockId}: ${price}`);
+      
+      return {
+        price: parseFloat(price.toFixed(2)),
+        change: parseFloat(change.toFixed(2)),
+        previousClose
+      };
+    } catch (error) {
+      // 嘗試上櫃
+      return await this.fetchTWStockFromYahooOTC(stockId);
+    }
+  }
+
+  /**
+   * 🆕 從 Yahoo Finance 抓取台股上櫃
+   */
+  async fetchTWStockFromYahooOTC(stockId) {
+    try {
+      const symbol = `${stockId}.TWO`;
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
+      
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json'
+        },
+        timeout: 10000
+      });
+
+      const result = response.data?.chart?.result?.[0];
+      if (!result) return null;
+
+      const meta = result.meta;
+      const price = meta.regularMarketPrice || 0;
+      const previousClose = meta.previousClose || meta.chartPreviousClose || 0;
+      const change = price - previousClose;
+
+      console.log(`📊 Yahoo TWO ${stockId}: ${price}`);
+      
+      return {
+        price: parseFloat(price.toFixed(2)),
+        change: parseFloat(change.toFixed(2)),
+        previousClose
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * 🆕 從 Google Finance 抓取台股
+   */
+  async fetchTWStockFromGoogle(stockId) {
+    try {
+      const url = `https://www.google.com/finance/quote/${stockId}:TPE`;
+      
+      const response = await axios.get(url, {
+        headers: { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'text/html'
+        },
+        timeout: 10000
+      });
+
+      const html = response.data;
+      
+      // 解析價格
+      const priceMatch = html.match(/data-last-price="([0-9,.]+)"/);
+      const changeMatch = html.match(/data-price-change="([0-9,.-]+)"/);
+      
+      if (priceMatch) {
+        const price = parseFloat(priceMatch[1].replace(/,/g, ''));
+        const change = changeMatch ? parseFloat(changeMatch[1].replace(/,/g, '')) : 0;
+
+        console.log(`📊 Google TW ${stockId}: ${price}`);
+        
+        return {
+          price: parseFloat(price.toFixed(2)),
+          change: parseFloat(change.toFixed(2))
+        };
+      }
+      return null;
+    } catch (error) {
       return null;
     }
   }
@@ -625,19 +843,28 @@ class StockService {
    */
   async fetchTWSE(stockId) {
     try {
-      const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_${stockId}.tw`;
+      // 加入時間戳記避免快取
+      const timestamp = Date.now();
+      const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_${stockId}.tw&_=${timestamp}`;
       const response = await axios.get(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
+        headers: { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Cache-Control': 'no-cache, no-store',
+          'Pragma': 'no-cache'
+        },
         timeout: 10000
       });
 
       const data = response.data;
       if (data.msgArray && data.msgArray.length > 0) {
         const stock = data.msgArray[0];
+        // stock.z 是即時價，如果是 '-' 表示尚未成交，用昨收
+        const currentPrice = (stock.z && stock.z !== '-') ? parseFloat(stock.z) : parseFloat(stock.y) || 0;
+        console.log(`📈 TWSE ${stockId}: 即時價=${stock.z}, 昨收=${stock.y}, 使用=${currentPrice}, 時間=${stock.t}`);
         return {
           id: stockId,
           name: stock.n || stockId,
-          price: parseFloat(stock.z) || parseFloat(stock.y) || 0,
+          price: currentPrice,
           open: parseFloat(stock.o) || 0,
           high: parseFloat(stock.h) || 0,
           low: parseFloat(stock.l) || 0,
@@ -649,6 +876,7 @@ class StockService {
       }
       return null;
     } catch (error) {
+      console.error(`TWSE ${stockId} 錯誤:`, error.message);
       return null;
     }
   }
@@ -658,19 +886,28 @@ class StockService {
    */
   async fetchOTC(stockId) {
     try {
-      const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=otc_${stockId}.tw`;
+      // 加入時間戳記避免快取
+      const timestamp = Date.now();
+      const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=otc_${stockId}.tw&_=${timestamp}`;
       const response = await axios.get(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
+        headers: { 
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Cache-Control': 'no-cache, no-store',
+          'Pragma': 'no-cache'
+        },
         timeout: 10000
       });
 
       const data = response.data;
       if (data.msgArray && data.msgArray.length > 0) {
         const stock = data.msgArray[0];
+        // stock.z 是即時價，如果是 '-' 表示尚未成交，用昨收
+        const currentPrice = (stock.z && stock.z !== '-') ? parseFloat(stock.z) : parseFloat(stock.y) || 0;
+        console.log(`📈 OTC ${stockId}: 即時價=${stock.z}, 昨收=${stock.y}, 使用=${currentPrice}, 時間=${stock.t}`);
         return {
           id: stockId,
           name: stock.n || stockId,
-          price: parseFloat(stock.z) || parseFloat(stock.y) || 0,
+          price: currentPrice,
           open: parseFloat(stock.o) || 0,
           high: parseFloat(stock.h) || 0,
           low: parseFloat(stock.l) || 0,
@@ -682,6 +919,7 @@ class StockService {
       }
       return null;
     } catch (error) {
+      console.error(`OTC ${stockId} 錯誤:`, error.message);
       return null;
     }
   }
@@ -858,6 +1096,53 @@ class StockService {
 
     const result = await pool.query(sql, [stockId, days]);
     return result.rows;
+  }
+
+  /**
+   * 取得排行榜資料
+   */
+  async getRanking(type = 'up') {
+    try {
+      // 使用熱門股票作為基礎
+      const hotStocks = [
+        '2330', '2317', '2454', '2308', '2382', '3231', '2303', '2412',
+        '2881', '2882', '2891', '2886', '2884', '2603', '2609', '2615',
+        '3034', '2379', '2357', '2376', '2377', '3661', '3443', '6669'
+      ];
+      
+      const results = [];
+      
+      for (const stockId of hotStocks.slice(0, 15)) {
+        try {
+          const data = await this.getRealtimePrice(stockId);
+          if (data && data.price > 0) {
+            results.push({
+              id: stockId,
+              name: data.name || stockId,
+              price: data.price,
+              change: data.change || 0,
+              changePercent: parseFloat(data.changePercent) || 0,
+              volume: data.volume || 0
+            });
+          }
+          await this.sleep(200);
+        } catch (e) {}
+      }
+      
+      // 根據類型排序
+      if (type === 'up') {
+        results.sort((a, b) => b.changePercent - a.changePercent);
+      } else if (type === 'down') {
+        results.sort((a, b) => a.changePercent - b.changePercent);
+      } else if (type === 'volume') {
+        results.sort((a, b) => b.volume - a.volume);
+      }
+      
+      return results.slice(0, 10);
+    } catch (error) {
+      console.error('取得排行榜錯誤:', error.message);
+      return [];
+    }
   }
 
   sleep(ms) {
