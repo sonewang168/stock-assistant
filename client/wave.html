@@ -528,7 +528,7 @@
               <button class="budget-btn" onclick="setBudget(100)">100萬</button>
               <button class="budget-btn" onclick="setBudget(200)">200萬</button>
             </div>
-            <button class="btn btn-primary" onclick="renderPortfolio()" style="margin-left: auto;">🔄 重新計算</button>
+            <button class="btn btn-primary" onclick="refreshAllWaves()" style="margin-left: auto;">🔄 重新計算</button>
           </div>
           
           <!-- Summary -->
@@ -598,15 +598,13 @@
     let currentPivots = [];
     let currentHistory = [];
     
-    // 投資組合
+    // 投資組合（預設值，會在頁面載入時更新波浪）
     let portfolio = [
-      { id: '2330', name: '台積電', sector: '半導體', percent: 25, wave: 3, reason: '主升段，技術領先' },
-      { id: '2454', name: '聯發科', sector: 'IC設計', percent: 12, wave: 2, reason: '回調進場點' },
-      { id: '2881', name: '富邦金', sector: '金融', percent: 10, wave: 1, reason: '初升段' },
-      { id: '0050', name: '元大台灣50', sector: 'ETF', percent: 20, wave: 3, reason: '分散風險' },
-      { id: '00878', name: '國泰永續高股息', sector: 'ETF', percent: 15, wave: 4, reason: '穩定配息' },
-      { id: '2344', name: '華邦電', sector: '記憶體', percent: 10, wave: 2, reason: '景氣循環' },
-      { id: 'CASH', name: '現金保留', sector: '現金', percent: 8, wave: '-', reason: '等待時機' }
+      { id: '2344', name: '華邦電', sector: '記憶體', percent: 40, wave: '?', reason: '景氣循環' },
+      { id: 'CASH', name: '現金保留', sector: '現金', percent: 5, wave: '-', reason: '等待時機' },
+      { id: '6770', name: '力積電', sector: '記憶體', percent: 45, wave: '?', reason: '套利' },
+      { id: '3059', name: '華晶科', sector: '機器人', percent: 5, wave: '?', reason: '套利' },
+      { id: '2313', name: '華通', sector: '低軌衛星', percent: 5, wave: '?', reason: '套利' }
     ];
     
     // 波浪說明
@@ -629,11 +627,30 @@
       'B': '#d29922'                                     // 反彈浪=橘
     };
     
-    window.onload = function() {
+    window.onload = async function() {
       const urlParams = new URLSearchParams(window.location.search);
       document.getElementById('stockInput').value = urlParams.get('stock') || '2330';
       analyzeStock();
       renderPortfolio();
+      
+      // 🆕 自動刷新投資組合的波浪（背景執行）
+      setTimeout(async () => {
+        for (let i = 0; i < portfolio.length; i++) {
+          const s = portfolio[i];
+          if (s.id === 'CASH' || s.wave !== '?') continue;
+          try {
+            const res = await fetch(`/api/line/wave/analyze/${s.id}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.currentWave && !data.error) {
+                portfolio[i].wave = data.currentWave;
+                renderPortfolio();
+              }
+            }
+          } catch (e) {}
+          await new Promise(r => setTimeout(r, 500));
+        }
+      }, 2000);
     };
     
     function showTab(tab) {
@@ -998,6 +1015,37 @@
     
     // ========== 投資組合 ==========
     
+    // 🆕 重新獲取所有股票的波浪分析
+    async function refreshAllWaves() {
+      const btn = event.target;
+      btn.disabled = true;
+      btn.textContent = '⏳ 分析中...';
+      
+      for (let i = 0; i < portfolio.length; i++) {
+        const s = portfolio[i];
+        if (s.id === 'CASH') continue;
+        
+        try {
+          const res = await fetch(`/api/line/wave/analyze/${s.id}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.currentWave && !data.error) {
+              portfolio[i].wave = data.currentWave;
+            }
+          }
+        } catch (e) {
+          console.log(`${s.id} 波浪分析失敗:`, e);
+        }
+        
+        // 避免 API 過載
+        await new Promise(r => setTimeout(r, 300));
+      }
+      
+      btn.disabled = false;
+      btn.textContent = '🔄 重新計算';
+      renderPortfolio();
+    }
+    
     function setBudget(val) {
       document.getElementById('budgetInput').value = val;
       document.querySelectorAll('.budget-btn').forEach(b => b.classList.remove('active'));
@@ -1054,7 +1102,7 @@
       }
     }
     
-    function addStock() {
+    async function addStock() {
       const id = document.getElementById('newId').value.trim();
       const name = document.getElementById('newName').value.trim();
       const sector = document.getElementById('newSector').value.trim() || '其他';
@@ -1064,7 +1112,21 @@
       if (!id || !name) return alert('請輸入代碼和名稱');
       if (portfolio.find(s => s.id === id)) return alert('此股票已存在');
       
-      portfolio.push({ id, name, sector, percent, wave: '?', reason });
+      // 🆕 自動獲取波浪分析
+      let wave = '?';
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.currentWave && !data.error) {
+            wave = data.currentWave;
+          }
+        }
+      } catch (e) {
+        console.log('波浪分析失敗:', e);
+      }
+      
+      portfolio.push({ id, name, sector, percent, wave, reason });
       ['newId', 'newName', 'newSector', 'newReason'].forEach(x => document.getElementById(x).value = '');
       document.getElementById('newPercent').value = '5';
       renderPortfolio();
