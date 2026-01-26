@@ -33,6 +33,7 @@
     .loading { text-align: center; padding: 40px; color: #8b949e; }
     .spinner { width: 30px; height: 30px; border: 3px solid #30363d; border-top-color: #f85149; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .status { text-align: center; padding: 10px; color: #8b949e; font-size: 0.85rem; }
   </style>
 </head>
 <body>
@@ -46,24 +47,13 @@
       <div class="tab" data-type="up">漲幅榜</div>
       <div class="tab" data-type="down">跌幅榜</div>
     </div>
+    <div id="status" class="status"></div>
     <div id="stockList" class="stock-list">
       <div class="loading"><div class="spinner"></div><p>載入中...</p></div>
     </div>
   </div>
   <script>
-    const hotStocks = [
-      { id: '2330', name: '台積電' },
-      { id: '2317', name: '鴻海' },
-      { id: '2454', name: '聯發科' },
-      { id: '2603', name: '長榮' },
-      { id: '2881', name: '富邦金' },
-      { id: '2303', name: '聯電' },
-      { id: '2882', name: '國泰金' },
-      { id: '2412', name: '中華電' },
-      { id: '2891', name: '中信金' },
-      { id: '3711', name: '日月光投控' }
-    ];
-    
+    const hotStocks = ['2330', '2317', '2454', '2603', '2881', '2303', '2882', '2412', '2891', '3711'];
     let currentType = 'volume';
     let stockData = [];
     
@@ -76,27 +66,34 @@
       });
     });
     
+    async function fetchStock(id) {
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${id}`);
+        const data = await res.json();
+        if (!data.error) {
+          return {
+            id,
+            name: data.stockName,
+            price: data.currentPrice,
+            change: data.changePercent,
+            volume: data.history?.[data.history.length - 1]?.volume || 0
+          };
+        }
+      } catch (e) {}
+      return null;
+    }
+    
     async function loadData() {
       document.getElementById('stockList').innerHTML = '<div class="loading"><div class="spinner"></div><p>載入中...</p></div>';
-      stockData = [];
+      document.getElementById('status').textContent = '⏳ 載入中...';
       
-      for (const stock of hotStocks) {
-        try {
-          const res = await fetch(`/api/line/wave/analyze/${stock.id}`);
-          const data = await res.json();
-          if (!data.error) {
-            stockData.push({
-              id: stock.id,
-              name: data.stockName || stock.name,
-              price: data.currentPrice,
-              change: data.changePercent,
-              volume: data.history?.[data.history.length - 1]?.volume || 0
-            });
-          }
-        } catch (e) {
-          console.log(`載入 ${stock.id} 失敗`);
-        }
-      }
+      // 並行載入
+      const results = await Promise.all(hotStocks.map(id => fetchStock(id)));
+      stockData = results.filter(r => r !== null);
+      
+      document.getElementById('status').textContent = `✅ 已載入 ${stockData.length} 檔股票`;
+      setTimeout(() => { document.getElementById('status').textContent = ''; }, 3000);
+      
       renderList();
     }
     

@@ -13,6 +13,7 @@
     .header h1 { font-size: 1.4rem; color: #d29922; }
     .back-link { color: #58a6ff; text-decoration: none; font-size: 0.9rem; }
     .btn { padding: 8px 16px; border-radius: 6px; border: none; background: #21262d; color: #c9d1d9; cursor: pointer; }
+    .btn:hover { background: #30363d; }
     .rank-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
     .rank-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; }
     .rank-card h3 { color: #d29922; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
@@ -31,6 +32,7 @@
     .loading { text-align: center; padding: 20px; color: #8b949e; }
     .spinner { width: 24px; height: 24px; border: 2px solid #30363d; border-top-color: #d29922; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .status { text-align: center; padding: 10px; color: #8b949e; font-size: 0.85rem; }
   </style>
 </head>
 <body>
@@ -39,6 +41,7 @@
       <div><a href="analysis.html" class="back-link">← 返回分析中心</a><h1>🏆 股票排行榜</h1></div>
       <button class="btn" onclick="loadAllData()">🔄 更新</button>
     </header>
+    <div id="status" class="status"></div>
     <div class="rank-grid">
       <div class="rank-card">
         <h3>📈 今日漲幅榜</h3>
@@ -59,48 +62,59 @@
     </div>
   </div>
   <script>
-    const stocks = [
-      '2330', '2317', '2454', '2603', '2881', '2303', '2882', '2412', '2891', '3711',
-      '2002', '2609', '2615', '3034', '2344', '6770', '3059', '2313', '2308', '2357'
-    ];
-    
+    // 精選股票清單（減少數量加快載入）
+    const stocks = ['2330', '2317', '2454', '2881', '2882', '2303', '2891', '2412', '3711', '2603'];
     let stockData = [];
     
+    async function fetchStock(id) {
+      try {
+        const res = await fetch(`/api/line/wave/analyze/${id}`);
+        const data = await res.json();
+        if (!data.error) {
+          return {
+            id,
+            name: data.stockName,
+            price: data.currentPrice,
+            change: data.changePercent,
+            volume: data.history?.[data.history.length - 1]?.volume || 0,
+            foreign: Math.floor((Math.random() - 0.3) * 20000)
+          };
+        }
+      } catch (e) {}
+      return null;
+    }
+    
     async function loadAllData() {
+      document.getElementById('status').textContent = '⏳ 載入中...';
       ['upList', 'downList', 'volumeList', 'foreignList'].forEach(id => {
         document.getElementById(id).innerHTML = '<div class="loading"><div class="spinner"></div>載入中...</div>';
       });
       
-      stockData = [];
+      // 並行載入所有股票
+      const results = await Promise.all(stocks.map(id => fetchStock(id)));
+      stockData = results.filter(r => r !== null);
       
-      for (const id of stocks) {
-        try {
-          const res = await fetch(`/api/line/wave/analyze/${id}`);
-          const data = await res.json();
-          if (!data.error) {
-            stockData.push({
-              id,
-              name: data.stockName,
-              price: data.currentPrice,
-              change: data.changePercent,
-              volume: data.history?.[data.history.length - 1]?.volume || 0,
-              foreign: Math.floor((Math.random() - 0.3) * 20000)
-            });
-          }
-        } catch (e) {}
-      }
+      document.getElementById('status').textContent = `✅ 已載入 ${stockData.length} 檔股票`;
+      setTimeout(() => { document.getElementById('status').textContent = ''; }, 3000);
       
       renderRanks();
     }
     
     function renderRanks() {
+      if (stockData.length === 0) {
+        ['upList', 'downList', 'volumeList', 'foreignList'].forEach(id => {
+          document.getElementById(id).innerHTML = '<div class="loading">暫無資料</div>';
+        });
+        return;
+      }
+      
       // 漲幅榜
       const upSorted = [...stockData].sort((a, b) => b.change - a.change).slice(0, 5);
-      document.getElementById('upList').innerHTML = upSorted.map((s, i) => renderItem(s, i, 'up')).join('');
+      document.getElementById('upList').innerHTML = upSorted.map((s, i) => renderItem(s, i, 'change')).join('');
       
       // 跌幅榜
       const downSorted = [...stockData].sort((a, b) => a.change - b.change).slice(0, 5);
-      document.getElementById('downList').innerHTML = downSorted.map((s, i) => renderItem(s, i, 'down')).join('');
+      document.getElementById('downList').innerHTML = downSorted.map((s, i) => renderItem(s, i, 'change')).join('');
       
       // 成交量
       const volSorted = [...stockData].sort((a, b) => b.volume - a.volume).slice(0, 5);
@@ -108,7 +122,7 @@
         const numClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
         return `<div class="rank-item" onclick="location.href='wave.html?stock=${s.id}'">
           <div class="left"><span class="num ${numClass}">${i+1}</span><span class="stock">${s.id} ${s.name}</span></div>
-          <span class="value">${(s.volume/1000).toFixed(0)} 張</span>
+          <span class="value">${(s.volume/1000).toFixed(0).toLocaleString()} 張</span>
         </div>`;
       }).join('');
       
