@@ -8,6 +8,7 @@ const axios = require('axios');
 const stockService = require('../services/stockService');
 const technicalService = require('../services/technicalService');
 const lineService = require('../services/lineService');
+const twStocks = require('../data/twStocks');
 const { pool } = require('../db');
 
 
@@ -8514,8 +8515,13 @@ async function getWatchlistFlex() {
     const isHolding = holdingIds.includes(row.stock_id);
     const holdingIcon = isHolding ? '💼' : '';
     
-    // 🔧 修正：優先使用 stockData.name（即時資料），避免顯示代碼重複
-    let stockName = stockData?.name || row.stock_name || '';
+    // 🔧 修正：多重來源取得名稱
+    // 1. stockData.name (即時資料)
+    // 2. row.stock_name (資料庫)
+    // 3. twStocks (對照表)
+    const twInfo = twStocks.getStockInfo(row.stock_id);
+    let stockName = stockData?.name || row.stock_name || twInfo?.name || '';
+    
     // 如果名稱就是代碼，清空避免重複
     if (stockName === row.stock_id) stockName = '';
     
@@ -8532,12 +8538,12 @@ async function getWatchlistFlex() {
           type: 'text', 
           text: displayText, 
           size: 'sm', 
-          flex: 5,  // 🔧 加寬名稱欄位
+          flex: 4,  // 股票名稱
           color: isHolding ? '#D4AF37' : '#333333',
           weight: isHolding ? 'bold' : 'regular'
         },
         { type: 'text', text: `${stockData?.price || 'N/A'}`, size: 'sm', align: 'end', flex: 2, color: '#333333' },
-        { type: 'text', text: stockData ? `${arrow}${stockData.changePercent}%` : 'N/A', size: 'sm', color: color, align: 'end', flex: 2 }
+        { type: 'text', text: stockData ? `${arrow}${stockData.changePercent}%` : 'N/A', size: 'sm', color: color, align: 'end', flex: 3 }
       ],
       margin: 'sm',
       paddingAll: '8px',
@@ -8581,9 +8587,9 @@ async function getWatchlistFlex() {
             type: 'box',
             layout: 'horizontal',
             contents: [
-              { type: 'text', text: '股票', size: 'xs', color: '#888888', flex: 5 },
+              { type: 'text', text: '股票', size: 'xs', color: '#888888', flex: 4 },
               { type: 'text', text: '現價', size: 'xs', color: '#888888', align: 'end', flex: 2 },
-              { type: 'text', text: '漲跌', size: 'xs', color: '#888888', align: 'end', flex: 2 }
+              { type: 'text', text: '漲跌', size: 'xs', color: '#888888', align: 'end', flex: 3 }
             ]
           },
           { type: 'separator', margin: 'md' },
