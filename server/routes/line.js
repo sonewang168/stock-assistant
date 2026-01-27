@@ -1781,7 +1781,7 @@ async function getSoldHoldingsFlex() {
       return {
         type: 'box', layout: 'horizontal', margin: 'md',
         contents: [
-          { type: 'text', text: `${r.name}`, size: 'sm', flex: 2 },
+          { type: 'text', text: `${r.name}(${r.stockId})`, size: 'sm', flex: 3 },
           { type: 'text', text: `${r.wonPrice}→${r.soldPrice}`, size: 'xs', color: '#666666', flex: 2 },
           { type: 'text', text: `${isUp ? '+' : ''}$${r.netProfit.toLocaleString()}`, size: 'sm', color: color, align: 'end', flex: 2, weight: 'bold' }
         ]
@@ -1902,11 +1902,13 @@ async function getHoldingsSummaryFlex() {
     const stockRows = holdings.slice(0, 8).map(h => {
       const dayUp = parseFloat(h.changePercent) >= 0;
       const holdUp = parseFloat(h.profitPercent) >= 0;
+      // 🔧 修正：顯示「名稱(代碼)」格式
+      const displayName = `${h.stockName.substring(0, 4)}(${h.stockId})`;
       return {
         type: 'box',
         layout: 'horizontal',
         contents: [
-          { type: 'text', text: h.stockName.substring(0, 4), size: 'sm', flex: 3 },
+          { type: 'text', text: displayName, size: 'sm', flex: 4 },
           { type: 'text', text: '$' + h.currentPrice, size: 'sm', flex: 2, align: 'end' },
           { type: 'text', text: (dayUp ? '▲' : '▼') + Math.abs(h.changePercent) + '%', size: 'sm', flex: 2, align: 'end', color: dayUp ? '#D32F2F' : '#388E3C' },
           { type: 'text', text: (holdUp ? '+' : '') + h.profitPercent + '%', size: 'sm', flex: 2, align: 'end', color: holdUp ? '#D32F2F' : '#388E3C' }
@@ -2015,7 +2017,7 @@ async function checkStopLossTargetsFlex() {
       if (!stockData) continue;
 
       const currentPrice = stockData.price;
-      const stockName = row.stock_name || row.stock_id;
+      const stockName = row.stock_name || stockData.name || row.stock_id;
       const lots = parseInt(row.lots) || 0;
       const oddShares = parseInt(row.odd_shares) || 0;
       const totalShares = lots * 1000 + oddShares;
@@ -2023,9 +2025,12 @@ async function checkStopLossTargetsFlex() {
       const profit = (currentPrice - costPrice) * totalShares;
       const profitPercent = costPrice > 0 ? ((currentPrice - costPrice) / costPrice * 100).toFixed(2) : 0;
 
+      // 🔧 修正：顯示格式「名稱(代碼)」
+      const displayName = `${stockName}(${row.stock_id})`;
+      
       const item = {
         stockId: row.stock_id,
-        stockName,
+        stockName: displayName,
         currentPrice,
         costPrice,
         profit,
@@ -2371,12 +2376,14 @@ async function getRankingFlex(type) {
     
     const rows = rankings.slice(0, 10).map((stock, i) => {
       const isUp = stock.changePercent >= 0;
+      // 🔧 修正：顯示格式「名稱(代碼)」
+      const displayName = stock.name ? `${stock.name}(${stock.id})` : stock.id;
       return {
         type: 'box',
         layout: 'horizontal',
         contents: [
           { type: 'text', text: `${i + 1}`, size: 'sm', color: '#888888', flex: 1 },
-          { type: 'text', text: stock.name || stock.id, size: 'sm', flex: 3 },
+          { type: 'text', text: displayName, size: 'sm', flex: 4 },
           { type: 'text', text: `$${stock.price}`, size: 'sm', flex: 2, align: 'end' },
           { 
             type: 'text', 
@@ -2615,15 +2622,19 @@ async function getEarningsCalendarFlex() {
       nextQ = { ...quarters[0], deadline: `${currentYear + 1}/3/31` };
     }
     
-    const stockList = holdingsResult.rows.map(r => ({
-      type: 'box',
-      layout: 'horizontal',
-      contents: [
-        { type: 'text', text: r.stock_name || r.stock_id, size: 'sm', flex: 3 },
-        { type: 'text', text: nextQ.deadline + '前', size: 'sm', flex: 2, align: 'end', color: '#888888' }
-      ],
-      margin: 'sm'
-    }));
+    const stockList = holdingsResult.rows.map(r => {
+      // 🔧 修正：顯示格式「名稱(代碼)」
+      const displayName = r.stock_name ? `${r.stock_name}(${r.stock_id})` : r.stock_id;
+      return {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: displayName, size: 'sm', flex: 4 },
+          { type: 'text', text: nextQ.deadline + '前', size: 'sm', flex: 2, align: 'end', color: '#888888' }
+        ],
+        margin: 'sm'
+      };
+    });
     
     return {
       type: 'flex',
@@ -2793,11 +2804,14 @@ async function getSimulateAccountFlex() {
       
       totalValue += marketValue;
       
+      // 🔧 修正：顯示格式「名稱(代碼)」
+      const displayName = (row.stock_name || stockData?.name) ? `${row.stock_name || stockData?.name}(${row.stock_id})` : row.stock_id;
+      
       holdingRows.push({
         type: 'box',
         layout: 'horizontal',
         contents: [
-          { type: 'text', text: row.stock_name || row.stock_id, size: 'sm', flex: 2 },
+          { type: 'text', text: displayName, size: 'sm', flex: 3 },
           { type: 'text', text: `${shares}股`, size: 'sm', flex: 1, align: 'end' },
           { type: 'text', text: `${profit >= 0 ? '+' : ''}${profitPercent}%`, size: 'sm', flex: 1, align: 'end', color: profit >= 0 ? '#D63031' : '#00B894' }
         ],
@@ -8488,13 +8502,17 @@ async function getWatchlistFlex() {
     const isHolding = holdingIds.includes(row.stock_id);
     const holdingIcon = isHolding ? '💼' : '';
     
+    // 🔧 修正：顯示格式改為「公司名稱(股票代碼)」
+    const stockName = row.stock_name || stockData?.name || row.stock_id;
+    const displayText = `${holdingIcon}${stockName}(${row.stock_id})`;
+    
     stockRows.push({
       type: 'box',
       layout: 'horizontal',
       contents: [
         { 
           type: 'text', 
-          text: `${holdingIcon}${row.stock_name || row.stock_id}`, 
+          text: displayText, 
           size: 'sm', 
           flex: 3,
           color: isHolding ? '#D4AF37' : '#333333',

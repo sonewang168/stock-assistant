@@ -1027,10 +1027,14 @@ class Scheduler {
           const value = stockData.price * totalShares;
           const profit = value - cost;
           const profitPercent = cost > 0 ? ((profit / cost) * 100).toFixed(2) : 0;
+          
+          // 🔧 修正：顯示格式「名稱(代碼)」
+          const stockName = row.stock_name || stockData.name || row.stock_id;
+          const displayName = `${stockName}(${row.stock_id})`;
 
           holdings.push({
             stockId: row.stock_id,
-            stockName: row.stock_name || stockData.name || row.stock_id,
+            stockName: displayName,
             currentPrice: stockData.price,
             change: stockData.change || 0,
             changePercent: stockData.changePercent || 0,
