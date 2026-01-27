@@ -280,6 +280,29 @@ async function handleCommand(message, userId) {
     return await markAsSold(msg);
   }
   
+  // 🆕 新增持股指令
+  // 格式：新增 2330 1張 580 或 買進 2330 2張500股 575.5 或 持股新增 2330 1 580
+  if (/^(新增|買進|持股新增)\s*\d{4,6}/.test(msg)) {
+    return await addHoldingFromLine(msg);
+  }
+  
+  // 🆕 買賣預約功能
+  // 預約買 2330 550（當價格跌到 550 時提醒買進）
+  // 預約賣 2330 650（當價格漲到 650 時提醒賣出）
+  if (/^預約[買賣]\s*\d{4,6}/.test(msg)) {
+    return await setTradeReservation(msg);
+  }
+  
+  // 🆕 查看買賣預約清單
+  if (msg === '預約' || msg === '預約清單' || msg === '買賣預約') {
+    return await getTradeReservationsFlex();
+  }
+  
+  // 🆕 取消預約：取消預約 2330
+  if (/^取消預約\s*\d{4,6}/.test(msg)) {
+    return await cancelTradeReservation(msg);
+  }
+  
   // 籌碼指令：籌碼 股票代碼
   if (msg.startsWith('籌碼') || msg.startsWith('法人')) {
     const stockId = msg.replace(/^(籌碼|法人)\s*/, '').trim().toUpperCase();
@@ -511,6 +534,24 @@ async function getStockInfoFlex(stockId) {
     return { type: 'text', text: `❌ 找不到股票 ${stockId}` };
   }
   
+  // 🔧 修正：優先從對照表取得股票名稱（最可靠）
+  const twInfo = twStocks.getStockInfo(stockId);
+  if (twInfo && twInfo.name) {
+    stockData.name = twInfo.name;
+  } else if (!stockData.name || stockData.name === stockId || /^\d+$/.test(stockData.name)) {
+    // 如果對照表沒有，且 API 返回的是代碼或純數字，嘗試從資料庫查詢
+    try {
+      const dbResult = await pool.query('SELECT name FROM stocks WHERE id = $1', [stockId]);
+      if (dbResult.rows[0]?.name && dbResult.rows[0].name !== stockId) {
+        stockData.name = dbResult.rows[0].name;
+      }
+    } catch (e) {}
+  }
+  // 最終確保名稱不是代碼本身
+  if (!stockData.name || stockData.name === stockId || /^\d+$/.test(stockData.name)) {
+    stockData.name = stockId; // 真的找不到就用代碼
+  }
+  
   // 🔧 修復：確保數值有效，避免 Infinity/NaN
   if (!isFinite(parseFloat(stockData.changePercent))) {
     stockData.changePercent = 0;
@@ -646,9 +687,12 @@ async function getStockInfoFlex(stockId) {
   }
 
   // 📊 卡片 1：股價資訊
+  // 🔧 判斷是否需要同時顯示名稱和代碼
+  const showBothNameAndId = stockData.name && stockData.name !== stockId;
+  
   const card1 = {
     type: 'bubble',
-    size: 'mega',
+    size: 'giga',  // 🔧 改為 giga 增加卡片大小
     header: {
       type: 'box',
       layout: 'vertical',
@@ -656,15 +700,20 @@ async function getStockInfoFlex(stockId) {
         {
           type: 'box',
           layout: 'horizontal',
-          contents: [
+          contents: showBothNameAndId ? [
             { type: 'text', text: stockData.name, color: '#ffffff', size: 'xl', weight: 'bold', flex: 1 },
-            { type: 'text', text: stockId, color: '#ffffffaa', size: 'sm', align: 'end' }
+            { type: 'text', text: stockId, color: '#ffffffcc', size: 'md', align: 'end' }
+          ] : [
+            { type: 'text', text: stockId, color: '#ffffff', size: 'xl', weight: 'bold', flex: 1 }
           ]
         },
         { type: 'text', text: `${emoji} ${isUp ? '上漲' : '下跌'} ${Math.abs(stockData.changePercent)}%`, color: '#ffffff', size: 'sm', margin: 'md' }
       ],
       backgroundColor: color,
-      paddingAll: '20px'
+      paddingTop: '25px',    // 🔧 增加頂部間距避免被遮住
+      paddingBottom: '20px',
+      paddingStart: '20px',
+      paddingEnd: '20px'
     },
     body: {
       type: 'box',
@@ -696,7 +745,7 @@ async function getStockInfoFlex(stockId) {
   const techAI = aiAnalysis.tech?.ai || 'AI';
   const card2 = {
     type: 'bubble',
-    size: 'mega',
+    size: 'giga',
     header: {
       type: 'box',
       layout: 'horizontal',
@@ -704,7 +753,7 @@ async function getStockInfoFlex(stockId) {
         { type: 'box', layout: 'vertical', flex: 3,
           contents: [
             { type: 'text', text: '🔧 技術分析師', color: '#ffffff', size: 'lg', weight: 'bold' },
-            { type: 'text', text: `${stockData.name} K線/均線/指標`, color: '#ffffffcc', size: 'sm', margin: 'xs' }
+            { type: 'text', text: `${stockId} K線/均線/指標`, color: '#ffffffcc', size: 'sm', margin: 'xs' }
           ]
         },
         { type: 'box', layout: 'vertical', flex: 1, alignItems: 'flex-end', justifyContent: 'center',
@@ -714,7 +763,10 @@ async function getStockInfoFlex(stockId) {
         }
       ],
       backgroundColor: '#3B82F6',
-      paddingAll: '15px'
+      paddingTop: '20px',
+      paddingBottom: '15px',
+      paddingStart: '15px',
+      paddingEnd: '15px'
     },
     body: {
       type: 'box',
@@ -738,7 +790,7 @@ async function getStockInfoFlex(stockId) {
   const chipAI = aiAnalysis.chip?.ai || 'AI';
   const card3 = {
     type: 'bubble',
-    size: 'mega',
+    size: 'giga',
     header: {
       type: 'box',
       layout: 'horizontal',
@@ -746,7 +798,7 @@ async function getStockInfoFlex(stockId) {
         { type: 'box', layout: 'vertical', flex: 3,
           contents: [
             { type: 'text', text: '🏦 籌碼分析師', color: '#ffffff', size: 'lg', weight: 'bold' },
-            { type: 'text', text: `${stockData.name} 法人/主力動向`, color: '#ffffffcc', size: 'sm', margin: 'xs' }
+            { type: 'text', text: `${stockId} 法人/主力動向`, color: '#ffffffcc', size: 'sm', margin: 'xs' }
           ]
         },
         { type: 'box', layout: 'vertical', flex: 1, alignItems: 'flex-end', justifyContent: 'center',
@@ -756,7 +808,10 @@ async function getStockInfoFlex(stockId) {
         }
       ],
       backgroundColor: '#10B981',
-      paddingAll: '15px'
+      paddingTop: '20px',
+      paddingBottom: '15px',
+      paddingStart: '15px',
+      paddingEnd: '15px'
     },
     body: {
       type: 'box',
@@ -780,7 +835,7 @@ async function getStockInfoFlex(stockId) {
   const trendAI = aiAnalysis.trend?.ai || 'AI';
   const card4 = {
     type: 'bubble',
-    size: 'mega',
+    size: 'giga',
     header: {
       type: 'box',
       layout: 'horizontal',
@@ -788,7 +843,7 @@ async function getStockInfoFlex(stockId) {
         { type: 'box', layout: 'vertical', flex: 3,
           contents: [
             { type: 'text', text: '📈 趨勢策略師', color: '#ffffff', size: 'lg', weight: 'bold' },
-            { type: 'text', text: `${stockData.name} 操作建議`, color: '#ffffffcc', size: 'sm', margin: 'xs' }
+            { type: 'text', text: `${stockId} 操作建議`, color: '#ffffffcc', size: 'sm', margin: 'xs' }
           ]
         },
         { type: 'box', layout: 'vertical', flex: 1, alignItems: 'flex-end', justifyContent: 'center',
@@ -798,7 +853,10 @@ async function getStockInfoFlex(stockId) {
         }
       ],
       backgroundColor: '#F59E0B',
-      paddingAll: '15px'
+      paddingTop: '20px',
+      paddingBottom: '15px',
+      paddingStart: '15px',
+      paddingEnd: '15px'
     },
     body: {
       type: 'box',
@@ -825,7 +883,7 @@ async function getStockInfoFlex(stockId) {
   
   const card5 = {
     type: 'bubble',
-    size: 'mega',
+    size: 'giga',
     header: {
       type: 'box',
       layout: 'vertical',
@@ -834,7 +892,10 @@ async function getStockInfoFlex(stockId) {
         { type: 'text', text: votesText, color: '#ffffffcc', size: 'sm', margin: 'sm' }
       ],
       backgroundColor: '#6366F1',
-      paddingAll: '20px'
+      paddingTop: '25px',
+      paddingBottom: '20px',
+      paddingStart: '20px',
+      paddingEnd: '20px'
     },
     body: {
       type: 'box',
@@ -1695,6 +1756,538 @@ async function markAsSold(message) {
   } catch (error) {
     console.error('標記賣出錯誤:', error);
     return { type: 'text', text: `❌ 標記賣出失敗：${error.message}` };
+  }
+}
+
+/**
+ * 🆕 從 LINE 新增持股
+ * 格式：新增 2330 1張 580 或 買進 2330 2張500股 575.5 或 新增 2330 1 580
+ */
+async function addHoldingFromLine(message) {
+  try {
+    // 解析指令
+    const cleanMsg = message.replace(/^(新增|買進|持股新增)\s*/, '').trim();
+    
+    // 嘗試多種格式解析
+    let stockId, lots = 0, oddShares = 0, price;
+    
+    // 格式1: 2330 1張 580 或 2330 1張500股 580
+    const format1 = cleanMsg.match(/^(\d{4,6})\s+(\d+)張(?:(\d+)股)?\s+([\d.]+)$/);
+    // 格式2: 2330 1 580（張數 價格）
+    const format2 = cleanMsg.match(/^(\d{4,6})\s+(\d+)\s+([\d.]+)$/);
+    // 格式3: 2330 500股 580（零股）
+    const format3 = cleanMsg.match(/^(\d{4,6})\s+(\d+)股\s+([\d.]+)$/);
+    
+    if (format1) {
+      stockId = format1[1];
+      lots = parseInt(format1[2]);
+      oddShares = format1[3] ? parseInt(format1[3]) : 0;
+      price = parseFloat(format1[4]);
+    } else if (format2) {
+      stockId = format2[1];
+      lots = parseInt(format2[2]);
+      price = parseFloat(format2[3]);
+    } else if (format3) {
+      stockId = format3[1];
+      oddShares = parseInt(format3[2]);
+      price = parseFloat(format3[3]);
+    } else {
+      return { 
+        type: 'text', 
+        text: '❌ 格式錯誤\n\n📝 正確格式：\n• 新增 2330 1張 580\n• 新增 2330 2張500股 575.5\n• 新增 2330 500股 45（零股）\n• 買進 6770 1 72' 
+      };
+    }
+    
+    if (!stockId || (!lots && !oddShares) || !price || price <= 0) {
+      return { type: 'text', text: '❌ 請輸入有效的股票代碼、張數和價格' };
+    }
+    
+    // 取得股票名稱
+    const twInfo = twStocks.getStockInfo(stockId);
+    let stockName = twInfo?.name || '';
+    if (!stockName) {
+      const stockData = await stockService.getRealtimePrice(stockId);
+      stockName = stockData?.name || stockId;
+    }
+    if (!stockName || stockName === stockId || /^\d+$/.test(stockName)) {
+      stockName = stockId;
+    }
+    
+    // 計算總股數和總成本
+    const totalShares = lots * 1000 + oddShares;
+    const totalCost = totalShares * price;
+    
+    // 確保資料表存在
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS holdings (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(100) DEFAULT 'default',
+        stock_id VARCHAR(10) NOT NULL,
+        stock_name VARCHAR(50),
+        lots INTEGER DEFAULT 0,
+        odd_shares INTEGER DEFAULT 0,
+        shares INTEGER DEFAULT 0,
+        bid_price DECIMAL(10,2),
+        won_price DECIMAL(10,2),
+        is_won BOOLEAN DEFAULT false,
+        is_sold BOOLEAN DEFAULT false,
+        sold_price DECIMAL(10,2),
+        sold_date DATE,
+        target_price_high DECIMAL(10,2),
+        target_price_low DECIMAL(10,2),
+        notify_enabled BOOLEAN DEFAULT true,
+        notes TEXT,
+        bid_date DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // 插入持股紀錄（直接標記為已得標）
+    await pool.query(`
+      INSERT INTO holdings (user_id, stock_id, stock_name, lots, odd_shares, shares, bid_price, won_price, is_won, bid_date)
+      VALUES ('default', $1, $2, $3, $4, $5, $6, $6, true, CURRENT_DATE)
+    `, [stockId, stockName, lots, oddShares, totalShares, price]);
+    
+    // 取得目前股價計算損益
+    const currentData = await stockService.getRealtimePrice(stockId);
+    const currentPrice = parseFloat(currentData?.price) || price;
+    const currentValue = totalShares * currentPrice;
+    const profit = currentValue - totalCost;
+    const profitPercent = ((profit / totalCost) * 100).toFixed(2);
+    const isProfit = profit >= 0;
+    const color = isProfit ? '#D32F2F' : '#388E3C';
+    
+    // 顯示張數和零股
+    let sharesText = '';
+    if (lots > 0 && oddShares > 0) {
+      sharesText = `${lots}張${oddShares}股`;
+    } else if (lots > 0) {
+      sharesText = `${lots}張`;
+    } else {
+      sharesText = `${oddShares}股`;
+    }
+    
+    return {
+      type: 'flex',
+      altText: `✅ 已新增 ${stockName} ${sharesText}`,
+      contents: {
+        type: 'bubble',
+        size: 'giga',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '✅ 持股新增成功', color: '#ffffff', size: 'lg', weight: 'bold' },
+            { type: 'text', text: `${stockName} (${stockId})`, color: '#ffffffcc', size: 'md', margin: 'sm' }
+          ],
+          backgroundColor: '#10B981',
+          paddingTop: '25px',
+          paddingBottom: '20px',
+          paddingStart: '20px',
+          paddingEnd: '20px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'box', layout: 'horizontal', contents: [
+              { type: 'text', text: '📦 數量', size: 'sm', color: '#666666', flex: 2 },
+              { type: 'text', text: sharesText, size: 'sm', align: 'end', flex: 3, weight: 'bold' }
+            ]},
+            { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+              { type: 'text', text: '💰 買入價', size: 'sm', color: '#666666', flex: 2 },
+              { type: 'text', text: `$${price}`, size: 'sm', align: 'end', flex: 3 }
+            ]},
+            { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+              { type: 'text', text: '💵 總成本', size: 'sm', color: '#666666', flex: 2 },
+              { type: 'text', text: `$${totalCost.toLocaleString()}`, size: 'sm', align: 'end', flex: 3 }
+            ]},
+            { type: 'separator', margin: 'lg' },
+            { type: 'box', layout: 'horizontal', margin: 'lg', contents: [
+              { type: 'text', text: '📈 現價', size: 'sm', color: '#666666', flex: 2 },
+              { type: 'text', text: `$${currentPrice}`, size: 'sm', align: 'end', flex: 3 }
+            ]},
+            { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+              { type: 'text', text: '📊 目前市值', size: 'sm', color: '#666666', flex: 2 },
+              { type: 'text', text: `$${currentValue.toLocaleString()}`, size: 'sm', align: 'end', flex: 3 }
+            ]},
+            { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+              { type: 'text', text: '💹 損益', size: 'sm', color: '#666666', flex: 2 },
+              { type: 'text', text: `${isProfit ? '+' : ''}$${profit.toLocaleString()} (${profitPercent}%)`, size: 'sm', align: 'end', flex: 3, color: color, weight: 'bold' }
+            ]}
+          ],
+          paddingAll: '20px'
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'box', layout: 'horizontal', contents: [
+              { type: 'button', style: 'secondary', height: 'sm', flex: 1,
+                action: { type: 'message', label: '📋 持股', text: '持股' }
+              },
+              { type: 'button', style: 'secondary', height: 'sm', flex: 1, margin: 'sm',
+                action: { type: 'message', label: '📊 分析', text: `分析 ${stockId}` }
+              },
+              { type: 'button', style: 'secondary', height: 'sm', flex: 1, margin: 'sm',
+                action: { type: 'message', label: '🎯 設目標', text: `目標 ${stockId} ${Math.round(price * 1.1)} ${Math.round(price * 0.9)}` }
+              }
+            ]}
+          ],
+          paddingAll: '12px'
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('新增持股錯誤:', error);
+    return { type: 'text', text: `❌ 新增持股失敗：${error.message}` };
+  }
+}
+
+/**
+ * 🆕 設定買賣預約
+ * 格式：預約買 2330 550 或 預約賣 2330 650
+ */
+async function setTradeReservation(message) {
+  try {
+    // 解析指令
+    const isBuy = message.startsWith('預約買');
+    const cleanMsg = message.replace(/^預約[買賣]\s*/, '').trim();
+    const parts = cleanMsg.split(/\s+/);
+    
+    if (parts.length < 2) {
+      return { 
+        type: 'text', 
+        text: '❌ 格式錯誤\n\n📝 正確格式：\n• 預約買 2330 550（當跌到 550 時提醒）\n• 預約賣 2330 650（當漲到 650 時提醒）' 
+      };
+    }
+    
+    const stockId = parts[0];
+    const targetPrice = parseFloat(parts[1]);
+    
+    if (!/^\d{4,6}$/.test(stockId) || !targetPrice || targetPrice <= 0) {
+      return { type: 'text', text: '❌ 請輸入有效的股票代碼和目標價格' };
+    }
+    
+    // 取得股票名稱和目前價格
+    const twInfo = twStocks.getStockInfo(stockId);
+    let stockName = twInfo?.name || '';
+    const stockData = await stockService.getRealtimePrice(stockId);
+    const currentPrice = parseFloat(stockData?.price) || 0;
+    
+    if (!stockName || stockName === stockId) {
+      stockName = stockData?.name || stockId;
+    }
+    if (/^\d+$/.test(stockName)) stockName = stockId;
+    
+    if (currentPrice <= 0) {
+      return { type: 'text', text: `❌ 無法取得 ${stockId} 的目前價格` };
+    }
+    
+    // 確保資料表存在
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS trade_reservations (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(100) DEFAULT 'default',
+        stock_id VARCHAR(10) NOT NULL,
+        stock_name VARCHAR(50),
+        trade_type VARCHAR(10) NOT NULL,
+        target_price DECIMAL(10,2) NOT NULL,
+        current_price_at_set DECIMAL(10,2),
+        is_triggered BOOLEAN DEFAULT false,
+        triggered_at TIMESTAMP,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // 插入預約紀錄
+    await pool.query(`
+      INSERT INTO trade_reservations (user_id, stock_id, stock_name, trade_type, target_price, current_price_at_set)
+      VALUES ('default', $1, $2, $3, $4, $5)
+    `, [stockId, stockName, isBuy ? 'buy' : 'sell', targetPrice, currentPrice]);
+    
+    // 計算價差
+    const priceDiff = targetPrice - currentPrice;
+    const priceDiffPercent = ((priceDiff / currentPrice) * 100).toFixed(2);
+    const isAbove = targetPrice > currentPrice;
+    
+    const tradeTypeText = isBuy ? '買進' : '賣出';
+    const tradeTypeEmoji = isBuy ? '🟢' : '🔴';
+    const conditionText = isBuy 
+      ? `當價格跌至 $${targetPrice} 時提醒買進`
+      : `當價格漲至 $${targetPrice} 時提醒賣出`;
+    
+    return {
+      type: 'flex',
+      altText: `✅ 已設定 ${stockName} ${tradeTypeText}預約 $${targetPrice}`,
+      contents: {
+        type: 'bubble',
+        size: 'giga',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: `${tradeTypeEmoji} ${tradeTypeText}預約設定成功`, color: '#ffffff', size: 'lg', weight: 'bold' },
+            { type: 'text', text: `${stockName} (${stockId})`, color: '#ffffffcc', size: 'md', margin: 'sm' }
+          ],
+          backgroundColor: isBuy ? '#10B981' : '#EF4444',
+          paddingTop: '25px',
+          paddingBottom: '20px',
+          paddingStart: '20px',
+          paddingEnd: '20px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'box', layout: 'horizontal', contents: [
+              { type: 'text', text: '📈 目前股價', size: 'sm', color: '#666666', flex: 2 },
+              { type: 'text', text: `$${currentPrice}`, size: 'sm', align: 'end', flex: 3 }
+            ]},
+            { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+              { type: 'text', text: `🎯 ${tradeTypeText}目標價`, size: 'sm', color: '#666666', flex: 2 },
+              { type: 'text', text: `$${targetPrice}`, size: 'lg', align: 'end', flex: 3, weight: 'bold', color: isBuy ? '#10B981' : '#EF4444' }
+            ]},
+            { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+              { type: 'text', text: '📊 價差', size: 'sm', color: '#666666', flex: 2 },
+              { type: 'text', text: `${isAbove ? '+' : ''}${priceDiff.toFixed(2)} (${priceDiffPercent}%)`, size: 'sm', align: 'end', flex: 3, color: isAbove ? '#D32F2F' : '#388E3C' }
+            ]},
+            { type: 'separator', margin: 'lg' },
+            { type: 'box', layout: 'vertical', margin: 'lg', backgroundColor: '#f0f9ff', cornerRadius: 'md', paddingAll: 'md', contents: [
+              { type: 'text', text: '📢 觸發條件', size: 'sm', color: '#0369a1', weight: 'bold' },
+              { type: 'text', text: conditionText, size: 'sm', color: '#333333', margin: 'sm', wrap: true }
+            ]}
+          ],
+          paddingAll: '20px'
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'button', style: 'secondary', height: 'sm', flex: 1,
+              action: { type: 'message', label: '📋 預約清單', text: '預約' }
+            },
+            { type: 'button', style: 'secondary', height: 'sm', flex: 1, margin: 'sm',
+              action: { type: 'message', label: '❌ 取消', text: `取消預約 ${stockId}` }
+            }
+          ],
+          paddingAll: '12px'
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('設定預約錯誤:', error);
+    return { type: 'text', text: `❌ 設定預約失敗：${error.message}` };
+  }
+}
+
+/**
+ * 🆕 取得買賣預約清單
+ */
+async function getTradeReservationsFlex() {
+  try {
+    // 確保資料表存在
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS trade_reservations (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(100) DEFAULT 'default',
+        stock_id VARCHAR(10) NOT NULL,
+        stock_name VARCHAR(50),
+        trade_type VARCHAR(10) NOT NULL,
+        target_price DECIMAL(10,2) NOT NULL,
+        current_price_at_set DECIMAL(10,2),
+        is_triggered BOOLEAN DEFAULT false,
+        triggered_at TIMESTAMP,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    const result = await pool.query(`
+      SELECT * FROM trade_reservations 
+      WHERE user_id = 'default' AND is_triggered = false
+      ORDER BY created_at DESC
+      LIMIT 10
+    `);
+    
+    if (result.rows.length === 0) {
+      return { 
+        type: 'text', 
+        text: '📭 目前沒有買賣預約\n\n📝 設定方式：\n• 預約買 2330 550（跌到 550 提醒買）\n• 預約賣 2330 650（漲到 650 提醒賣）' 
+      };
+    }
+    
+    // 取得每檔股票的目前價格
+    const reservations = [];
+    for (const row of result.rows) {
+      const stockData = await stockService.getRealtimePrice(row.stock_id);
+      const currentPrice = parseFloat(stockData?.price) || 0;
+      const targetPrice = parseFloat(row.target_price);
+      const diff = currentPrice - targetPrice;
+      const diffPercent = targetPrice > 0 ? ((diff / targetPrice) * 100).toFixed(1) : 0;
+      
+      reservations.push({
+        id: row.id,
+        stockId: row.stock_id,
+        stockName: row.stock_name || row.stock_id,
+        tradeType: row.trade_type,
+        targetPrice,
+        currentPrice,
+        diff,
+        diffPercent,
+        createdAt: row.created_at
+      });
+    }
+    
+    // 建立預約卡片
+    const cards = reservations.map(r => {
+      const isBuy = r.tradeType === 'buy';
+      const typeEmoji = isBuy ? '🟢' : '🔴';
+      const typeText = isBuy ? '買進' : '賣出';
+      const bgColor = isBuy ? '#10B981' : '#EF4444';
+      
+      // 計算距離目標的狀態
+      const isNearTarget = Math.abs(r.diffPercent) <= 3;
+      const statusText = isNearTarget ? '⚡ 接近目標！' : '';
+      const statusColor = isNearTarget ? '#F59E0B' : '#666666';
+      
+      return {
+        type: 'box',
+        layout: 'vertical',
+        margin: 'lg',
+        backgroundColor: '#f8fafc',
+        cornerRadius: 'lg',
+        paddingAll: 'lg',
+        contents: [
+          { type: 'box', layout: 'horizontal', contents: [
+            { type: 'text', text: `${typeEmoji} ${r.stockName}`, size: 'md', weight: 'bold', flex: 3 },
+            { type: 'text', text: r.stockId, size: 'xs', color: '#888888', align: 'end', flex: 1 }
+          ]},
+          { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+            { type: 'text', text: `${typeText}目標`, size: 'sm', color: '#666666', flex: 2 },
+            { type: 'text', text: `$${r.targetPrice}`, size: 'md', align: 'end', flex: 2, weight: 'bold', color: bgColor }
+          ]},
+          { type: 'box', layout: 'horizontal', margin: 'sm', contents: [
+            { type: 'text', text: '現價', size: 'xs', color: '#888888', flex: 2 },
+            { type: 'text', text: `$${r.currentPrice} (${r.diff >= 0 ? '+' : ''}${r.diffPercent}%)`, size: 'xs', align: 'end', flex: 3, color: r.diff >= 0 ? '#D32F2F' : '#388E3C' }
+          ]},
+          ...(statusText ? [{ type: 'text', text: statusText, size: 'xs', color: statusColor, align: 'center', margin: 'sm' }] : []),
+          { type: 'button', style: 'secondary', height: 'sm', margin: 'md',
+            action: { type: 'message', label: '❌ 取消預約', text: `取消預約 ${r.stockId}` }
+          }
+        ]
+      };
+    });
+    
+    return {
+      type: 'flex',
+      altText: `📋 買賣預約清單 (${reservations.length}筆)`,
+      contents: {
+        type: 'bubble',
+        size: 'giga',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '📋 買賣預約清單', color: '#ffffff', size: 'xl', weight: 'bold' },
+            { type: 'text', text: `共 ${reservations.length} 筆預約`, color: '#ffffffcc', size: 'sm', margin: 'sm' }
+          ],
+          backgroundColor: '#6366F1',
+          paddingTop: '25px',
+          paddingBottom: '20px',
+          paddingStart: '20px',
+          paddingEnd: '20px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: cards,
+          paddingAll: '15px'
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '💡 預約買 股票 價格 / 預約賣 股票 價格', size: 'xs', color: '#888888', align: 'center' }
+          ],
+          paddingAll: '10px'
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('取得預約清單錯誤:', error);
+    return { type: 'text', text: `❌ 取得預約清單失敗：${error.message}` };
+  }
+}
+
+/**
+ * 🆕 取消買賣預約
+ */
+async function cancelTradeReservation(message) {
+  try {
+    const stockId = message.replace(/^取消預約\s*/, '').trim();
+    
+    if (!/^\d{4,6}$/.test(stockId)) {
+      return { type: 'text', text: '❌ 請輸入有效的股票代碼\n\n例如：取消預約 2330' };
+    }
+    
+    // 查詢該股票的預約
+    const result = await pool.query(`
+      SELECT * FROM trade_reservations 
+      WHERE stock_id = $1 AND user_id = 'default' AND is_triggered = false
+      ORDER BY created_at DESC
+    `, [stockId]);
+    
+    if (result.rows.length === 0) {
+      return { type: 'text', text: `❌ 找不到 ${stockId} 的預約紀錄` };
+    }
+    
+    // 刪除所有該股票的預約
+    await pool.query(`
+      DELETE FROM trade_reservations 
+      WHERE stock_id = $1 AND user_id = 'default' AND is_triggered = false
+    `, [stockId]);
+    
+    const stockName = result.rows[0].stock_name || stockId;
+    const count = result.rows.length;
+    
+    return {
+      type: 'flex',
+      altText: `✅ 已取消 ${stockName} 的預約`,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '✅ 預約已取消', size: 'lg', weight: 'bold', color: '#10B981' },
+            { type: 'text', text: `${stockName} (${stockId})`, size: 'md', color: '#333333', margin: 'md' },
+            { type: 'text', text: `共取消 ${count} 筆預約`, size: 'sm', color: '#666666', margin: 'sm' }
+          ],
+          paddingAll: '20px'
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'button', style: 'secondary', height: 'sm',
+              action: { type: 'message', label: '📋 預約清單', text: '預約' }
+            }
+          ],
+          paddingAll: '12px'
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('取消預約錯誤:', error);
+    return { type: 'text', text: `❌ 取消預約失敗：${error.message}` };
   }
 }
 
@@ -5349,7 +5942,24 @@ async function getElliottWaveAnalysis(stockId) {
   try {
     // 取得股票資料
     const stockData = await stockService.getRealtimePrice(stockId);
-    const stockName = stockData?.name || getStockNameById(stockId) || stockId;
+    
+    // 🔧 修正：優先從對照表取得股票名稱（最可靠）
+    const twInfo = twStocks.getStockInfo(stockId);
+    let stockName = twInfo?.name || '';
+    
+    // 如果對照表沒有，再嘗試其他來源
+    if (!stockName || stockName === stockId) {
+      stockName = getStockNameById(stockId) || '';
+    }
+    if (!stockName || stockName === stockId) {
+      if (stockData?.name && stockData.name !== stockId && !/^\d+$/.test(stockData.name)) {
+        stockName = stockData.name;
+      }
+    }
+    if (!stockName || stockName === stockId || /^\d+$/.test(stockName)) {
+      stockName = stockId;
+    }
+    
     const currentPrice = parseFloat(stockData?.price) || 0;
     
     // 取得歷史資料（120 天）
@@ -5548,7 +6158,10 @@ async function getElliottWaveAnalysis(stockId) {
  */
 function getWaveWebLink(stockId) {
   const webUrl = `https://stock-assistant-production-8ce3.up.railway.app/wave.html?stock=${stockId}`;
-  const stockName = getStockNameById(stockId) || stockId;
+  
+  // 🔧 修正：優先從對照表取得名稱
+  const twInfo = twStocks.getStockInfo(stockId);
+  const stockName = twInfo?.name || getStockNameById(stockId) || stockId;
   
   return {
     type: 'flex',
@@ -8499,35 +9112,45 @@ async function getWatchlistFlex() {
     const color = isUp ? '#ff4444' : '#00C851'; // 台灣：紅漲綠跌
     const arrow = isUp ? '▲' : '▼';
     
-    // 🔧 如果 watchlist 或 stocks 缺少名稱，自動補上
-    if (stockData?.name && stockData.name !== row.stock_id) {
-      if (!row.stock_name || row.stock_name === row.stock_id) {
-        // 更新 watchlist
-        await pool.query(`UPDATE watchlist SET stock_name = $1 WHERE stock_id = $2 AND user_id = 'default'`, 
-          [stockData.name, row.stock_id]).catch(() => {});
-        // 更新 stocks
-        await pool.query(`INSERT INTO stocks (id, name, market) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET name = $2`, 
-          [row.stock_id, stockData.name, stockData.market || 'TSE']).catch(() => {});
+    // 🔧 修正：優先從對照表取得名稱（最可靠）
+    const twInfo = twStocks.getStockInfo(row.stock_id);
+    
+    // 🔧 多重來源取得名稱（優先級：對照表 > 資料庫 > API）
+    // 因為 API 有時會回傳代碼作為名稱
+    let stockName = twInfo?.name || '';
+    
+    // 如果對照表沒有，再看資料庫和 API
+    if (!stockName || stockName === row.stock_id) {
+      stockName = row.stock_name || '';
+    }
+    if (!stockName || stockName === row.stock_id) {
+      // API 返回的名稱，但要排除等於代碼的情況
+      if (stockData?.name && stockData.name !== row.stock_id && !/^\d+$/.test(stockData.name)) {
+        stockName = stockData.name;
       }
+    }
+    
+    // 最終確認：如果名稱就是代碼或純數字，清空
+    if (stockName === row.stock_id || /^\d+$/.test(stockName)) {
+      stockName = '';
+    }
+    
+    // 🔧 如果有新名稱，更新資料庫
+    if (stockName && stockName !== row.stock_name) {
+      await pool.query(`UPDATE watchlist SET stock_name = $1 WHERE stock_id = $2 AND user_id = 'default'`, 
+        [stockName, row.stock_id]).catch(() => {});
+      await pool.query(`INSERT INTO stocks (id, name, market) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET name = $2`, 
+        [row.stock_id, stockName, twInfo?.market || stockData?.market || 'TSE']).catch(() => {});
     }
     
     // 檢查是否為持股
     const isHolding = holdingIds.includes(row.stock_id);
     const holdingIcon = isHolding ? '💼' : '';
     
-    // 🔧 修正：多重來源取得名稱
-    // 1. stockData.name (即時資料)
-    // 2. row.stock_name (資料庫)
-    // 3. twStocks (對照表)
-    const twInfo = twStocks.getStockInfo(row.stock_id);
-    let stockName = stockData?.name || row.stock_name || twInfo?.name || '';
-    
-    // 如果名稱就是代碼，清空避免重複
-    if (stockName === row.stock_id) stockName = '';
-    
-    // 格式：有名稱時「名稱(代碼)」，無名稱時只顯示「代碼」
+    // 格式：「名稱 (代碼)」，名稱和代碼分開顯示更清楚
+    // 🔧 修正：確保代碼一定會顯示
     const displayText = stockName 
-      ? `${holdingIcon}${stockName}(${row.stock_id})`
+      ? `${holdingIcon}${stockName} (${row.stock_id})`
       : `${holdingIcon}${row.stock_id}`;
     
     stockRows.push({
@@ -8538,12 +9161,12 @@ async function getWatchlistFlex() {
           type: 'text', 
           text: displayText, 
           size: 'sm', 
-          flex: 4,  // 股票名稱
+          flex: 5,  // 🔧 增加 flex 讓名稱有更多空間
           color: isHolding ? '#D4AF37' : '#333333',
           weight: isHolding ? 'bold' : 'regular'
         },
         { type: 'text', text: `${stockData?.price || 'N/A'}`, size: 'sm', align: 'end', flex: 2, color: '#333333' },
-        { type: 'text', text: stockData ? `${arrow}${stockData.changePercent}%` : 'N/A', size: 'sm', color: color, align: 'end', flex: 3 }
+        { type: 'text', text: stockData ? `${arrow}${stockData.changePercent}%` : 'N/A', size: 'sm', color: color, align: 'end', flex: 2 }
       ],
       margin: 'sm',
       paddingAll: '8px',
@@ -8562,7 +9185,7 @@ async function getWatchlistFlex() {
     altText: `📋 監控清單（${result.rows.length}支）`,
     contents: {
       type: 'bubble',
-      size: 'mega',
+      size: 'giga',  // 🔧 改為 giga 增加卡片大小
       header: {
         type: 'box',
         layout: 'vertical',
@@ -8572,12 +9195,15 @@ async function getWatchlistFlex() {
             type: 'text', 
             text: `共 ${result.rows.length} 支股票${holdingCount > 0 ? ` | 💼 ${holdingCount} 支持股中` : ''}`, 
             size: 'sm', 
-            color: '#ffffffaa', 
-            margin: 'sm' 
+            color: '#ffffffcc',  // 🔧 增加對比度
+            margin: 'md'  // 🔧 增加間距
           }
         ],
         backgroundColor: '#2C3E50',
-        paddingAll: '20px'
+        paddingTop: '25px',   // 🔧 增加頂部間距避免被遮住
+        paddingBottom: '20px',
+        paddingStart: '20px',
+        paddingEnd: '20px'
       },
       body: {
         type: 'box',
@@ -8587,9 +9213,9 @@ async function getWatchlistFlex() {
             type: 'box',
             layout: 'horizontal',
             contents: [
-              { type: 'text', text: '股票', size: 'xs', color: '#888888', flex: 4 },
+              { type: 'text', text: '股票', size: 'xs', color: '#888888', flex: 5 },
               { type: 'text', text: '現價', size: 'xs', color: '#888888', align: 'end', flex: 2 },
-              { type: 'text', text: '漲跌', size: 'xs', color: '#888888', align: 'end', flex: 3 }
+              { type: 'text', text: '漲跌', size: 'xs', color: '#888888', align: 'end', flex: 2 }
             ]
           },
           { type: 'separator', margin: 'md' },
@@ -8602,7 +9228,7 @@ async function getWatchlistFlex() {
             contents: [
               { 
                 type: 'text', 
-                text: '💡 +代碼 加入｜-代碼 移除', 
+                text: '💡 +代碼 加入 | -代碼 移除', 
                 size: 'xs', 
                 color: '#888888',
                 align: 'center'
@@ -9757,17 +10383,20 @@ function getHelpReply() {
     `🏦 籌碼：籌碼 2330、外資買超\n` +
     `💼 持股：持股、收盤摘要\n` +
     `🎯 停損：停利 2330 1100\n\n` +
+    `🆕 持股管理\n` +
+    `━━━━━━━━━━━━━━\n` +
+    `➕ 新增：新增 2330 1張 580\n` +
+    `📦 賣出：賣出 2330 620\n` +
+    `📋 預約：預約買 2330 550\n` +
+    `📋 預約：預約賣 2330 650\n` +
+    `📋 查看：預約（查看清單）\n\n` +
     `🆕 進階功能\n` +
     `━━━━━━━━━━━━━━\n` +
     `💰 股息：股息 2330、高殖利率\n` +
     `🏥 健檢：健檢、組合分析\n` +
     `🌊 波浪：波浪 2330（分析）\n` +
-    `🌊 波浪建議（適合進場標的）\n` +
-    `🌊 波浪網頁（互動分析）\n` +
     `🤖 AI：AI預測 2330（三AI分析）\n` +
-    `💼 配置：投資組合 60萬\n` +
-    `⚔️ PK：PK 2330 2317\n` +
-    `📡 技術：訊號掃描、主力\n\n` +
+    `⚔️ PK：PK 2330 2317\n\n` +
     `━━━━━━━━━━━━━━\n` +
     `📋 輸入「功能」看完整清單`;
 
@@ -11158,7 +11787,26 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
     
     // 取得股票資料
     const stockData = await stockService.getRealtimePrice(stockId);
-    const stockName = stockData?.name || getStockNameById(stockId) || stockId;
+    
+    // 🔧 修正：優先從對照表取得股票名稱（最可靠）
+    const twInfo = twStocks.getStockInfo(stockId);
+    let stockName = twInfo?.name || '';
+    
+    // 如果對照表沒有，再嘗試其他來源
+    if (!stockName || stockName === stockId) {
+      stockName = getStockNameById(stockId) || '';
+    }
+    if (!stockName || stockName === stockId) {
+      // 排除 API 返回的純數字或等於代碼的情況
+      if (stockData?.name && stockData.name !== stockId && !/^\d+$/.test(stockData.name)) {
+        stockName = stockData.name;
+      }
+    }
+    // 最終確保有名稱
+    if (!stockName || stockName === stockId || /^\d+$/.test(stockName)) {
+      stockName = stockId;
+    }
+    
     const currentPrice = parseFloat(stockData?.price) || 0;
     console.log(`📈 ${stockId} 股價: ${currentPrice}, 名稱: ${stockName}`);
     

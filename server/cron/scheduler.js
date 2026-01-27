@@ -100,6 +100,20 @@ class Scheduler {
     });
     this.jobs.push(stopLossCheck);
 
+    // 🆕 買賣預約檢查（週一到週五 09:30-13:30，每 10 分鐘）
+    const reservationCheck = cron.schedule('*/10 9-13 * * 1-5', () => {
+      const now = new Date();
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      if (hour === 9 && minute < 30) return;
+      if (hour === 13 && minute > 30) return;
+      
+      this.checkTradeReservations();
+    }, {
+      timezone: 'Asia/Taipei'
+    });
+    this.jobs.push(reservationCheck);
+
     // 🏦 三大法人更新（週一到週五 15:30）- TWSE 資料約 15:00 後更新
     const institutionalUpdate = cron.schedule('30 15 * * 1-5', () => {
       this.updateInstitutionalData();
@@ -145,6 +159,7 @@ class Scheduler {
     console.log('   📊 盤中監控：09:00-13:30 每 5 分鐘');
     console.log('   🔔 智能通知：09:30-13:30 每 15 分鐘');
     console.log('   🎯 停利停損：09:30-13:30 每 10 分鐘');
+    console.log('   📋 買賣預約：09:30-13:30 每 10 分鐘');
     console.log('   📈 績效報告：13:35');
     console.log('   📋 收盤日報：13:40');
     console.log('   💼 持股摘要：14:00');
@@ -1310,6 +1325,175 @@ class Scheduler {
 
     } catch (error) {
       console.error('❌ 停利停損檢查錯誤:', error);
+    }
+  }
+
+  /**
+   * 🆕 檢查買賣預約
+   */
+  async checkTradeReservations() {
+    console.log('\n📋 檢查買賣預約...');
+
+    try {
+      // 確保資料表存在
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS trade_reservations (
+          id SERIAL PRIMARY KEY,
+          user_id VARCHAR(100) DEFAULT 'default',
+          stock_id VARCHAR(10) NOT NULL,
+          stock_name VARCHAR(50),
+          trade_type VARCHAR(10) NOT NULL,
+          target_price DECIMAL(10,2) NOT NULL,
+          current_price_at_set DECIMAL(10,2),
+          is_triggered BOOLEAN DEFAULT false,
+          triggered_at TIMESTAMP,
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // 取得所有未觸發的預約
+      const result = await pool.query(`
+        SELECT * FROM trade_reservations 
+        WHERE user_id = 'default' AND is_triggered = false
+      `);
+
+      if (result.rows.length === 0) {
+        console.log('   沒有需要檢查的預約');
+        return;
+      }
+
+      const alerts = [];
+
+      for (const row of result.rows) {
+        const stockData = await stockService.getRealtimePrice(row.stock_id);
+        if (!stockData) continue;
+
+        const currentPrice = parseFloat(stockData.price);
+        const targetPrice = parseFloat(row.target_price);
+        const stockName = row.stock_name || row.stock_id;
+        const isBuy = row.trade_type === 'buy';
+
+        // 買進預約：當現價 <= 目標價時觸發
+        // 賣出預約：當現價 >= 目標價時觸發
+        const triggered = isBuy 
+          ? currentPrice <= targetPrice 
+          : currentPrice >= targetPrice;
+
+        if (triggered) {
+          alerts.push({
+            id: row.id,
+            stockId: row.stock_id,
+            stockName,
+            tradeType: row.trade_type,
+            targetPrice,
+            currentPrice,
+            setPrice: parseFloat(row.current_price_at_set) || targetPrice
+          });
+        }
+
+        await this.sleep(300);
+      }
+
+      if (alerts.length === 0) {
+        console.log('   沒有觸發預約');
+        return;
+      }
+
+      console.log('   🔔 觸發 ' + alerts.length + ' 個預約');
+
+      // 發送通知
+      const userId = await this.getLineUserId();
+      if (!userId) return;
+
+      for (const alert of alerts) {
+        const isBuy = alert.tradeType === 'buy';
+        const typeEmoji = isBuy ? '🟢' : '🔴';
+        const typeText = isBuy ? '買進' : '賣出';
+        const bgColor = isBuy ? '#10B981' : '#EF4444';
+
+        const flexMessage = {
+          type: 'flex',
+          altText: `${typeEmoji} ${typeText}預約觸發 - ${alert.stockName}`,
+          contents: {
+            type: 'bubble',
+            size: 'kilo',
+            header: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                { type: 'text', text: `${typeEmoji} ${typeText}預約觸發！`, size: 'lg', weight: 'bold', color: '#ffffff' },
+                { type: 'text', text: `${alert.stockName} (${alert.stockId})`, size: 'sm', color: '#ffffffcc', margin: 'sm' }
+              ],
+              backgroundColor: bgColor,
+              paddingAll: '15px'
+            },
+            body: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '目標價', size: 'sm', color: '#666666' },
+                    { type: 'text', text: '$' + alert.targetPrice, size: 'md', weight: 'bold', align: 'end' }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'md',
+                  contents: [
+                    { type: 'text', text: '目前價格', size: 'sm', color: '#666666' },
+                    { type: 'text', text: '$' + alert.currentPrice, size: 'lg', weight: 'bold', align: 'end', color: bgColor }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'vertical',
+                  margin: 'lg',
+                  backgroundColor: '#f0f9ff',
+                  cornerRadius: 'md',
+                  paddingAll: 'md',
+                  contents: [
+                    { type: 'text', text: isBuy ? '💡 價格已跌至目標，可考慮買進' : '💡 價格已漲至目標，可考慮賣出', size: 'sm', color: '#0369a1', wrap: true }
+                  ]
+                }
+              ],
+              paddingAll: '15px'
+            },
+            footer: {
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                { type: 'button', style: 'secondary', height: 'sm',
+                  action: { type: 'message', label: '📊 查詢', text: alert.stockId }
+                },
+                { type: 'button', style: 'secondary', height: 'sm', margin: 'sm',
+                  action: { type: 'message', label: '📋 預約清單', text: '預約' }
+                }
+              ],
+              paddingAll: '10px'
+            }
+          }
+        };
+
+        await lineService.sendFlexMessage(userId, flexMessage);
+        
+        // 標記為已觸發
+        await pool.query(
+          'UPDATE trade_reservations SET is_triggered = true, triggered_at = CURRENT_TIMESTAMP WHERE id = $1',
+          [alert.id]
+        );
+
+        await this.sleep(500);
+      }
+
+      console.log('   ✅ 已發送 ' + alerts.length + ' 個預約提醒');
+
+    } catch (error) {
+      console.error('❌ 買賣預約檢查錯誤:', error);
     }
   }
 
