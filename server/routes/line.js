@@ -1952,23 +1952,68 @@ async function addHoldingFromLine(message) {
  */
 async function setTradeReservation(message) {
   try {
-    // 解析指令
-    const isBuy = message.startsWith('預約買');
-    const cleanMsg = message.replace(/^預約[買賣]\s*/, '').trim();
-    const parts = cleanMsg.split(/\s+/);
+    // 解析指令 - 支援多種格式
+    const isBuy = message.includes('預約買');
     
-    if (parts.length < 2) {
+    // 移除「預約買」或「預約賣」，支援有無空格
+    let cleanMsg = message
+      .replace(/^預約買\s*/, '')
+      .replace(/^預約賣\s*/, '')
+      .trim();
+    
+    // 🔧 解析格式：股票代碼 價格 張數/股數
+    // 例如：2330 550 2張、6770 66 1張500股、2337 72 500股
+    let stockId, targetPrice, lots = 0, oddShares = 0;
+    
+    // 先提取張數和股數
+    const lotsMatch = cleanMsg.match(/(\d+)張/);
+    const sharesMatch = cleanMsg.match(/(\d+)股/);
+    
+    if (lotsMatch) {
+      lots = parseInt(lotsMatch[1]);
+      cleanMsg = cleanMsg.replace(/\d+張/, '').trim();
+    }
+    if (sharesMatch) {
+      oddShares = parseInt(sharesMatch[1]);
+      cleanMsg = cleanMsg.replace(/\d+股/, '').trim();
+    }
+    
+    // 解析股票代碼和價格
+    const parts = cleanMsg.split(/\s+/).filter(p => p);
+    
+    if (parts.length >= 2) {
+      stockId = parts[0];
+      targetPrice = parseFloat(parts[1]);
+    } else if (parts.length === 1 && /^\d{4,6}$/.test(parts[0])) {
+      // 只有股票代碼，缺少價格
       return { 
         type: 'text', 
-        text: '❌ 格式錯誤\n\n📝 正確格式：\n• 預約買 2330 550（當跌到 550 時提醒）\n• 預約賣 2330 650（當漲到 650 時提醒）' 
+        text: `❌ 請輸入目標價格\n\n📝 正確格式：\n• 預約買 ${parts[0]} 價格 張數\n• 預約賣 ${parts[0]} 價格 張數\n\n例如：預約買 ${parts[0]} 550 2張` 
       };
     }
     
-    const stockId = parts[0];
-    const targetPrice = parseFloat(parts[1]);
+    // 驗證股票代碼
+    if (!stockId || !/^\d{4,6}$/.test(stockId)) {
+      return { 
+        type: 'text', 
+        text: '❌ 格式錯誤\n\n📝 正確格式：\n• 預約買 2330 550 2張\n• 預約賣 6770 66 1張\n• 預約買 2337 72 500股\n\n⚠️ 股票代碼、價格、張數之間請用空格分隔' 
+      };
+    }
     
-    if (!/^\d{4,6}$/.test(stockId) || !targetPrice || targetPrice <= 0) {
-      return { type: 'text', text: '❌ 請輸入有效的股票代碼和目標價格' };
+    // 驗證價格
+    if (!targetPrice || isNaN(targetPrice) || targetPrice <= 0) {
+      return { 
+        type: 'text', 
+        text: `❌ 請輸入有效的目標價格\n\n📝 正確格式：\n• 預約買 ${stockId} 價格 張數\n• 預約賣 ${stockId} 價格 張數` 
+      };
+    }
+    
+    // 驗證張數/股數（至少要有一個）
+    if (lots <= 0 && oddShares <= 0) {
+      return { 
+        type: 'text', 
+        text: `❌ 請輸入買賣數量\n\n📝 正確格式：\n• 預約${isBuy ? '買' : '賣'} ${stockId} ${targetPrice} 2張\n• 預約${isBuy ? '買' : '賣'} ${stockId} ${targetPrice} 1張500股\n• 預約${isBuy ? '買' : '賣'} ${stockId} ${targetPrice} 500股` 
+      };
     }
     
     // 取得股票名稱和目前價格
@@ -1986,6 +2031,15 @@ async function setTradeReservation(message) {
       return { type: 'text', text: `❌ 無法取得 ${stockId} 的目前價格` };
     }
     
+    // 🔧 驗證價格合理性（不能太離譜）
+    const priceRatio = targetPrice / currentPrice;
+    if (priceRatio < 0.1 || priceRatio > 10) {
+      return { 
+        type: 'text', 
+        text: `⚠️ 目標價格 $${targetPrice} 與現價 $${currentPrice} 差距過大\n\n請確認是否正確：\n• 預約${isBuy ? '買' : '賣'} ${stockId} ${targetPrice}\n\n如確定要設定，請再輸入一次` 
+      };
+    }
+    
     // 確保資料表存在
     await pool.query(`
       CREATE TABLE IF NOT EXISTS trade_reservations (
@@ -1995,6 +2049,8 @@ async function setTradeReservation(message) {
         stock_name VARCHAR(50),
         trade_type VARCHAR(10) NOT NULL,
         target_price DECIMAL(10,2) NOT NULL,
+        lots INTEGER DEFAULT 0,
+        odd_shares INTEGER DEFAULT 0,
         current_price_at_set DECIMAL(10,2),
         is_triggered BOOLEAN DEFAULT false,
         triggered_at TIMESTAMP,
@@ -2003,26 +2059,46 @@ async function setTradeReservation(message) {
       )
     `);
     
+    // 確保欄位存在（舊資料表升級用）
+    try {
+      await pool.query(`ALTER TABLE trade_reservations ADD COLUMN IF NOT EXISTS lots INTEGER DEFAULT 0`);
+      await pool.query(`ALTER TABLE trade_reservations ADD COLUMN IF NOT EXISTS odd_shares INTEGER DEFAULT 0`);
+    } catch (e) {}
+    
     // 插入預約紀錄
     await pool.query(`
-      INSERT INTO trade_reservations (user_id, stock_id, stock_name, trade_type, target_price, current_price_at_set)
-      VALUES ('default', $1, $2, $3, $4, $5)
-    `, [stockId, stockName, isBuy ? 'buy' : 'sell', targetPrice, currentPrice]);
+      INSERT INTO trade_reservations (user_id, stock_id, stock_name, trade_type, target_price, lots, odd_shares, current_price_at_set)
+      VALUES ('default', $1, $2, $3, $4, $5, $6, $7)
+    `, [stockId, stockName, isBuy ? 'buy' : 'sell', targetPrice, lots, oddShares, currentPrice]);
     
     // 計算價差
     const priceDiff = targetPrice - currentPrice;
     const priceDiffPercent = ((priceDiff / currentPrice) * 100).toFixed(2);
     const isAbove = targetPrice > currentPrice;
     
+    // 計算預估金額
+    const totalShares = lots * 1000 + oddShares;
+    const estimatedAmount = totalShares * targetPrice;
+    
+    // 顯示張數和零股
+    let quantityText = '';
+    if (lots > 0 && oddShares > 0) {
+      quantityText = `${lots}張${oddShares}股`;
+    } else if (lots > 0) {
+      quantityText = `${lots}張`;
+    } else {
+      quantityText = `${oddShares}股`;
+    }
+    
     const tradeTypeText = isBuy ? '買進' : '賣出';
     const tradeTypeEmoji = isBuy ? '🟢' : '🔴';
     const conditionText = isBuy 
-      ? `當價格跌至 $${targetPrice} 時提醒買進`
-      : `當價格漲至 $${targetPrice} 時提醒賣出`;
+      ? `當價格跌至 $${targetPrice} 時提醒買進 ${quantityText}`
+      : `當價格漲至 $${targetPrice} 時提醒賣出 ${quantityText}`;
     
     return {
       type: 'flex',
-      altText: `✅ 已設定 ${stockName} ${tradeTypeText}預約 $${targetPrice}`,
+      altText: `✅ 已設定 ${stockName} ${tradeTypeText}預約 $${targetPrice} ${quantityText}`,
       contents: {
         type: 'bubble',
         size: 'giga',
@@ -2044,12 +2120,20 @@ async function setTradeReservation(message) {
           layout: 'vertical',
           contents: [
             { type: 'box', layout: 'horizontal', contents: [
+              { type: 'text', text: `📦 ${tradeTypeText}數量`, size: 'sm', color: '#666666', flex: 2 },
+              { type: 'text', text: quantityText, size: 'md', align: 'end', flex: 3, weight: 'bold' }
+            ]},
+            { type: 'box', layout: 'horizontal', margin: 'md', contents: [
               { type: 'text', text: '📈 目前股價', size: 'sm', color: '#666666', flex: 2 },
               { type: 'text', text: `$${currentPrice}`, size: 'sm', align: 'end', flex: 3 }
             ]},
             { type: 'box', layout: 'horizontal', margin: 'md', contents: [
               { type: 'text', text: `🎯 ${tradeTypeText}目標價`, size: 'sm', color: '#666666', flex: 2 },
               { type: 'text', text: `$${targetPrice}`, size: 'lg', align: 'end', flex: 3, weight: 'bold', color: isBuy ? '#10B981' : '#EF4444' }
+            ]},
+            { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+              { type: 'text', text: '💰 預估金額', size: 'sm', color: '#666666', flex: 2 },
+              { type: 'text', text: `$${estimatedAmount.toLocaleString()}`, size: 'sm', align: 'end', flex: 3 }
             ]},
             { type: 'box', layout: 'horizontal', margin: 'md', contents: [
               { type: 'text', text: '📊 價差', size: 'sm', color: '#666666', flex: 2 },
@@ -2099,6 +2183,8 @@ async function getTradeReservationsFlex() {
         stock_name VARCHAR(50),
         trade_type VARCHAR(10) NOT NULL,
         target_price DECIMAL(10,2) NOT NULL,
+        lots INTEGER DEFAULT 0,
+        odd_shares INTEGER DEFAULT 0,
         current_price_at_set DECIMAL(10,2),
         is_triggered BOOLEAN DEFAULT false,
         triggered_at TIMESTAMP,
@@ -2106,6 +2192,12 @@ async function getTradeReservationsFlex() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
+    // 確保欄位存在
+    try {
+      await pool.query(`ALTER TABLE trade_reservations ADD COLUMN IF NOT EXISTS lots INTEGER DEFAULT 0`);
+      await pool.query(`ALTER TABLE trade_reservations ADD COLUMN IF NOT EXISTS odd_shares INTEGER DEFAULT 0`);
+    } catch (e) {}
     
     const result = await pool.query(`
       SELECT * FROM trade_reservations 
@@ -2117,7 +2209,7 @@ async function getTradeReservationsFlex() {
     if (result.rows.length === 0) {
       return { 
         type: 'text', 
-        text: '📭 目前沒有買賣預約\n\n📝 設定方式：\n• 預約買 2330 550（跌到 550 提醒買）\n• 預約賣 2330 650（漲到 650 提醒賣）' 
+        text: '📭 目前沒有買賣預約\n\n📝 設定方式：\n• 預約買 2330 550 2張\n• 預約賣 6770 66 1張\n• 預約買 2337 72 500股' 
       };
     }
     
@@ -2130,6 +2222,21 @@ async function getTradeReservationsFlex() {
       const diff = currentPrice - targetPrice;
       const diffPercent = targetPrice > 0 ? ((diff / targetPrice) * 100).toFixed(1) : 0;
       
+      const lots = parseInt(row.lots) || 0;
+      const oddShares = parseInt(row.odd_shares) || 0;
+      
+      // 顯示張數和零股
+      let quantityText = '';
+      if (lots > 0 && oddShares > 0) {
+        quantityText = `${lots}張${oddShares}股`;
+      } else if (lots > 0) {
+        quantityText = `${lots}張`;
+      } else if (oddShares > 0) {
+        quantityText = `${oddShares}股`;
+      } else {
+        quantityText = '未設定';
+      }
+      
       reservations.push({
         id: row.id,
         stockId: row.stock_id,
@@ -2139,6 +2246,9 @@ async function getTradeReservationsFlex() {
         currentPrice,
         diff,
         diffPercent,
+        lots,
+        oddShares,
+        quantityText,
         createdAt: row.created_at
       });
     }
@@ -2167,7 +2277,11 @@ async function getTradeReservationsFlex() {
             { type: 'text', text: `${typeEmoji} ${r.stockName}`, size: 'md', weight: 'bold', flex: 3 },
             { type: 'text', text: r.stockId, size: 'xs', color: '#888888', align: 'end', flex: 1 }
           ]},
-          { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+          { type: 'box', layout: 'horizontal', margin: 'sm', contents: [
+            { type: 'text', text: `${typeText}數量`, size: 'xs', color: '#666666', flex: 2 },
+            { type: 'text', text: r.quantityText, size: 'sm', align: 'end', flex: 2, weight: 'bold' }
+          ]},
+          { type: 'box', layout: 'horizontal', margin: 'sm', contents: [
             { type: 'text', text: `${typeText}目標`, size: 'sm', color: '#666666', flex: 2 },
             { type: 'text', text: `$${r.targetPrice}`, size: 'md', align: 'end', flex: 2, weight: 'bold', color: bgColor }
           ]},
@@ -10387,8 +10501,8 @@ function getHelpReply() {
     `━━━━━━━━━━━━━━\n` +
     `➕ 新增：新增 2330 1張 580\n` +
     `📦 賣出：賣出 2330 620\n` +
-    `📋 預約：預約買 2330 550\n` +
-    `📋 預約：預約賣 2330 650\n` +
+    `📋 預約買：預約買 2330 550 2張\n` +
+    `📋 預約賣：預約賣 6770 66 1張\n` +
     `📋 查看：預約（查看清單）\n\n` +
     `🆕 進階功能\n` +
     `━━━━━━━━━━━━━━\n` +

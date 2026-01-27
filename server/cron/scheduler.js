@@ -1344,6 +1344,8 @@ class Scheduler {
           stock_name VARCHAR(50),
           trade_type VARCHAR(10) NOT NULL,
           target_price DECIMAL(10,2) NOT NULL,
+          lots INTEGER DEFAULT 0,
+          odd_shares INTEGER DEFAULT 0,
           current_price_at_set DECIMAL(10,2),
           is_triggered BOOLEAN DEFAULT false,
           triggered_at TIMESTAMP,
@@ -1351,6 +1353,12 @@ class Scheduler {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
+      
+      // 確保欄位存在
+      try {
+        await pool.query(`ALTER TABLE trade_reservations ADD COLUMN IF NOT EXISTS lots INTEGER DEFAULT 0`);
+        await pool.query(`ALTER TABLE trade_reservations ADD COLUMN IF NOT EXISTS odd_shares INTEGER DEFAULT 0`);
+      } catch (e) {}
 
       // 取得所有未觸發的預約
       const result = await pool.query(`
@@ -1373,6 +1381,8 @@ class Scheduler {
         const targetPrice = parseFloat(row.target_price);
         const stockName = row.stock_name || row.stock_id;
         const isBuy = row.trade_type === 'buy';
+        const lots = parseInt(row.lots) || 0;
+        const oddShares = parseInt(row.odd_shares) || 0;
 
         // 買進預約：當現價 <= 目標價時觸發
         // 賣出預約：當現價 >= 目標價時觸發
@@ -1381,6 +1391,18 @@ class Scheduler {
           : currentPrice >= targetPrice;
 
         if (triggered) {
+          // 顯示張數和零股
+          let quantityText = '';
+          if (lots > 0 && oddShares > 0) {
+            quantityText = `${lots}張${oddShares}股`;
+          } else if (lots > 0) {
+            quantityText = `${lots}張`;
+          } else if (oddShares > 0) {
+            quantityText = `${oddShares}股`;
+          } else {
+            quantityText = '';
+          }
+          
           alerts.push({
             id: row.id,
             stockId: row.stock_id,
@@ -1388,6 +1410,9 @@ class Scheduler {
             tradeType: row.trade_type,
             targetPrice,
             currentPrice,
+            lots,
+            oddShares,
+            quantityText,
             setPrice: parseFloat(row.current_price_at_set) || targetPrice
           });
         }
@@ -1411,10 +1436,14 @@ class Scheduler {
         const typeEmoji = isBuy ? '🟢' : '🔴';
         const typeText = isBuy ? '買進' : '賣出';
         const bgColor = isBuy ? '#10B981' : '#EF4444';
+        
+        // 計算預估金額
+        const totalShares = alert.lots * 1000 + alert.oddShares;
+        const estimatedAmount = totalShares * alert.currentPrice;
 
         const flexMessage = {
           type: 'flex',
-          altText: `${typeEmoji} ${typeText}預約觸發 - ${alert.stockName}`,
+          altText: `${typeEmoji} ${typeText}預約觸發 - ${alert.stockName} ${alert.quantityText}`,
           contents: {
             type: 'bubble',
             size: 'kilo',
@@ -1432,9 +1461,18 @@ class Scheduler {
               type: 'box',
               layout: 'vertical',
               contents: [
+                ...(alert.quantityText ? [{
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: `${typeText}數量`, size: 'sm', color: '#666666' },
+                    { type: 'text', text: alert.quantityText, size: 'md', weight: 'bold', align: 'end' }
+                  ]
+                }] : []),
                 {
                   type: 'box',
                   layout: 'horizontal',
+                  margin: alert.quantityText ? 'md' : 'none',
                   contents: [
                     { type: 'text', text: '目標價', size: 'sm', color: '#666666' },
                     { type: 'text', text: '$' + alert.targetPrice, size: 'md', weight: 'bold', align: 'end' }
@@ -1449,6 +1487,15 @@ class Scheduler {
                     { type: 'text', text: '$' + alert.currentPrice, size: 'lg', weight: 'bold', align: 'end', color: bgColor }
                   ]
                 },
+                ...(totalShares > 0 ? [{
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'md',
+                  contents: [
+                    { type: 'text', text: '預估金額', size: 'sm', color: '#666666' },
+                    { type: 'text', text: '$' + estimatedAmount.toLocaleString(), size: 'sm', align: 'end' }
+                  ]
+                }] : []),
                 {
                   type: 'box',
                   layout: 'vertical',
@@ -1457,7 +1504,7 @@ class Scheduler {
                   cornerRadius: 'md',
                   paddingAll: 'md',
                   contents: [
-                    { type: 'text', text: isBuy ? '💡 價格已跌至目標，可考慮買進' : '💡 價格已漲至目標，可考慮賣出', size: 'sm', color: '#0369a1', wrap: true }
+                    { type: 'text', text: isBuy ? `💡 價格已跌至目標，可考慮買進${alert.quantityText ? ' ' + alert.quantityText : ''}` : `💡 價格已漲至目標，可考慮賣出${alert.quantityText ? ' ' + alert.quantityText : ''}`, size: 'sm', color: '#0369a1', wrap: true }
                   ]
                 }
               ],
