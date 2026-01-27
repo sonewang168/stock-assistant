@@ -61,8 +61,10 @@ class StockService {
           if (baseData) {
             baseData.price = closingData.price;
             baseData.change = closingData.change || (closingData.price - baseData.yesterday);
-            baseData.changePercent = baseData.yesterday ? 
-              ((baseData.change / baseData.yesterday) * 100).toFixed(2) : 0;
+            // 修復：避免除以 0 產生 Infinity
+            baseData.changePercent = (baseData.yesterday && baseData.yesterday > 0) 
+              ? ((baseData.change / baseData.yesterday) * 100).toFixed(2) 
+              : '0.00';
             baseData.colorMode = 'tw';
             // 補上名稱
             if (stockInfo && stockInfo.name) baseData.name = stockInfo.name;
@@ -109,7 +111,10 @@ class StockService {
         if (closingData && closingData.price > 0 && closingData.price !== data.yesterday) {
           data.price = closingData.price;
           data.change = closingData.change || (data.price - data.yesterday);
-          data.changePercent = ((data.change / data.yesterday) * 100).toFixed(2);
+          // 修復：避免除以 0 產生 Infinity
+          data.changePercent = (data.yesterday && data.yesterday > 0) 
+            ? ((data.change / data.yesterday) * 100).toFixed(2) 
+            : '0.00';
         }
       }
       
@@ -861,14 +866,27 @@ class StockService {
         // stock.z 是即時價，如果是 '-' 表示尚未成交，用昨收
         const currentPrice = (stock.z && stock.z !== '-') ? parseFloat(stock.z) : parseFloat(stock.y) || 0;
         console.log(`📈 TWSE ${stockId}: 即時價=${stock.z}, 昨收=${stock.y}, 使用=${currentPrice}, 時間=${stock.t}`);
+        
+        // 🔧 修復：處理 '-' 或無效值，用 currentPrice 或 yesterday 作為備援
+        const parseVal = (val, fallback) => {
+          if (!val || val === '-' || val === '') return fallback;
+          const num = parseFloat(val);
+          return isNaN(num) || num <= 0 ? fallback : num;
+        };
+        
+        const yesterday = parseVal(stock.y, currentPrice);
+        const open = parseVal(stock.o, yesterday);
+        const high = parseVal(stock.h, currentPrice);
+        const low = parseVal(stock.l, currentPrice);
+        
         return {
           id: stockId,
           name: stock.n || stockId,
           price: currentPrice,
-          open: parseFloat(stock.o) || 0,
-          high: parseFloat(stock.h) || 0,
-          low: parseFloat(stock.l) || 0,
-          yesterday: parseFloat(stock.y) || 0,
+          open: open,
+          high: high,
+          low: low,
+          yesterday: yesterday,
           volume: parseInt(stock.v) || 0,
           time: stock.t || '',
           market: 'TSE'
@@ -904,14 +922,27 @@ class StockService {
         // stock.z 是即時價，如果是 '-' 表示尚未成交，用昨收
         const currentPrice = (stock.z && stock.z !== '-') ? parseFloat(stock.z) : parseFloat(stock.y) || 0;
         console.log(`📈 OTC ${stockId}: 即時價=${stock.z}, 昨收=${stock.y}, 使用=${currentPrice}, 時間=${stock.t}`);
+        
+        // 🔧 修復：處理 '-' 或無效值，用 currentPrice 或 yesterday 作為備援
+        const parseVal = (val, fallback) => {
+          if (!val || val === '-' || val === '') return fallback;
+          const num = parseFloat(val);
+          return isNaN(num) || num <= 0 ? fallback : num;
+        };
+        
+        const yesterday = parseVal(stock.y, currentPrice);
+        const open = parseVal(stock.o, yesterday);
+        const high = parseVal(stock.h, currentPrice);
+        const low = parseVal(stock.l, currentPrice);
+        
         return {
           id: stockId,
           name: stock.n || stockId,
           price: currentPrice,
-          open: parseFloat(stock.o) || 0,
-          high: parseFloat(stock.h) || 0,
-          low: parseFloat(stock.l) || 0,
-          yesterday: parseFloat(stock.y) || 0,
+          open: open,
+          high: high,
+          low: low,
+          yesterday: yesterday,
           volume: parseInt(stock.v) || 0,
           time: stock.t || '',
           market: 'OTC'
@@ -928,12 +959,26 @@ class StockService {
    * 計算漲跌幅
    */
   calculateChange(stockData) {
-    if (!stockData || !stockData.yesterday || stockData.yesterday === 0) {
+    if (!stockData) return stockData;
+    
+    // 確保 yesterday 是有效的數值
+    const yesterday = parseFloat(stockData.yesterday) || 0;
+    const price = parseFloat(stockData.price) || 0;
+    
+    if (yesterday <= 0 || price <= 0) {
+      // 無法計算，設為 0
+      stockData.change = stockData.change || 0;
+      stockData.changePercent = stockData.changePercent || '0.00';
       return stockData;
     }
 
-    stockData.change = stockData.price - stockData.yesterday;
-    stockData.changePercent = ((stockData.change / stockData.yesterday) * 100).toFixed(2);
+    stockData.change = price - yesterday;
+    stockData.changePercent = ((stockData.change / yesterday) * 100).toFixed(2);
+    
+    // 最終檢查：避免 Infinity 或 NaN
+    if (!isFinite(parseFloat(stockData.changePercent))) {
+      stockData.changePercent = '0.00';
+    }
     
     return stockData;
   }

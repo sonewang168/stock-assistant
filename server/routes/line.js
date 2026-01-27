@@ -510,6 +510,19 @@ async function getStockInfoFlex(stockId) {
     return { type: 'text', text: `❌ 找不到股票 ${stockId}` };
   }
   
+  // 🔧 修復：確保數值有效，避免 Infinity/NaN
+  if (!isFinite(parseFloat(stockData.changePercent))) {
+    stockData.changePercent = 0;
+  }
+  if (!isFinite(parseFloat(stockData.change))) {
+    stockData.change = 0;
+  }
+  // 確保其他數值不是 null/undefined
+  stockData.open = stockData.open || stockData.price || 0;
+  stockData.high = stockData.high || stockData.price || 0;
+  stockData.low = stockData.low || stockData.price || 0;
+  stockData.yesterday = stockData.yesterday || stockData.price || 0;
+  
   // 台股才抓技術指標和籌碼
   let indicators = null;
   let chip = null;
