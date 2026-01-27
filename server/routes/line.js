@@ -10400,7 +10400,7 @@ function getFullFeatureList() {
             layout: 'vertical',
             contents: [
               { type: 'text', text: '📋 功能清單 (4/5)', size: 'lg', weight: 'bold', color: '#ffffff' },
-              { type: 'text', text: '監控 & 模擬交易', size: 'sm', color: '#ffffffaa', margin: 'sm' }
+              { type: 'text', text: '監控 & 買賣預約', size: 'sm', color: '#ffffffaa', margin: 'sm' }
             ],
             backgroundColor: '#E74C3C',
             paddingAll: '15px'
@@ -10412,8 +10412,8 @@ function getFullFeatureList() {
               { type: 'text', text: '🔔 監控警報', weight: 'bold', size: 'sm', color: '#E74C3C' },
               { type: 'text', text: '+2330 → 新增監控\n-2330 → 取消監控\n監控 → 查看清單', size: 'xs', color: '#666666', wrap: true, margin: 'sm' },
               { type: 'separator', margin: 'lg' },
-              { type: 'text', text: '🎮 模擬交易', weight: 'bold', size: 'sm', color: '#E74C3C', margin: 'lg' },
-              { type: 'text', text: '模擬買 2330 1\n模擬賣 2330 1\n模擬持股', size: 'xs', color: '#666666', wrap: true, margin: 'sm' },
+              { type: 'text', text: '📋 買賣預約', weight: 'bold', size: 'sm', color: '#E74C3C', margin: 'lg' },
+              { type: 'text', text: '預約買 2330 550 2張\n預約賣 6770 66 1張\n預約 → 查看清單\n取消預約 2330', size: 'xs', color: '#666666', wrap: true, margin: 'sm' },
               { type: 'separator', margin: 'lg' },
               { type: 'text', text: '📅 財報日曆', weight: 'bold', size: 'sm', color: '#E74C3C', margin: 'lg' },
               { type: 'text', text: '財報 → 近期財報公布', size: 'xs', color: '#666666', wrap: true, margin: 'sm' },
@@ -10431,7 +10431,7 @@ function getFullFeatureList() {
                 action: { type: 'message', label: '監控', text: '監控' }
               },
               { type: 'button', style: 'secondary', height: 'sm', margin: 'sm',
-                action: { type: 'message', label: '模擬持股', text: '模擬持股' }
+                action: { type: 'message', label: '預約清單', text: '預約' }
               }
             ],
             paddingAll: '10px'
