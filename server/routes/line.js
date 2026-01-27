@@ -8498,13 +8498,31 @@ async function getWatchlistFlex() {
     const color = isUp ? '#ff4444' : '#00C851'; // 台灣：紅漲綠跌
     const arrow = isUp ? '▲' : '▼';
     
+    // 🔧 如果 watchlist 或 stocks 缺少名稱，自動補上
+    if (stockData?.name && stockData.name !== row.stock_id) {
+      if (!row.stock_name || row.stock_name === row.stock_id) {
+        // 更新 watchlist
+        await pool.query(`UPDATE watchlist SET stock_name = $1 WHERE stock_id = $2 AND user_id = 'default'`, 
+          [stockData.name, row.stock_id]).catch(() => {});
+        // 更新 stocks
+        await pool.query(`INSERT INTO stocks (id, name, market) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET name = $2`, 
+          [row.stock_id, stockData.name, stockData.market || 'TSE']).catch(() => {});
+      }
+    }
+    
     // 檢查是否為持股
     const isHolding = holdingIds.includes(row.stock_id);
     const holdingIcon = isHolding ? '💼' : '';
     
-    // 🔧 修正：顯示格式改為「公司名稱(股票代碼)」
-    const stockName = row.stock_name || stockData?.name || row.stock_id;
-    const displayText = `${holdingIcon}${stockName}(${row.stock_id})`;
+    // 🔧 修正：優先使用 stockData.name（即時資料），避免顯示代碼重複
+    let stockName = stockData?.name || row.stock_name || '';
+    // 如果名稱就是代碼，清空避免重複
+    if (stockName === row.stock_id) stockName = '';
+    
+    // 格式：有名稱時「名稱(代碼)」，無名稱時只顯示「代碼」
+    const displayText = stockName 
+      ? `${holdingIcon}${stockName}(${row.stock_id})`
+      : `${holdingIcon}${row.stock_id}`;
     
     stockRows.push({
       type: 'box',
@@ -8514,7 +8532,7 @@ async function getWatchlistFlex() {
           type: 'text', 
           text: displayText, 
           size: 'sm', 
-          flex: 3,
+          flex: 5,  // 🔧 加寬名稱欄位
           color: isHolding ? '#D4AF37' : '#333333',
           weight: isHolding ? 'bold' : 'regular'
         },
@@ -8563,7 +8581,7 @@ async function getWatchlistFlex() {
             type: 'box',
             layout: 'horizontal',
             contents: [
-              { type: 'text', text: '股票', size: 'xs', color: '#888888', flex: 3 },
+              { type: 'text', text: '股票', size: 'xs', color: '#888888', flex: 5 },
               { type: 'text', text: '現價', size: 'xs', color: '#888888', align: 'end', flex: 2 },
               { type: 'text', text: '漲跌', size: 'xs', color: '#888888', align: 'end', flex: 2 }
             ]
@@ -8736,11 +8754,11 @@ async function addToWatchlist(stockId) {
       ON CONFLICT (id) DO UPDATE SET name = $2
     `, [stockId, stockData.name, stockData.market || 'TSE']);
     
-    // 加入監控（使用 default 用戶）
+    // 加入監控（使用 default 用戶）- 同時更新名稱
     const sql = `
       INSERT INTO watchlist (stock_id, stock_name, user_id, is_active)
       VALUES ($1, $2, 'default', true)
-      ON CONFLICT (stock_id, user_id) DO UPDATE SET is_active = true
+      ON CONFLICT (stock_id, user_id) DO UPDATE SET is_active = true, stock_name = $2
     `;
     
     await pool.query(sql, [stockId, stockData.name]);
