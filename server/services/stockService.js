@@ -879,9 +879,20 @@ class StockService {
         const high = parseVal(stock.h, currentPrice);
         const low = parseVal(stock.l, currentPrice);
         
+        // 🔧 修復：使用 twStocks 對照表補全名稱
+        let stockName = stock.n || '';
+        if (!stockName || stockName === stockId) {
+          const twInfo = twStocks ? twStocks.getStockInfo(stockId) : null;
+          if (twInfo && twInfo.name) {
+            stockName = twInfo.name;
+          } else {
+            stockName = stockId;
+          }
+        }
+        
         return {
           id: stockId,
-          name: stock.n || stockId,
+          name: stockName,
           price: currentPrice,
           open: open,
           high: high,
@@ -935,9 +946,20 @@ class StockService {
         const high = parseVal(stock.h, currentPrice);
         const low = parseVal(stock.l, currentPrice);
         
+        // 🔧 修復：使用 twStocks 對照表補全名稱
+        let stockName = stock.n || '';
+        if (!stockName || stockName === stockId) {
+          const twInfo = twStocks ? twStocks.getStockInfo(stockId) : null;
+          if (twInfo && twInfo.name) {
+            stockName = twInfo.name;
+          } else {
+            stockName = stockId;
+          }
+        }
+        
         return {
           id: stockId,
-          name: stock.n || stockId,
+          name: stockName,
           price: currentPrice,
           open: open,
           high: high,

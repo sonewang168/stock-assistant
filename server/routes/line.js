@@ -525,6 +525,14 @@ async function getStockInfoFlex(stockId) {
     return { type: 'text', text: `❌ 找不到股票 ${stockId}` };
   }
   
+  // 🔧 修復：使用 twStocks 對照表補全名稱
+  if (!stockData.name || stockData.name === stockId) {
+    const twInfo = twStocks.getStockInfo(stockId);
+    if (twInfo && twInfo.name) {
+      stockData.name = twInfo.name;
+    }
+  }
+  
   // 🔧 修復：確保數值有效，避免 Infinity/NaN
   if (!isFinite(parseFloat(stockData.changePercent))) {
     stockData.changePercent = 0;
