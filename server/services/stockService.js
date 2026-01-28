@@ -59,7 +59,11 @@ class StockService {
           }
           
           if (baseData) {
+            // 🔧 修正：使用 Yahoo 的 previousClose 作為昨收價
+            const yahooYesterday = closingData.previousClose || 0;
             baseData.price = closingData.price;
+            // 優先使用 Yahoo 的昨收，其次用 baseData 的昨收
+            baseData.yesterday = yahooYesterday > 0 ? yahooYesterday : (baseData.yesterday || closingData.price);
             baseData.change = closingData.change || (closingData.price - baseData.yesterday);
             // 修復：避免除以 0 產生 Infinity
             baseData.changePercent = (baseData.yesterday && baseData.yesterday > 0) 
@@ -68,7 +72,7 @@ class StockService {
             baseData.colorMode = 'tw';
             // 補上名稱
             if (stockInfo && stockInfo.name) baseData.name = stockInfo.name;
-            console.log(`✅ ${stockId} Yahoo 收盤價: ${closingData.price}`);
+            console.log(`✅ ${stockId} Yahoo 收盤價: ${closingData.price}, 昨收: ${baseData.yesterday}`);
             return baseData;
           }
         }
