@@ -9844,11 +9844,14 @@ function getFullFeatureList() {
               { type: 'text', text: '🔍 基本查詢', weight: 'bold', size: 'sm', color: '#3498DB' },
               { type: 'text', text: '2330 → 查股價\n大盤 → 台股指數\n美股 → 美股指數\n熱門 → 熱門股', size: 'xs', color: '#666666', wrap: true, margin: 'sm' },
               { type: 'separator', margin: 'lg' },
+              { type: 'text', text: '📊 即時報價看板 🆕', weight: 'bold', size: 'sm', color: '#10B981', margin: 'lg' },
+              { type: 'text', text: '即時報價 → 專業看盤網頁\n報價 2330 → 指定股票\n💡 開網頁不扣訊息用量！', size: 'xs', color: '#666666', wrap: true, margin: 'sm' },
+              { type: 'separator', margin: 'lg' },
               { type: 'text', text: '💼 持股管理', weight: 'bold', size: 'sm', color: '#3498DB', margin: 'lg' },
-              { type: 'text', text: '持股 → 查看持股\n收盤摘要 → 今日損益\n綜合分析 → 持股分析\n賣出 2330 1000', size: 'xs', color: '#666666', wrap: true, margin: 'sm' },
+              { type: 'text', text: '持股 → 查看持股\n收盤摘要 → 今日損益\n賣出 2330 1000', size: 'xs', color: '#666666', wrap: true, margin: 'sm' },
               { type: 'separator', margin: 'lg' },
               { type: 'text', text: '🎯 停利停損', weight: 'bold', size: 'sm', color: '#3498DB', margin: 'lg' },
-              { type: 'text', text: '停利 2330 1100\n停損 2330 900\n目標 2330 1100 900\n檢查目標', size: 'xs', color: '#666666', wrap: true, margin: 'sm' }
+              { type: 'text', text: '停利 2330 1100\n停損 2330 900\n檢查目標', size: 'xs', color: '#666666', wrap: true, margin: 'sm' }
             ],
             paddingAll: '15px'
           },
@@ -9856,11 +9859,11 @@ function getFullFeatureList() {
             type: 'box',
             layout: 'horizontal',
             contents: [
-              { type: 'button', style: 'primary', color: '#3498DB', height: 'sm',
-                action: { type: 'message', label: '持股', text: '持股' }
+              { type: 'button', style: 'primary', color: '#10B981', height: 'sm',
+                action: { type: 'message', label: '📊 即時報價', text: '即時報價' }
               },
               { type: 'button', style: 'secondary', height: 'sm', margin: 'sm',
-                action: { type: 'message', label: '收盤摘要', text: '收盤摘要' }
+                action: { type: 'message', label: '持股', text: '持股' }
               }
             ],
             paddingAll: '10px'
@@ -10060,6 +10063,8 @@ function getHelpReply() {
     `🎯 停損：停利 2330 1100\n\n` +
     `🆕 進階功能\n` +
     `━━━━━━━━━━━━━━\n` +
+    `📊 即時報價（專業看盤網頁）\n` +
+    `📊 報價 2330（指定股票）\n` +
     `💰 股息：股息 2330、高殖利率\n` +
     `🏥 健檢：健檢、組合分析\n` +
     `🌊 波浪：波浪 2330（分析）\n` +
