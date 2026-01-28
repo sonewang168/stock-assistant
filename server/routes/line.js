@@ -156,6 +156,17 @@ async function handleCommand(message, userId) {
     return getWaveWebLink(stockId);
   }
   
+  // 🆕 即時報價看板（開啟專業分析網頁）
+  if (msg === '即時報價' || msg === '報價看板' || msg === '看盤' || msg === '即時看盤') {
+    return getRealtimeWebLink();
+  }
+  
+  // 🆕 即時報價 + 股票代碼
+  if (/^(即時報價|報價|看盤)\s*\d{4,6}$/.test(msg)) {
+    const stockId = msg.replace(/^(即時報價|報價|看盤)\s*/, '').trim();
+    return getRealtimeWebLink(stockId);
+  }
+  
   // 🆕 波浪建議（掃描熱門股票找出適合進場的）
   if (msg === '波浪建議' || msg === '波浪推薦' || msg === '波浪掃描') {
     return await getWaveRecommendations();
@@ -230,6 +241,9 @@ async function handleCommand(message, userId) {
     '外資賣超': () => getInstitutionalRankingFlex('foreign', 'sell'),
     '投信買超': () => getInstitutionalRankingFlex('trust', 'buy'),
     '投信賣超': () => getInstitutionalRankingFlex('trust', 'sell'),
+    '即時報價': () => getRealtimeWebLink(),
+    '報價看板': () => getRealtimeWebLink(),
+    '即時看盤': () => getRealtimeWebLink(),
     '熱門美股': () => getHotUSStocksFlex(),
     '美股指數': () => getUSMarketReply(),
     '美股分析': () => getUSMarketDeepAnalysisFlex(),
@@ -273,6 +287,7 @@ async function handleCommand(message, userId) {
     '績效': () => getPerformanceFlex(),
     '持股': () => getPortfolioFlex(),
     '監控': () => getWatchlistFlex(),
+    '看盤': () => getRealtimeWebLink(),
     '大盤': () => getMarketReply(),
     '指數': () => getMarketReply(),
     '說明': () => getHelpReply(),
@@ -5794,6 +5809,95 @@ function getWaveWebLink(stockId) {
             },
             { type: 'button', style: 'secondary', height: 'sm', flex: 1, margin: 'sm',
               action: { type: 'message', label: '波浪建議', text: '波浪建議' }
+            }
+          ]}
+        ]
+      }
+    }
+  };
+}
+
+/**
+ * 🆕 即時報價看板網頁連結
+ * 💡 點擊開啟網頁不會扣 LINE 訊息用量！
+ */
+function getRealtimeWebLink(stockId = '') {
+  const baseUrl = 'https://stock-assistant-production-8ce3.up.railway.app/realtime.html';
+  const webUrl = stockId ? `${baseUrl}?stock=${stockId}` : baseUrl;
+  const stockName = stockId ? (getStockNameById(stockId) || stockId) : '台股';
+  
+  return {
+    type: 'flex',
+    altText: `📊 即時報價看板 - ${stockName}`,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'horizontal',
+        backgroundColor: '#0a0e17',
+        paddingAll: '16px',
+        contents: [
+          { type: 'box', layout: 'vertical', flex: 3,
+            contents: [
+              { type: 'text', text: '📊 即時報價看板', size: 'xl', weight: 'bold', color: '#60A5FA' },
+              { type: 'text', text: '專業股票分析系統', size: 'xs', color: '#94A3B8', margin: 'xs' }
+            ]
+          },
+          { type: 'box', layout: 'vertical', flex: 1, alignItems: 'flex-end', justifyContent: 'center',
+            contents: [
+              { type: 'text', text: '🔥', size: 'xxl' }
+            ]
+          }
+        ]
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: '16px',
+        backgroundColor: '#111827',
+        contents: [
+          { type: 'text', text: stockId ? `📈 ${stockName} (${stockId})` : '🏠 台股專業分析', size: 'md', weight: 'bold', color: '#E2E8F0' },
+          { type: 'separator', margin: 'md', color: '#2d3a4f' },
+          { type: 'text', text: '✨ 網頁版功能：', size: 'sm', color: '#94A3B8', margin: 'md' },
+          { type: 'box', layout: 'vertical', margin: 'sm', spacing: 'xs',
+            contents: [
+              { type: 'text', text: '📈 即時股價 K 線圖', size: 'xs', color: '#10B981' },
+              { type: 'text', text: '📊 技術指標 RSI/KD/MACD', size: 'xs', color: '#3B82F6' },
+              { type: 'text', text: '🌊 艾略特波浪分析', size: 'xs', color: '#8B5CF6' },
+              { type: 'text', text: '📐 費波納契回撤/目標價', size: 'xs', color: '#F59E0B' },
+              { type: 'text', text: '🤖 三 AI 智能分析', size: 'xs', color: '#EC4899' },
+              { type: 'text', text: '💰 籌碼法人動向', size: 'xs', color: '#06B6D4' }
+            ]
+          },
+          { type: 'separator', margin: 'lg', color: '#2d3a4f' },
+          { type: 'box', layout: 'horizontal', margin: 'md',
+            contents: [
+              { type: 'text', text: '💡 開啟網頁', size: 'xxs', color: '#10B981', flex: 2 },
+              { type: 'text', text: '不扣訊息用量', size: 'xxs', color: '#10B981', align: 'end', flex: 3 }
+            ]
+          }
+        ]
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: '12px',
+        backgroundColor: '#0a0e17',
+        spacing: 'sm',
+        contents: [
+          { type: 'button', style: 'primary', color: '#3B82F6', height: 'sm',
+            action: { type: 'uri', label: '🚀 開啟即時報價看板', uri: webUrl }
+          },
+          { type: 'box', layout: 'horizontal', margin: 'sm', contents: [
+            { type: 'button', style: 'secondary', height: 'sm', flex: 1,
+              action: { type: 'message', label: '📊 2330', text: '報價 2330' }
+            },
+            { type: 'button', style: 'secondary', height: 'sm', flex: 1, margin: 'sm',
+              action: { type: 'message', label: '📊 2454', text: '報價 2454' }
+            },
+            { type: 'button', style: 'secondary', height: 'sm', flex: 1, margin: 'sm',
+              action: { type: 'message', label: '🌊 波浪', text: '波浪網頁 2330' }
             }
           ]}
         ]
