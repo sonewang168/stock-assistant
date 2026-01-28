@@ -863,21 +863,26 @@ class StockService {
       const data = response.data;
       if (data.msgArray && data.msgArray.length > 0) {
         const stock = data.msgArray[0];
-        // stock.z 是即時價，如果是 '-' 表示尚未成交，用昨收
-        const currentPrice = (stock.z && stock.z !== '-') ? parseFloat(stock.z) : parseFloat(stock.y) || 0;
-        console.log(`📈 TWSE ${stockId}: 即時價=${stock.z}, 昨收=${stock.y}, 使用=${currentPrice}, 時間=${stock.t}`);
         
-        // 🔧 修復：處理 '-' 或無效值，用 currentPrice 或 yesterday 作為備援
-        const parseVal = (val, fallback) => {
-          if (!val || val === '-' || val === '') return fallback;
+        // 🔧 修正：先解析昨收，再決定即時價
+        const parseVal = (val) => {
+          if (!val || val === '-' || val === '') return null;
           const num = parseFloat(val);
-          return isNaN(num) || num <= 0 ? fallback : num;
+          return isNaN(num) || num <= 0 ? null : num;
         };
         
-        const yesterday = parseVal(stock.y, currentPrice);
-        const open = parseVal(stock.o, yesterday);
-        const high = parseVal(stock.h, currentPrice);
-        const low = parseVal(stock.l, currentPrice);
+        // 昨收價 - 這是固定的，不應該用當天價格作為備援
+        const yesterday = parseVal(stock.y) || 0;
+        
+        // 即時價：優先用 stock.z，無效時用昨收
+        const currentPrice = parseVal(stock.z) || yesterday || 0;
+        
+        console.log(`📈 TWSE ${stockId}: 即時價=${stock.z}, 昨收=${stock.y}, 使用價=${currentPrice}, 時間=${stock.t}`);
+        
+        // 開高低：無效時用合理備援
+        const open = parseVal(stock.o) || currentPrice;
+        const high = parseVal(stock.h) || currentPrice;
+        const low = parseVal(stock.l) || currentPrice;
         
         // 🔧 修復：使用 twStocks 對照表補全名稱
         let stockName = stock.n || '';
@@ -930,21 +935,26 @@ class StockService {
       const data = response.data;
       if (data.msgArray && data.msgArray.length > 0) {
         const stock = data.msgArray[0];
-        // stock.z 是即時價，如果是 '-' 表示尚未成交，用昨收
-        const currentPrice = (stock.z && stock.z !== '-') ? parseFloat(stock.z) : parseFloat(stock.y) || 0;
-        console.log(`📈 OTC ${stockId}: 即時價=${stock.z}, 昨收=${stock.y}, 使用=${currentPrice}, 時間=${stock.t}`);
         
-        // 🔧 修復：處理 '-' 或無效值，用 currentPrice 或 yesterday 作為備援
-        const parseVal = (val, fallback) => {
-          if (!val || val === '-' || val === '') return fallback;
+        // 🔧 修正：先解析昨收，再決定即時價
+        const parseVal = (val) => {
+          if (!val || val === '-' || val === '') return null;
           const num = parseFloat(val);
-          return isNaN(num) || num <= 0 ? fallback : num;
+          return isNaN(num) || num <= 0 ? null : num;
         };
         
-        const yesterday = parseVal(stock.y, currentPrice);
-        const open = parseVal(stock.o, yesterday);
-        const high = parseVal(stock.h, currentPrice);
-        const low = parseVal(stock.l, currentPrice);
+        // 昨收價 - 這是固定的，不應該用當天價格作為備援
+        const yesterday = parseVal(stock.y) || 0;
+        
+        // 即時價：優先用 stock.z，無效時用昨收
+        const currentPrice = parseVal(stock.z) || yesterday || 0;
+        
+        console.log(`📈 OTC ${stockId}: 即時價=${stock.z}, 昨收=${stock.y}, 使用價=${currentPrice}, 時間=${stock.t}`);
+        
+        // 開高低：無效時用合理備援
+        const open = parseVal(stock.o) || currentPrice;
+        const high = parseVal(stock.h) || currentPrice;
+        const low = parseVal(stock.l) || currentPrice;
         
         // 🔧 修復：使用 twStocks 對照表補全名稱
         let stockName = stock.n || '';
