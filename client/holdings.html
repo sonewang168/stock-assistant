@@ -486,12 +486,16 @@
                 const costPrice = parseFloat(h.won_price) || parseFloat(h.bid_price) || 0;
                 const paidTotal = costPrice * totalShares;
                 
+                // 🔧 修正：顯示「名稱(代碼)」格式
+                const stockName = h.stock_name && h.stock_name !== h.stock_id ? h.stock_name : '';
+                const displayName = stockName ? stockName + '(' + h.stock_id + ')' : h.stock_id;
+                
                 return `
                     <div class="holding-card ${statusClass}" data-id="${h.id}">
                         <div class="holding-header">
                             <div>
-                                <div class="holding-name">${h.stock_name || h.stock_id}</div>
-                                <div class="holding-id">${h.stock_id} | ${lotsDisplay}</div>
+                                <div class="holding-name">${displayName}</div>
+                                <div class="holding-id">${lotsDisplay}</div>
                             </div>
                             <span class="holding-status ${statusClass}">${statusText}</span>
                         </div>
@@ -587,11 +591,15 @@
                 var color = isUp ? '#ff6b6b' : '#4CAF50';
                 var priceDiff = ((h.sold_price || 0) - (h.won_price || 0)).toFixed(2);
                 
+                // 🔧 修正：顯示「名稱(代碼)」格式
+                var stockName = h.stock_name && h.stock_name !== h.stock_id ? h.stock_name : '';
+                var displayName = stockName ? stockName + '(' + h.stock_id + ')' : h.stock_id;
+                
                 return '<div class="holding-card won" data-id="' + h.id + '" style="border-left:4px solid ' + color + ';">' +
                     '<div class="holding-header">' +
                         '<div>' +
-                            '<div class="holding-name">' + (h.stock_name || h.stock_id) + '</div>' +
-                            '<div class="holding-id">' + h.stock_id + ' | ' + lotsDisplay + ' | 賣出日：' + soldDate + '</div>' +
+                            '<div class="holding-name">' + displayName + '</div>' +
+                            '<div class="holding-id">' + lotsDisplay + ' | 賣出日：' + soldDate + '</div>' +
                         '</div>' +
                         '<span class="holding-status" style="background:' + (isUp ? 'rgba(211,47,47,0.2)' : 'rgba(56,142,60,0.2)') + ';color:' + color + ';">' + (isUp ? '✅ 獲利' : '📉 虧損') + '</span>' +
                     '</div>' +

@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 const stockService = require('../services/stockService');
+const twStocks = require('../data/twStocks');
 
 // 手續費常數
 const FEE_RATE = 0.001425;
@@ -218,6 +219,14 @@ router.get('/', async (req, res) => {
           }
         } catch (e) {
           console.log(`無法取得 ${row.stock_id} 即時價格`);
+        }
+      }
+      
+      // 🔧 使用 twStocks 對照表補全缺少的名稱
+      if (!row.stock_name || row.stock_name === row.stock_id) {
+        const twInfo = twStocks.getStockInfo(row.stock_id);
+        if (twInfo && twInfo.name) {
+          row.stock_name = twInfo.name;
         }
       }
       
