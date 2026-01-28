@@ -62,9 +62,22 @@ class StockService {
             const yahooPrice = closingData.price;
             const yahooYesterday = closingData.previousClose || 0;
             
-            // 🔧 修正：盤後時所有價格都用 Yahoo 數據，或用合理備援
+            // 🔧 修正：盤後時優先用 Yahoo 價格，但昨收價優先用 TWSE/OTC 原始數據
+            // 保留 TWSE/OTC 的原始昨收價作為備援
+            const originalYesterday = baseData.yesterday || 0;
+            
             baseData.price = yahooPrice;
-            baseData.yesterday = yahooYesterday > 0 ? yahooYesterday : yahooPrice;
+            // 🔧 關鍵修正：昨收價優先順序 - Yahoo > TWSE/OTC原始 > 當日收盤價
+            if (yahooYesterday > 0) {
+              baseData.yesterday = yahooYesterday;
+            } else if (originalYesterday > 0) {
+              baseData.yesterday = originalYesterday;
+              console.log(`⚠️ ${stockId} Yahoo無昨收，使用TWSE/OTC昨收: ${originalYesterday}`);
+            } else {
+              baseData.yesterday = yahooPrice;
+              console.log(`⚠️ ${stockId} 無法取得昨收，使用當日價: ${yahooPrice}`);
+            }
+            
             // 開高低：如果是 0 就用收盤價
             baseData.open = (baseData.open && baseData.open > 0) ? baseData.open : yahooPrice;
             baseData.high = (baseData.high && baseData.high > 0) ? baseData.high : yahooPrice;

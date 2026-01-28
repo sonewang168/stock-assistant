@@ -1424,7 +1424,7 @@ const TW_STOCKS = {
   '6763': { name: '綠界科技', market: 'OTC' },
   '6768': { name: '志強-KY', market: 'OTC' },
   '6769': { name: '欣厚-KY', market: 'OTC' },
-  '6770': { name: '力積電', market: 'OTC' },
+  '6770': { name: '力積電', market: 'TSE' },
   '6776': { name: '展碁國際', market: 'OTC' },
   '6781': { name: 'AES-KY', market: 'OTC' },
   '6782': { name: '視陽', market: 'OTC' },
