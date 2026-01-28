@@ -59,20 +59,26 @@ class StockService {
           }
           
           if (baseData) {
-            // 🔧 修正：使用 Yahoo 的 previousClose 作為昨收價
+            const yahooPrice = closingData.price;
             const yahooYesterday = closingData.previousClose || 0;
-            baseData.price = closingData.price;
-            // 優先使用 Yahoo 的昨收，其次用 baseData 的昨收
-            baseData.yesterday = yahooYesterday > 0 ? yahooYesterday : (baseData.yesterday || closingData.price);
-            baseData.change = closingData.change || (closingData.price - baseData.yesterday);
-            // 修復：避免除以 0 產生 Infinity
-            baseData.changePercent = (baseData.yesterday && baseData.yesterday > 0) 
+            
+            // 🔧 修正：盤後時所有價格都用 Yahoo 數據，或用合理備援
+            baseData.price = yahooPrice;
+            baseData.yesterday = yahooYesterday > 0 ? yahooYesterday : yahooPrice;
+            // 開高低：如果是 0 就用收盤價
+            baseData.open = (baseData.open && baseData.open > 0) ? baseData.open : yahooPrice;
+            baseData.high = (baseData.high && baseData.high > 0) ? baseData.high : yahooPrice;
+            baseData.low = (baseData.low && baseData.low > 0) ? baseData.low : yahooPrice;
+            
+            baseData.change = yahooPrice - baseData.yesterday;
+            baseData.changePercent = baseData.yesterday > 0 
               ? ((baseData.change / baseData.yesterday) * 100).toFixed(2) 
               : '0.00';
             baseData.colorMode = 'tw';
+            
             // 補上名稱
             if (stockInfo && stockInfo.name) baseData.name = stockInfo.name;
-            console.log(`✅ ${stockId} Yahoo 收盤價: ${closingData.price}, 昨收: ${baseData.yesterday}`);
+            console.log(`✅ ${stockId} 盤後 Yahoo: 價=${yahooPrice}, 昨收=${baseData.yesterday}, 開=${baseData.open}`);
             return baseData;
           }
         }
@@ -868,27 +874,29 @@ class StockService {
       if (data.msgArray && data.msgArray.length > 0) {
         const stock = data.msgArray[0];
         
-        // 🔧 修正：先解析昨收，再決定即時價
+        // 🔧 修正：解析數值
         const parseVal = (val) => {
           if (!val || val === '-' || val === '') return null;
           const num = parseFloat(val);
           return isNaN(num) || num <= 0 ? null : num;
         };
         
-        // 昨收價 - 這是固定的，不應該用當天價格作為備援
-        const yesterday = parseVal(stock.y) || 0;
-        
         // 即時價：優先用 stock.z，無效時用昨收
-        const currentPrice = parseVal(stock.z) || yesterday || 0;
+        const rawYesterday = parseVal(stock.y);
+        const rawPrice = parseVal(stock.z);
+        const currentPrice = rawPrice || rawYesterday || 0;
         
-        console.log(`📈 TWSE ${stockId}: 即時價=${stock.z}, 昨收=${stock.y}, 使用價=${currentPrice}, 時間=${stock.t}`);
+        // 昨收價：如果無效，先不用當天價格替換（讓 line.js 處理）
+        const yesterday = rawYesterday || 0;
         
-        // 開高低：無效時用合理備援
+        console.log(`📈 TWSE ${stockId}: 即時=${stock.z}→${currentPrice}, 昨收=${stock.y}→${yesterday}, 時間=${stock.t}`);
+        
+        // 開高低：無效時用當天價格
         const open = parseVal(stock.o) || currentPrice;
         const high = parseVal(stock.h) || currentPrice;
         const low = parseVal(stock.l) || currentPrice;
         
-        // 🔧 修復：使用 twStocks 對照表補全名稱
+        // 使用 twStocks 對照表補全名稱
         let stockName = stock.n || '';
         if (!stockName || stockName === stockId) {
           const twInfo = twStocks ? twStocks.getStockInfo(stockId) : null;
@@ -940,27 +948,29 @@ class StockService {
       if (data.msgArray && data.msgArray.length > 0) {
         const stock = data.msgArray[0];
         
-        // 🔧 修正：先解析昨收，再決定即時價
+        // 🔧 修正：解析數值
         const parseVal = (val) => {
           if (!val || val === '-' || val === '') return null;
           const num = parseFloat(val);
           return isNaN(num) || num <= 0 ? null : num;
         };
         
-        // 昨收價 - 這是固定的，不應該用當天價格作為備援
-        const yesterday = parseVal(stock.y) || 0;
-        
         // 即時價：優先用 stock.z，無效時用昨收
-        const currentPrice = parseVal(stock.z) || yesterday || 0;
+        const rawYesterday = parseVal(stock.y);
+        const rawPrice = parseVal(stock.z);
+        const currentPrice = rawPrice || rawYesterday || 0;
         
-        console.log(`📈 OTC ${stockId}: 即時價=${stock.z}, 昨收=${stock.y}, 使用價=${currentPrice}, 時間=${stock.t}`);
+        // 昨收價：如果無效，先不用當天價格替換（讓 line.js 處理）
+        const yesterday = rawYesterday || 0;
         
-        // 開高低：無效時用合理備援
+        console.log(`📈 OTC ${stockId}: 即時=${stock.z}→${currentPrice}, 昨收=${stock.y}→${yesterday}, 時間=${stock.t}`);
+        
+        // 開高低：無效時用當天價格
         const open = parseVal(stock.o) || currentPrice;
         const high = parseVal(stock.h) || currentPrice;
         const low = parseVal(stock.l) || currentPrice;
         
-        // 🔧 修復：使用 twStocks 對照表補全名稱
+        // 使用 twStocks 對照表補全名稱
         let stockName = stock.n || '';
         if (!stockName || stockName === stockId) {
           const twInfo = twStocks ? twStocks.getStockInfo(stockId) : null;

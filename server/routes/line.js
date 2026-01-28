@@ -540,14 +540,12 @@ async function getStockInfoFlex(stockId) {
   if (!isFinite(parseFloat(stockData.change))) {
     stockData.change = 0;
   }
-  // 確保開高低不是 null/undefined（但 yesterday 保持原值，不能用當天價格替換）
-  stockData.open = stockData.open ?? stockData.price ?? 0;
-  stockData.high = stockData.high ?? stockData.price ?? 0;
-  stockData.low = stockData.low ?? stockData.price ?? 0;
-  // yesterday 只有在 null/undefined 時才用備援，0 也是有效值不能替換
-  if (stockData.yesterday === null || stockData.yesterday === undefined) {
-    stockData.yesterday = stockData.price || 0;
-  }
+  // 確保開高低昨收有合理值（0 也要用備援）
+  const price = stockData.price || 0;
+  stockData.open = (stockData.open && stockData.open > 0) ? stockData.open : price;
+  stockData.high = (stockData.high && stockData.high > 0) ? stockData.high : price;
+  stockData.low = (stockData.low && stockData.low > 0) ? stockData.low : price;
+  stockData.yesterday = (stockData.yesterday && stockData.yesterday > 0) ? stockData.yesterday : price;
   
   // 台股才抓技術指標和籌碼
   let indicators = null;
