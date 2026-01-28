@@ -10208,66 +10208,71 @@ async function setTradeReservation(message) {
       quantityText = `${oddShares}股`;
     }
     
-    const tradeTypeEmoji = isBuy ? '🟢' : '🔴';
     const tradeTypeText = isBuy ? '買進' : '賣出';
-    const conditionText = isBuy 
-      ? `股價跌到 ${targetPrice} 元以下時提醒`
-      : `股價漲到 ${targetPrice} 元以上時提醒`;
+    const triggerText = isBuy 
+      ? `當價格跌至 $${targetPrice} 時提醒買進 ${quantityText}`
+      : `當價格漲至 $${targetPrice} 時提醒賣出 ${quantityText}`;
     
     return {
       type: 'flex',
-      altText: `✅ 預約${tradeTypeText}設定成功`,
+      altText: `✅ ${tradeTypeText}預約設定成功 - ${stockName}`,
       contents: {
         type: 'bubble',
-        size: 'kilo',
+        size: 'mega',
         header: {
           type: 'box',
           layout: 'vertical',
-          backgroundColor: isBuy ? '#065F46' : '#991B1B',
-          paddingAll: '15px',
+          backgroundColor: isBuy ? '#22C55E' : '#EF4444',
+          paddingAll: '16px',
           contents: [
-            { type: 'text', text: `${tradeTypeEmoji} 預約${tradeTypeText}設定成功`, size: 'lg', weight: 'bold', color: '#FFFFFF' }
+            { type: 'text', text: `${isBuy ? '🟢' : '🔴'} ${tradeTypeText}預約設定成功`, size: 'lg', weight: 'bold', color: '#FFFFFF' },
+            { type: 'text', text: `${stockName} (${stockId})`, size: 'sm', color: '#FFFFFFCC', margin: 'sm' }
           ]
         },
         body: {
           type: 'box',
           layout: 'vertical',
-          backgroundColor: '#1a1a2e',
-          paddingAll: '15px',
+          backgroundColor: '#FFFFFF',
+          paddingAll: '16px',
           contents: [
-            { type: 'text', text: `📈 ${stockName} (${stockId})`, size: 'md', weight: 'bold', color: '#E2E8F0' },
-            { type: 'separator', margin: 'md', color: '#374151' },
+            { type: 'box', layout: 'horizontal', contents: [
+              { type: 'text', text: `📦 ${tradeTypeText}數量`, size: 'sm', color: '#6B7280', flex: 2 },
+              { type: 'text', text: quantityText, size: 'md', weight: 'bold', color: '#1F2937', align: 'end', flex: 1 }
+            ]},
             { type: 'box', layout: 'horizontal', margin: 'md', contents: [
-              { type: 'text', text: '目標價格', size: 'sm', color: '#9CA3AF', flex: 1 },
-              { type: 'text', text: `${targetPrice} 元`, size: 'sm', weight: 'bold', color: '#FBBF24', align: 'end', flex: 1 }
+              { type: 'text', text: '📈 目前股價', size: 'sm', color: '#6B7280', flex: 2 },
+              { type: 'text', text: currentPrice > 0 ? `$${currentPrice}` : '-', size: 'md', color: '#1F2937', align: 'end', flex: 1 }
             ]},
-            { type: 'box', layout: 'horizontal', margin: 'sm', contents: [
-              { type: 'text', text: '買賣數量', size: 'sm', color: '#9CA3AF', flex: 1 },
-              { type: 'text', text: quantityText, size: 'sm', weight: 'bold', color: '#60A5FA', align: 'end', flex: 1 }
+            { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+              { type: 'text', text: `🎯 ${tradeTypeText}目標價`, size: 'sm', color: '#6B7280', flex: 2 },
+              { type: 'text', text: `$${targetPrice}`, size: 'lg', weight: 'bold', color: '#F97316', align: 'end', flex: 1 }
             ]},
-            { type: 'box', layout: 'horizontal', margin: 'sm', contents: [
-              { type: 'text', text: '預估金額', size: 'sm', color: '#9CA3AF', flex: 1 },
-              { type: 'text', text: `${(estimatedAmount / 10000).toFixed(1)} 萬`, size: 'sm', weight: 'bold', color: '#34D399', align: 'end', flex: 1 }
+            { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+              { type: 'text', text: '💰 預估金額', size: 'sm', color: '#6B7280', flex: 2 },
+              { type: 'text', text: `$${estimatedAmount.toLocaleString()}`, size: 'md', color: '#1F2937', align: 'end', flex: 1 }
             ]},
-            currentPrice > 0 ? { type: 'box', layout: 'horizontal', margin: 'sm', contents: [
-              { type: 'text', text: '現價 / 價差', size: 'sm', color: '#9CA3AF', flex: 1 },
-              { type: 'text', text: `${currentPrice} / ${priceDiff >= 0 ? '+' : ''}${priceDiffPercent}%`, size: 'sm', color: priceDiff >= 0 ? '#EF4444' : '#10B981', align: 'end', flex: 1 }
+            currentPrice > 0 ? { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+              { type: 'text', text: '📊 價差', size: 'sm', color: '#6B7280', flex: 2 },
+              { type: 'text', text: `${priceDiff >= 0 ? '+' : ''}${priceDiff.toFixed(2)} (${priceDiff >= 0 ? '+' : ''}${priceDiffPercent}%)`, size: 'md', weight: 'bold', color: priceDiff >= 0 ? '#EF4444' : '#22C55E', align: 'end', flex: 1 }
             ]} : { type: 'filler' },
-            { type: 'separator', margin: 'md', color: '#374151' },
-            { type: 'text', text: `💡 ${conditionText}`, size: 'xs', color: '#9CA3AF', margin: 'md', wrap: true }
+            { type: 'separator', margin: 'lg', color: '#E5E7EB' },
+            { type: 'box', layout: 'vertical', margin: 'lg', backgroundColor: '#EFF6FF', cornerRadius: '8px', paddingAll: '12px', contents: [
+              { type: 'text', text: '📢 觸發條件', size: 'sm', weight: 'bold', color: '#2563EB' },
+              { type: 'text', text: triggerText, size: 'sm', color: '#1F2937', margin: 'sm', wrap: true }
+            ]}
           ]
         },
         footer: {
           type: 'box',
           layout: 'horizontal',
-          paddingAll: '10px',
-          backgroundColor: '#111827',
+          paddingAll: '12px',
+          backgroundColor: '#F9FAFB',
           contents: [
             { type: 'button', style: 'secondary', height: 'sm', flex: 1,
               action: { type: 'message', label: '📋 預約清單', text: '預約' }
             },
             { type: 'button', style: 'secondary', height: 'sm', flex: 1, margin: 'sm',
-              action: { type: 'message', label: '❌ 取消預約', text: `取消預約 ${stockId}` }
+              action: { type: 'message', label: '❌ 取消', text: `取消預約 ${stockId}` }
             }
           ]
         }
@@ -10310,41 +10315,69 @@ async function getReservationList() {
     if (result.rows.length === 0) {
       return {
         type: 'flex',
-        altText: '📋 預約清單',
+        altText: '📋 買賣預約清單',
         contents: {
           type: 'bubble',
-          size: 'kilo',
+          size: 'mega',
           header: {
             type: 'box',
             layout: 'vertical',
-            backgroundColor: '#1E3A5F',
-            paddingAll: '15px',
+            backgroundColor: '#6366F1',
+            paddingAll: '16px',
             contents: [
-              { type: 'text', text: '📋 預約清單', size: 'lg', weight: 'bold', color: '#FFFFFF' }
+              { type: 'text', text: '📋 買賣預約清單', size: 'lg', weight: 'bold', color: '#FFFFFF' },
+              { type: 'text', text: '共 0 筆預約', size: 'sm', color: '#FFFFFFCC', margin: 'xs' }
             ]
           },
           body: {
             type: 'box',
             layout: 'vertical',
-            backgroundColor: '#1a1a2e',
+            backgroundColor: '#FFFFFF',
             paddingAll: '20px',
             contents: [
-              { type: 'text', text: '目前沒有預約單', size: 'md', color: '#9CA3AF', align: 'center' },
-              { type: 'text', text: '📝 設定方式：', size: 'sm', color: '#6B7280', margin: 'lg' },
-              { type: 'text', text: '預約買 2330 550 2張', size: 'xs', color: '#60A5FA', margin: 'sm' },
-              { type: 'text', text: '預約賣 6770 66 1張', size: 'xs', color: '#F87171', margin: 'xs' }
+              { type: 'text', text: '目前沒有預約單', size: 'md', color: '#6B7280', align: 'center' },
+              { type: 'separator', margin: 'lg', color: '#E5E7EB' },
+              { type: 'text', text: '📝 設定方式：', size: 'sm', color: '#374151', margin: 'lg', weight: 'bold' },
+              { type: 'text', text: '預約買 2330 550 2張', size: 'sm', color: '#22C55E', margin: 'sm' },
+              { type: 'text', text: '預約賣 6770 66 1張', size: 'sm', color: '#EF4444', margin: 'xs' }
             ]
           }
         }
       };
     }
     
-    // 建立預約清單
-    const items = [];
+    // 建立輪播卡片
+    const bubbles = [];
+    
+    // 第一張卡片 - 總覽
+    const summaryBubble = {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#6366F1',
+        paddingAll: '16px',
+        contents: [
+          { type: 'text', text: '📋 買賣預約清單', size: 'lg', weight: 'bold', color: '#FFFFFF' },
+          { type: 'text', text: `共 ${result.rows.length} 筆預約`, size: 'sm', color: '#FFFFFFCC', margin: 'xs' }
+        ]
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: '#FFFFFF',
+        paddingAll: '12px',
+        contents: []
+      }
+    };
+    
+    // 為每個預約建立項目
     for (const row of result.rows) {
       const isBuy = row.trade_type === 'buy';
       const lots = row.lots || 0;
       const oddShares = row.odd_shares || 0;
+      const targetPrice = parseFloat(row.target_price);
       
       let quantityText = '';
       if (lots > 0 && oddShares > 0) {
@@ -10364,62 +10397,77 @@ async function getReservationList() {
         currentPrice = stockData?.price || 0;
       } catch (e) {}
       
-      const targetPrice = parseFloat(row.target_price);
-      const priceDiff = currentPrice > 0 ? ((targetPrice - currentPrice) / currentPrice * 100).toFixed(1) : 0;
+      const priceDiff = currentPrice > 0 ? ((currentPrice - targetPrice) / targetPrice * 100).toFixed(1) : 0;
+      const priceDiffNum = parseFloat(priceDiff);
       
-      items.push({
-        type: 'box',
-        layout: 'vertical',
-        backgroundColor: '#1F2937',
-        cornerRadius: '8px',
-        paddingAll: '12px',
-        margin: 'md',
-        contents: [
-          { type: 'box', layout: 'horizontal', contents: [
-            { type: 'text', text: isBuy ? '🟢 買' : '🔴 賣', size: 'sm', color: isBuy ? '#10B981' : '#EF4444', flex: 0 },
-            { type: 'text', text: `${row.stock_name || row.stock_id}`, size: 'sm', weight: 'bold', color: '#E5E7EB', margin: 'sm', flex: 3 },
-            { type: 'text', text: `目標 ${targetPrice}`, size: 'xs', color: '#FBBF24', align: 'end', flex: 2 }
-          ]},
-          { type: 'box', layout: 'horizontal', margin: 'sm', contents: [
-            { type: 'text', text: `數量: ${quantityText}`, size: 'xs', color: '#9CA3AF', flex: 2 },
-            { type: 'text', text: currentPrice > 0 ? `現價 ${currentPrice} (${priceDiff}%)` : '', size: 'xs', color: '#6B7280', align: 'end', flex: 3 }
+      // 判斷是否接近目標 (差距在3%以內)
+      const isNearTarget = currentPrice > 0 && Math.abs(priceDiffNum) <= 3;
+      
+      // 建立預約項目卡片
+      const itemContents = [
+        { type: 'box', layout: 'horizontal', contents: [
+          { type: 'text', text: isBuy ? '🟢' : '🔴', size: 'xxl', flex: 0 },
+          { type: 'box', layout: 'vertical', flex: 3, margin: 'md', contents: [
+            { type: 'text', text: row.stock_name || row.stock_id, size: 'lg', weight: 'bold', color: '#1F2937' },
+            { type: 'text', text: row.stock_id, size: 'sm', color: '#6B7280' }
           ]}
-        ]
-      });
-    }
-    
-    return {
-      type: 'flex',
-      altText: `📋 預約清單 (${result.rows.length}筆)`,
-      contents: {
+        ]},
+        { type: 'separator', margin: 'lg', color: '#E5E7EB' },
+        { type: 'box', layout: 'horizontal', margin: 'lg', contents: [
+          { type: 'text', text: `${isBuy ? '買進' : '賣出'}數量`, size: 'sm', color: '#6B7280', flex: 2 },
+          { type: 'text', text: quantityText, size: 'md', weight: 'bold', color: '#1F2937', align: 'end', flex: 1 }
+        ]},
+        { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+          { type: 'text', text: `${isBuy ? '買進' : '賣出'}目標`, size: 'sm', color: '#6B7280', flex: 2 },
+          { type: 'text', text: `$${targetPrice}`, size: 'lg', weight: 'bold', color: '#F97316', align: 'end', flex: 1 }
+        ]},
+        { type: 'box', layout: 'horizontal', margin: 'md', contents: [
+          { type: 'text', text: '現價', size: 'sm', color: '#6B7280', flex: 2 },
+          { type: 'text', text: currentPrice > 0 ? `$${currentPrice} (${priceDiffNum >= 0 ? '+' : ''}${priceDiff}%)` : '-', size: 'md', color: priceDiffNum >= 0 ? '#EF4444' : '#22C55E', align: 'end', flex: 2 }
+        ]}
+      ];
+      
+      // 如果接近目標，加上提示
+      if (isNearTarget) {
+        itemContents.push({
+          type: 'box', layout: 'horizontal', margin: 'lg', justifyContent: 'center', contents: [
+            { type: 'text', text: '⚡ 接近目標！', size: 'sm', weight: 'bold', color: '#F59E0B' }
+          ]
+        });
+      }
+      
+      const itemBubble = {
         type: 'bubble',
         size: 'mega',
-        header: {
-          type: 'box',
-          layout: 'horizontal',
-          backgroundColor: '#1E3A5F',
-          paddingAll: '15px',
-          contents: [
-            { type: 'text', text: '📋 預約清單', size: 'lg', weight: 'bold', color: '#FFFFFF', flex: 3 },
-            { type: 'text', text: `${result.rows.length} 筆`, size: 'sm', color: '#93C5FD', align: 'end', flex: 1 }
-          ]
-        },
         body: {
           type: 'box',
           layout: 'vertical',
-          backgroundColor: '#111827',
-          paddingAll: '12px',
-          contents: items.slice(0, 8) // 最多顯示8筆
+          backgroundColor: '#FFFFFF',
+          paddingAll: '16px',
+          contents: itemContents
         },
         footer: {
           type: 'box',
           layout: 'vertical',
-          paddingAll: '10px',
-          backgroundColor: '#1a1a2e',
+          paddingAll: '12px',
+          backgroundColor: '#F9FAFB',
           contents: [
-            { type: 'text', text: '💡 取消預約：取消預約 股票代碼', size: 'xs', color: '#6B7280', align: 'center' }
+            { type: 'button', style: 'secondary', height: 'sm', color: '#EF4444',
+              action: { type: 'message', label: '❌ 取消預約', text: `取消預約 ${row.stock_id}` }
+            }
           ]
         }
+      };
+      
+      bubbles.push(itemBubble);
+    }
+    
+    return {
+      type: 'flex',
+      altText: `📋 買賣預約清單 (${result.rows.length}筆)`,
+      contents: {
+        type: 'carousel',
+        contents: bubbles.slice(0, 10) // 最多10個
       }
     };
     
