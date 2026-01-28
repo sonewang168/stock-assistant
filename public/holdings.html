@@ -400,10 +400,13 @@
         async function loadHoldings() {
             try {
                 const url = currentTab === 'sold' ? (API + '?sold=true') : API;
+                console.log('📡 載入資料:', url);
                 const res = await fetch(url);
                 const data = await res.json();
+                console.log('📦 API 返回:', data);
                 
                 if (currentTab === 'sold') {
+                    console.log('📜 已賣出紀錄:', data.holdings?.length || 0, '筆');
                     renderSoldHoldings(data.holdings || []);
                     renderSoldStats(data.stats || {});
                 } else {
@@ -411,7 +414,8 @@
                     renderStats(data.stats || {});
                 }
             } catch (e) {
-                document.getElementById('holdingsList').innerHTML = '<div class="empty-state"><div class="icon">❌</div><p>載入失敗</p></div>';
+                console.error('❌ 載入失敗:', e);
+                document.getElementById('holdingsList').innerHTML = '<div class="empty-state"><div class="icon">❌</div><p>載入失敗</p><p style="font-size:12px;color:#888;">' + e.message + '</p></div>';
             }
         }
         

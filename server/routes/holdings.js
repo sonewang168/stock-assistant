@@ -123,12 +123,16 @@ router.get('/', async (req, res) => {
     const userId = req.query.userId || 'default';
     const showSold = req.query.sold === 'true';
     
+    console.log(`📡 Holdings API: userId=${userId}, showSold=${showSold}`);
+    
     // 根據參數決定查詢持股中或已賣出
     const sql = showSold 
       ? `SELECT * FROM holdings WHERE user_id = $1 AND is_sold = true ORDER BY sold_date DESC, updated_at DESC`
       : `SELECT * FROM holdings WHERE user_id = $1 AND (is_sold = false OR is_sold IS NULL) ORDER BY created_at DESC`;
     
     const result = await pool.query(sql, [userId]);
+    console.log(`📦 查詢結果: ${result.rows.length} 筆`);
+    
     const holdings = [];
     let totalCost = 0;
     let totalValue = 0;
