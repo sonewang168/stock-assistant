@@ -209,9 +209,13 @@ async function handleCommand(message, userId) {
     return await removeFromWatchlist(stockId);
   }
   
-  // 搜尋股票：查 台積電、找 鴻海
-  if (/^[查找搜]\s*.+$/.test(msg)) {
-    const keyword = msg.replace(/^[查找搜]\s*/, '').trim();
+  // 搜尋股票：查 台積電、找 鴻海、查股 2330
+  if (/^[查找搜]股?\s*.+$/.test(msg)) {
+    const keyword = msg.replace(/^[查找搜]股?\s*/, '').trim();
+    // 如果是純數字，直接查股價
+    if (/^\d{4,6}$/.test(keyword)) {
+      return await getStockInfoFlex(keyword);
+    }
     return await searchStock(keyword);
   }
   
