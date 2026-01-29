@@ -4170,22 +4170,29 @@
                     const data = await response.json();
                     if (data && data.price) {
                         console.log(`[${code}] 後端 API 成功:`, data);
+                        
+                        // 解析數值
+                        const price = parseFloat(data.price) || 0;
+                        const prevClose = parseFloat(data.yesterday) || 0;
+                        const change = parseFloat(data.change) || (prevClose > 0 ? price - prevClose : 0);
+                        const changePercent = parseFloat(data.changePercent) || (prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0);
+                        
                         return {
                             code: code,
                             name: data.name || code,
-                            price: data.price,
-                            prevClose: data.yesterday || 0,
-                            change: data.change || 0,
-                            changePercent: data.changePercent || 0,
-                            open: data.open || 0,
-                            high: data.high || 0,
-                            low: data.low || 0,
-                            volume: data.volume || 0,
+                            price: price,
+                            prevClose: prevClose,
+                            change: change,
+                            changePercent: changePercent,
+                            open: parseFloat(data.open) || price,
+                            high: parseFloat(data.high) || price,
+                            low: parseFloat(data.low) || price,
+                            volume: parseInt(data.volume) || 0,
                             turnover: 0,
                             limitUp: 0,
                             limitDown: 0,
                             tradeDate: '',
-                            tradeTime: data.time || '',
+                            tradeTime: data.time || new Date().toLocaleTimeString('zh-TW'),
                             hasTraded: true,
                             priceSource: '後端API',
                             askPrices: [],
