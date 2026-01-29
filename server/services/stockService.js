@@ -78,10 +78,15 @@ class StockService {
               console.log(`⚠️ ${stockId} 無法取得昨收，使用當日價: ${yahooPrice}`);
             }
             
-            // 開高低：如果是 0 就用收盤價
-            baseData.open = (baseData.open && baseData.open > 0) ? baseData.open : yahooPrice;
-            baseData.high = (baseData.high && baseData.high > 0) ? baseData.high : yahooPrice;
-            baseData.low = (baseData.low && baseData.low > 0) ? baseData.low : yahooPrice;
+            // 🆕 開高低：優先使用 Yahoo 數據，其次 TWSE/OTC，最後用收盤價
+            baseData.open = closingData.open || (baseData.open && baseData.open > 0 ? baseData.open : yahooPrice);
+            baseData.high = closingData.high || (baseData.high && baseData.high > 0 ? baseData.high : yahooPrice);
+            baseData.low = closingData.low || (baseData.low && baseData.low > 0 ? baseData.low : yahooPrice);
+            
+            // 🆕 成交量：優先使用 Yahoo 數據
+            if (closingData.volume && closingData.volume > 0) {
+              baseData.volume = closingData.volume;
+            }
             
             baseData.change = yahooPrice - baseData.yesterday;
             baseData.changePercent = baseData.yesterday > 0 
@@ -91,7 +96,7 @@ class StockService {
             
             // 補上名稱
             if (stockInfo && stockInfo.name) baseData.name = stockInfo.name;
-            console.log(`✅ ${stockId} 盤後 Yahoo: 價=${yahooPrice}, 昨收=${baseData.yesterday}, 開=${baseData.open}`);
+            console.log(`✅ ${stockId} 盤後 Yahoo: 價=${yahooPrice}, 昨收=${baseData.yesterday}, 開=${baseData.open}, 高=${baseData.high}, 低=${baseData.low}`);
             return baseData;
           }
         }
@@ -203,13 +208,37 @@ class StockService {
       const price = meta.regularMarketPrice || 0;
       const previousClose = meta.previousClose || meta.chartPreviousClose || 0;
       const change = price - previousClose;
+      
+      // 🆕 抓取開高低數據
+      const quote = result.indicators?.quote?.[0] || {};
+      const opens = quote.open || [];
+      const highs = quote.high || [];
+      const lows = quote.low || [];
+      const volumes = quote.volume || [];
+      
+      // 取最後一個有效值
+      const getLastValid = (arr) => {
+        for (let i = arr.length - 1; i >= 0; i--) {
+          if (arr[i] !== null && !isNaN(arr[i])) return arr[i];
+        }
+        return 0;
+      };
+      
+      const open = getLastValid(opens) || price;
+      const high = getLastValid(highs) || price;
+      const low = getLastValid(lows) || price;
+      const volume = getLastValid(volumes) || 0;
 
-      console.log(`📊 Yahoo TW ${stockId}: ${price}`);
+      console.log(`📊 Yahoo TW ${stockId}: 價=${price}, 昨收=${previousClose}, 開=${open}, 高=${high}, 低=${low}`);
       
       return {
         price: parseFloat(price.toFixed(2)),
         change: parseFloat(change.toFixed(2)),
-        previousClose
+        previousClose,
+        open: parseFloat(open.toFixed(2)),
+        high: parseFloat(high.toFixed(2)),
+        low: parseFloat(low.toFixed(2)),
+        volume: parseInt(volume)
       };
     } catch (error) {
       // 嘗試上櫃
@@ -240,13 +269,37 @@ class StockService {
       const price = meta.regularMarketPrice || 0;
       const previousClose = meta.previousClose || meta.chartPreviousClose || 0;
       const change = price - previousClose;
+      
+      // 🆕 抓取開高低數據
+      const quote = result.indicators?.quote?.[0] || {};
+      const opens = quote.open || [];
+      const highs = quote.high || [];
+      const lows = quote.low || [];
+      const volumes = quote.volume || [];
+      
+      // 取最後一個有效值
+      const getLastValid = (arr) => {
+        for (let i = arr.length - 1; i >= 0; i--) {
+          if (arr[i] !== null && !isNaN(arr[i])) return arr[i];
+        }
+        return 0;
+      };
+      
+      const open = getLastValid(opens) || price;
+      const high = getLastValid(highs) || price;
+      const low = getLastValid(lows) || price;
+      const volume = getLastValid(volumes) || 0;
 
-      console.log(`📊 Yahoo TWO ${stockId}: ${price}`);
+      console.log(`📊 Yahoo TWO ${stockId}: 價=${price}, 昨收=${previousClose}, 開=${open}, 高=${high}, 低=${low}`);
       
       return {
         price: parseFloat(price.toFixed(2)),
         change: parseFloat(change.toFixed(2)),
-        previousClose
+        previousClose,
+        open: parseFloat(open.toFixed(2)),
+        high: parseFloat(high.toFixed(2)),
+        low: parseFloat(low.toFixed(2)),
+        volume: parseInt(volume)
       };
     } catch (error) {
       return null;

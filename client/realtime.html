@@ -4168,39 +4168,59 @@
                 const response = await fetchWithTimeout(`${BACKEND_API_URL}/api/stock/${code}`, 5000);
                 if (response.ok) {
                     const data = await response.json();
+                    console.log(`[${code}] 後端 API 原始回傳:`, data);
+                    
                     if (data && data.price) {
-                        console.log(`[${code}] 後端 API 成功:`, data);
-                        
                         // 解析數值
                         const price = parseFloat(data.price) || 0;
                         const prevClose = parseFloat(data.yesterday) || 0;
+                        const open = parseFloat(data.open) || 0;
+                        const high = parseFloat(data.high) || 0;
+                        const low = parseFloat(data.low) || 0;
+                        
+                        // 🔧 如果關鍵數據不完整，返回 null 讓前端使用備援
+                        if (price <= 0) {
+                            console.log(`[${code}] 後端 API 價格無效，使用備援`);
+                            return null;
+                        }
+                        
+                        // 計算漲跌
                         const change = parseFloat(data.change) || (prevClose > 0 ? price - prevClose : 0);
                         const changePercent = parseFloat(data.changePercent) || (prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0);
                         
-                        return {
+                        // 🔧 開高低收：如果是 0，用現價替代（盤後時段常見）
+                        const finalOpen = open > 0 ? open : price;
+                        const finalHigh = high > 0 ? high : price;
+                        const finalLow = low > 0 ? low : price;
+                        const finalPrevClose = prevClose > 0 ? prevClose : price; // 若無昨收，用現價避免顯示 ---
+                        
+                        const result = {
                             code: code,
                             name: data.name || code,
                             price: price,
-                            prevClose: prevClose,
-                            change: change,
-                            changePercent: changePercent,
-                            open: parseFloat(data.open) || price,
-                            high: parseFloat(data.high) || price,
-                            low: parseFloat(data.low) || price,
+                            prevClose: finalPrevClose,
+                            change: prevClose > 0 ? change : 0,
+                            changePercent: prevClose > 0 ? changePercent : 0,
+                            open: finalOpen,
+                            high: finalHigh,
+                            low: finalLow,
                             volume: parseInt(data.volume) || 0,
                             turnover: 0,
-                            limitUp: 0,
-                            limitDown: 0,
+                            limitUp: finalPrevClose > 0 ? parseFloat((finalPrevClose * 1.1).toFixed(2)) : 0,
+                            limitDown: finalPrevClose > 0 ? parseFloat((finalPrevClose * 0.9).toFixed(2)) : 0,
                             tradeDate: '',
                             tradeTime: data.time || new Date().toLocaleTimeString('zh-TW'),
                             hasTraded: true,
-                            priceSource: '後端API',
+                            priceSource: prevClose > 0 ? '後端API' : '後端API(無昨收)',
                             askPrices: [],
                             askVolumes: [],
                             bidPrices: [],
                             bidVolumes: [],
                             source: 'backend'
                         };
+                        
+                        console.log(`[${code}] 後端 API 處理後:`, result);
+                        return result;
                     }
                 }
             } catch (e) {
