@@ -4159,6 +4159,49 @@
             }
         }
 
+        // 🆕 後端 API 配置（Railway 部署的 LINE BOT）
+        const BACKEND_API_URL = window.location.origin; // 同源，使用相同 domain
+        
+        // 使用後端 API 取得股票資料（解決手機 CORS 問題）
+        async function fetchFromBackendAPI(code) {
+            try {
+                const response = await fetchWithTimeout(`${BACKEND_API_URL}/api/stock/${code}`, 5000);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.price) {
+                        console.log(`[${code}] 後端 API 成功:`, data);
+                        return {
+                            code: code,
+                            name: data.name || code,
+                            price: data.price,
+                            prevClose: data.yesterday || 0,
+                            change: data.change || 0,
+                            changePercent: data.changePercent || 0,
+                            open: data.open || 0,
+                            high: data.high || 0,
+                            low: data.low || 0,
+                            volume: data.volume || 0,
+                            turnover: 0,
+                            limitUp: 0,
+                            limitDown: 0,
+                            tradeDate: '',
+                            tradeTime: data.time || '',
+                            hasTraded: true,
+                            priceSource: '後端API',
+                            askPrices: [],
+                            askVolumes: [],
+                            bidPrices: [],
+                            bidVolumes: [],
+                            source: 'backend'
+                        };
+                    }
+                }
+            } catch (e) {
+                console.log(`後端 API 失敗 [${code}]:`, e.message);
+            }
+            return null;
+        }
+
         async function fetchWithProxy(url) {
             // 嘗試各個代理
             for (let i = 0; i < CORS_PROXIES.length; i++) {
@@ -6449,6 +6492,13 @@
         // 獲取即時報價詳細資訊
         async function fetchRealtimeQuoteDetail(code, market) {
             try {
+                // 🆕 優先使用後端 API（解決手機 CORS 問題）
+                const backendData = await fetchFromBackendAPI(code);
+                if (backendData) {
+                    return backendData;
+                }
+                
+                // 後端 API 失敗，使用原本的方式
                 const exch = market === 'tpex' ? 'otc' : 'tse';
                 const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${exch}_${code}.tw&json=1&delay=0&_=${Date.now()}`;
                 
