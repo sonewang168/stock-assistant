@@ -15464,6 +15464,8 @@ ${analysisContext}
             const annotations = {};
             const waves = data.waves || [];
             const usedPositions = []; // 記錄已使用的位置，避免重疊
+            const priceRange = Math.max(...prices) - Math.min(...prices);  // 🔧 預先計算
+            const wavePositions = [];  // 🆕 儲存波浪位置，用於繪製連接線
             
             // 為每個波浪找到對應的價格位置並標記
             waves.forEach((w, i) => {
@@ -15495,14 +15497,32 @@ ${analysisContext}
                         }
                     }
                 }
-                // 方法3: 使用價格匹配（備援）
+                // 方法3: 使用價格+時間範圍匹配（備援，加入時間限制更精準）
                 if (bestIdx < 0) {
                     let bestScore = Infinity;
-                    for (let j = 0; j < prices.length; j++) {
+                    const waveNum = parseInt(waveLabel) || (waveLabel === 'A' ? 6 : waveLabel === 'B' ? 7 : 8);
+                    // 估算波浪大約出現的時間範圍
+                    const expectedRange = Math.floor(history.length * (waveNum / 10));
+                    const searchStart = Math.max(0, expectedRange - Math.floor(history.length * 0.3));
+                    const searchEnd = Math.min(history.length, expectedRange + Math.floor(history.length * 0.3));
+                    
+                    for (let j = searchStart; j < searchEnd; j++) {
                         const priceDiff = Math.abs(prices[j] - w.end);
-                        if (priceDiff < bestScore) {
-                            bestScore = priceDiff;
+                        const timePenalty = Math.abs(j - expectedRange) * 0.1;
+                        const score = priceDiff + timePenalty;
+                        if (score < bestScore) {
+                            bestScore = score;
                             bestIdx = j;
+                        }
+                    }
+                    // 如果範圍內找不到，擴大搜索
+                    if (bestIdx < 0) {
+                        for (let j = 0; j < prices.length; j++) {
+                            const priceDiff = Math.abs(prices[j] - w.end);
+                            if (priceDiff < bestScore) {
+                                bestScore = priceDiff;
+                                bestIdx = j;
+                            }
                         }
                     }
                 }
@@ -15511,7 +15531,6 @@ ${analysisContext}
                 if (bestIdx >= 0 && bestIdx < prices.length) {
                     let yAdjust = 0;
                     const isHigh = w.end > w.start;
-                    const priceRange = Math.max(...prices) - Math.min(...prices);
                     
                     // 檢查是否與已有標記重疊
                     for (const pos of usedPositions) {
@@ -15521,6 +15540,7 @@ ${analysisContext}
                     }
                     
                     usedPositions.push({ x: bestIdx, y: w.end });
+                    wavePositions.push({ idx: bestIdx, price: w.end, wave: waveLabel, color });  // 🆕 記錄位置
                     
                     annotations['wave_' + i] = {
                         type: 'label',
@@ -15538,6 +15558,22 @@ ${analysisContext}
                     };
                 }
             });
+            
+            // 🆕 繪製波浪連接線（虛線）
+            for (let i = 1; i < wavePositions.length; i++) {
+                const prev = wavePositions[i - 1];
+                const curr = wavePositions[i];
+                annotations['waveLine_' + i] = {
+                    type: 'line',
+                    xMin: prev.idx,
+                    xMax: curr.idx,
+                    yMin: prev.price,
+                    yMax: curr.price,
+                    borderColor: 'rgba(88, 166, 255, 0.4)',
+                    borderWidth: 1,
+                    borderDash: [4, 4]
+                };
+            }
             
             // 加上現價標記線
             if (data.currentPrice && prices.length > 0) {

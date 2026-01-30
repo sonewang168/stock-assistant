@@ -639,7 +639,7 @@
           const s = portfolio[i];
           if (s.id === 'CASH' || s.wave !== '?') continue;
           try {
-            const res = await fetch(`/api/line/wave/analyze/${s.id}`);
+            const res = await fetch(`/api/line/wave/analyze/${s.id}?_t=${Date.now()}`);
             if (res.ok) {
               const data = await res.json();
               if (data.currentWave && !data.error) {
@@ -666,7 +666,7 @@
       showLoading();
       
       try {
-        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        const res = await fetch(`/api/line/wave/analyze/${stockId}?_t=${Date.now()}`);
         
         // 檢查回應類型
         const contentType = res.headers.get('content-type');
@@ -883,24 +883,70 @@
       // 建立波浪標記 annotations - 從 waves 陣列取得
       const annotations = {};
       const waves = data.waves || [];
+      const dates = history.map(h => h.date);  // 🔧 新增：用於日期匹配
       
       // 🆕 記錄已使用的位置，避免重疊
       const usedPositions = [];
+      const priceRange = Math.max(...prices) - Math.min(...prices);  // 🔧 預先計算價格範圍
+      const wavePositions = [];  // 🆕 儲存波浪位置，用於繪製連接線
       
       // 為每個波浪找到對應的價格位置並標記
       waves.forEach((w, i) => {
         const waveLabel = String(w.wave);
         const color = waveColors[waveLabel] || '#58a6ff';
         
-        // 找到最接近 end 價格的索引位置
+        // 🔧 優化：使用多重匹配策略（優先使用 endIndex，其次 endDate，最後價格）
         let bestIdx = -1;
-        let bestDiff = Infinity;
         
-        for (let j = 0; j < prices.length; j++) {
-          const diff = Math.abs(prices[j] - w.end);
-          if (diff < bestDiff) {
-            bestDiff = diff;
-            bestIdx = j;
+        // 方法1: 直接使用 endIndex（最準確）
+        if (w.endIndex !== undefined && w.endIndex >= 0 && w.endIndex < history.length) {
+          bestIdx = w.endIndex;
+        }
+        // 方法2: 使用 endDate 匹配
+        else if (w.endDate) {
+          bestIdx = dates.findIndex(d => d === w.endDate);
+          // 如果找不到精確匹配，找最接近的日期
+          if (bestIdx < 0) {
+            const endTime = new Date(w.endDate).getTime();
+            let minDiff = Infinity;
+            for (let j = 0; j < dates.length; j++) {
+              if (dates[j]) {
+                const diff = Math.abs(new Date(dates[j]).getTime() - endTime);
+                if (diff < minDiff) {
+                  minDiff = diff;
+                  bestIdx = j;
+                }
+              }
+            }
+          }
+        }
+        // 方法3: 使用價格+時間範圍匹配（備援，限制在合理時間範圍內）
+        if (bestIdx < 0) {
+          let bestScore = Infinity;
+          const waveNum = parseInt(waveLabel) || (waveLabel === 'A' ? 6 : waveLabel === 'B' ? 7 : 8);
+          // 估算波浪大約出現的時間範圍
+          const expectedRange = Math.floor(history.length * (waveNum / 10));
+          const searchStart = Math.max(0, expectedRange - Math.floor(history.length * 0.3));
+          const searchEnd = Math.min(history.length, expectedRange + Math.floor(history.length * 0.3));
+          
+          for (let j = searchStart; j < searchEnd; j++) {
+            const priceDiff = Math.abs(prices[j] - w.end);
+            const timePenalty = Math.abs(j - expectedRange) * 0.1;  // 時間距離懲罰
+            const score = priceDiff + timePenalty;
+            if (score < bestScore) {
+              bestScore = score;
+              bestIdx = j;
+            }
+          }
+          // 如果範圍內找不到，擴大搜索
+          if (bestIdx < 0) {
+            for (let j = 0; j < prices.length; j++) {
+              const priceDiff = Math.abs(prices[j] - w.end);
+              if (priceDiff < bestScore) {
+                bestScore = priceDiff;
+                bestIdx = j;
+              }
+            }
           }
         }
         
@@ -910,14 +956,15 @@
           let yAdjust = 0;
           const isHigh = w.end > w.start;
           
-          // 檢查重疊
+          // 檢查重疊（使用更精確的閾值）
           for (const pos of usedPositions) {
-            if (Math.abs(pos.x - bestIdx) < 3 && Math.abs(pos.y - w.end) < (Math.max(...prices) - Math.min(...prices)) * 0.05) {
-              yAdjust += isHigh ? -25 : 25;
+            if (Math.abs(pos.x - bestIdx) < 5 && Math.abs(pos.y - w.end) < priceRange * 0.08) {
+              yAdjust += isHigh ? -30 : 30;
             }
           }
           
           usedPositions.push({ x: bestIdx, y: w.end });
+          wavePositions.push({ idx: bestIdx, price: w.end, wave: waveLabel, color });  // 🆕 記錄位置
           
           annotations['wave_' + i] = {
             type: 'label',
@@ -926,15 +973,31 @@
             content: waveLabel,
             backgroundColor: color,
             color: 'white',
-            font: { size: 14, weight: 'bold' },  // 🆕 加大字體
-            padding: { top: 5, bottom: 5, left: 9, right: 9 },  // 🆕 加大 padding
+            font: { size: 14, weight: 'bold' },
+            padding: { top: 6, bottom: 6, left: 10, right: 10 },
             borderRadius: 14,
-            borderWidth: 2,  // 🆕 加邊框
+            borderWidth: 2,
             borderColor: 'white',
-            yAdjust: (isHigh ? -20 : 20) + yAdjust  // 高點往上移，低點往下移
+            yAdjust: (isHigh ? -25 : 25) + yAdjust  // 🔧 微調偏移量
           };
         }
       });
+      
+      // 🆕 繪製波浪連接線（虛線）
+      for (let i = 1; i < wavePositions.length; i++) {
+        const prev = wavePositions[i - 1];
+        const curr = wavePositions[i];
+        annotations['waveLine_' + i] = {
+          type: 'line',
+          xMin: prev.idx,
+          xMax: curr.idx,
+          yMin: prev.price,
+          yMax: curr.price,
+          borderColor: 'rgba(88, 166, 255, 0.4)',
+          borderWidth: 1,
+          borderDash: [4, 4]
+        };
+      }
       
       // 加上現價標記
       if (data.currentPrice && prices.length > 0) {
@@ -1026,7 +1089,7 @@
         if (s.id === 'CASH') continue;
         
         try {
-          const res = await fetch(`/api/line/wave/analyze/${s.id}`);
+          const res = await fetch(`/api/line/wave/analyze/${s.id}?_t=${Date.now()}`);
           if (res.ok) {
             const data = await res.json();
             if (data.currentWave && !data.error) {
@@ -1115,7 +1178,7 @@
       // 🆕 自動獲取波浪分析
       let wave = '?';
       try {
-        const res = await fetch(`/api/line/wave/analyze/${id}`);
+        const res = await fetch(`/api/line/wave/analyze/${id}?_t=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
           if (data.currentWave && !data.error) {
