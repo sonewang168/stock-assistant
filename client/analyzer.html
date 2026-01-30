@@ -2650,6 +2650,308 @@
             margin-bottom: 10px;
         }
 
+        /* ===== 波浪分析面板 CSS ===== */
+        .wave-analysis-panel {
+            background: linear-gradient(135deg, #1a1f2e 0%, #0d1117 100%);
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            margin-top: 20px;
+            overflow: hidden;
+            animation: waveSlideIn 0.3s ease;
+        }
+        
+        @keyframes waveSlideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .wave-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #1f6feb 0%, #238636 100%);
+            border-bottom: 1px solid #30363d;
+        }
+        
+        .wave-panel-header h4 {
+            font-size: 1.1rem;
+            color: white;
+            margin: 0;
+        }
+        
+        .wave-close-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+        
+        .wave-close-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.1);
+        }
+        
+        .wave-panel-content {
+            padding: 20px;
+        }
+        
+        .wave-loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+        
+        .wave-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* 波浪圓圈 */
+        .wave-circles-row {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .wave-circles {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .wave-circle {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .wave-circle.w1, .wave-circle.w3, .wave-circle.w5 { background: #238636; color: white; }
+        .wave-circle.w2, .wave-circle.w4 { background: #1f6feb; color: white; }
+        .wave-circle.wA, .wave-circle.wC { background: #da3633; color: white; }
+        .wave-circle.wB { background: #d29922; color: white; }
+        .wave-circle.active {
+            box-shadow: 0 0 0 3px #58a6ff, 0 0 15px #58a6ff;
+            transform: scale(1.2);
+        }
+        
+        /* 當前波浪資訊 */
+        .wave-current-info {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .wave-current-info { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        .wave-info-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .wave-info-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+        
+        .wave-info-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .wave-info-value.up { color: var(--accent-up); }
+        .wave-info-value.down { color: var(--accent-down); }
+        
+        /* 目標價位 */
+        .wave-targets {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .wave-target {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .wave-target.up { border-color: var(--accent-up); background: rgba(239, 68, 68, 0.1); }
+        .wave-target.down { border-color: var(--accent-down); background: rgba(16, 185, 129, 0.1); }
+        
+        .target-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        
+        .target-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .wave-target.up .target-value { color: var(--accent-up); }
+        .wave-target.down .target-value { color: var(--accent-down); }
+        
+        /* 波浪規則 */
+        .wave-rules {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .rule-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .rule-item.pass { border-left: 3px solid #238636; }
+        .rule-item.fail { border-left: 3px solid #da3633; }
+        
+        /* 建議 */
+        .wave-suggestion {
+            background: linear-gradient(135deg, rgba(88,166,255,0.1) 0%, rgba(139,92,246,0.1) 100%);
+            border: 1px solid rgba(88,166,255,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .suggestion-label {
+            font-size: 0.9rem;
+            color: var(--accent-blue);
+            margin-bottom: 8px;
+        }
+        
+        .suggestion-text {
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        
+        /* 波浪歷史 */
+        .wave-history {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .history-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+        
+        .wave-history-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .wave-history-item {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 120px;
+        }
+        
+        .wave-history-item.current {
+            border-color: var(--accent-blue);
+            background: rgba(88,166,255,0.1);
+        }
+        
+        .wave-history-item .wave-name {
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        .wave-history-item .wave-price {
+            font-size: 0.8rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .wave-history-item .wave-price.up { color: var(--accent-up); }
+        .wave-history-item .wave-price.down { color: var(--accent-down); }
+        
+        /* 錯誤顯示 */
+        .wave-error {
+            text-align: center;
+            padding: 40px;
+            color: #f85149;
+        }
+        
+        .wave-error .error-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+        
+        /* 監控卡片波浪按鈕 */
+        .monitor-wave-btn {
+            background: linear-gradient(135deg, #1f6feb 0%, #238636 100%);
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .monitor-wave-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(31, 111, 235, 0.5);
+        }
+        
+        .monitor-card-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-color);
+        }
+
         .price-up {
             color: var(--accent-up) !important;
         }
@@ -3518,6 +3820,77 @@
                 <div class="monitor-add-card" onclick="document.getElementById('monitorCode').focus()">
                     <div class="add-icon">➕</div>
                     <div>點擊新增監控股票</div>
+                </div>
+            </div>
+            
+            <!-- 🌊 波浪分析面板 -->
+            <div class="wave-analysis-panel" id="waveAnalysisPanel" style="display: none;">
+                <div class="wave-panel-header">
+                    <h4>🌊 艾略特波浪分析 - <span id="waveStockName">---</span> (<span id="waveStockCode">---</span>)</h4>
+                    <button class="wave-close-btn" onclick="closeWavePanel()">✕</button>
+                </div>
+                <div class="wave-panel-content">
+                    <div class="wave-loading" id="waveLoading">
+                        <div class="wave-spinner"></div>
+                        <div>分析中...</div>
+                    </div>
+                    <div class="wave-result" id="waveResult" style="display: none;">
+                        <!-- 波浪圓圈 -->
+                        <div class="wave-circles-row">
+                            <div class="wave-circles" id="waveCircles"></div>
+                        </div>
+                        
+                        <!-- 當前波浪資訊 -->
+                        <div class="wave-current-info">
+                            <div class="wave-info-item">
+                                <div class="wave-info-label">當前波浪</div>
+                                <div class="wave-info-value" id="waveCurrentWave">--</div>
+                            </div>
+                            <div class="wave-info-item">
+                                <div class="wave-info-label">趨勢判斷</div>
+                                <div class="wave-info-value" id="waveTrend">--</div>
+                            </div>
+                            <div class="wave-info-item">
+                                <div class="wave-info-label">信心分數</div>
+                                <div class="wave-info-value" id="waveConfidence">--</div>
+                            </div>
+                            <div class="wave-info-item">
+                                <div class="wave-info-label">現價</div>
+                                <div class="wave-info-value" id="wavePrice">--</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 目標價位 -->
+                        <div class="wave-targets">
+                            <div class="wave-target up">
+                                <div class="target-label">🎯 上方目標</div>
+                                <div class="target-value" id="waveTargetUp">--</div>
+                            </div>
+                            <div class="wave-target down">
+                                <div class="target-label">⚠️ 下方支撐</div>
+                                <div class="target-value" id="waveTargetDown">--</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 波浪規則 -->
+                        <div class="wave-rules" id="waveRules"></div>
+                        
+                        <!-- 建議 -->
+                        <div class="wave-suggestion">
+                            <div class="suggestion-label">💡 操作建議</div>
+                            <div class="suggestion-text" id="waveSuggestion">--</div>
+                        </div>
+                        
+                        <!-- 波浪歷史 -->
+                        <div class="wave-history">
+                            <div class="history-label">📊 波浪歷史</div>
+                            <div class="wave-history-list" id="waveHistoryList"></div>
+                        </div>
+                    </div>
+                    <div class="wave-error" id="waveError" style="display: none;">
+                        <div class="error-icon">❌</div>
+                        <div class="error-text" id="waveErrorText">分析失敗</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -10370,6 +10743,14 @@
                             </div>
                         </div>
                     </div>
+                    <div class="monitor-card-actions">
+                        <button class="monitor-wave-btn" onclick="analyzeStockWave('${stock.code}')" title="艾略特波浪分析">
+                            🌊 波浪分析
+                        </button>
+                        <button class="monitor-wave-btn" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);" onclick="analyzeStockSingle('${stock.code}')" title="單股詳細分析">
+                            📊 詳細分析
+                        </button>
+                    </div>
                     <div class="monitor-update-time">🕐 ${updateTime}</div>
                 </div>
             `;
@@ -14760,6 +15141,190 @@ ${analysisContext}
             }
             
             showToast(`✅ ${aiNames[winnerAI]} 完成總評撰寫！`);
+        }
+        
+        // ===== 🌊 艾略特波浪分析功能 =====
+        const waveDesc = {
+            '1': '第1浪：趨勢開始，突破前期低點',
+            '2': '第2浪：回調修正，不破第1浪起點',
+            '3': '第3浪：主升段，通常最強最長',
+            '4': '第4浪：整理修正，不重疊第1浪',
+            '5': '第5浪：最後衝刺，動能減弱',
+            'A': 'A浪：下跌開始，多頭結束',
+            'B': 'B浪：反彈修正，誘多陷阱',
+            'C': 'C浪：下跌主跌段，恐慌殺盤'
+        };
+        
+        // 分析股票波浪
+        async function analyzeStockWave(stockCode) {
+            const panel = document.getElementById('waveAnalysisPanel');
+            const loading = document.getElementById('waveLoading');
+            const result = document.getElementById('waveResult');
+            const error = document.getElementById('waveError');
+            
+            // 顯示面板
+            panel.style.display = 'block';
+            loading.style.display = 'block';
+            result.style.display = 'none';
+            error.style.display = 'none';
+            
+            // 更新標題
+            const stockName = getStockChineseName(stockCode, null);
+            document.getElementById('waveStockName').textContent = stockName;
+            document.getElementById('waveStockCode').textContent = stockCode;
+            
+            // 滾動到面板
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            try {
+                // 呼叫波浪分析 API
+                const res = await fetch(`/api/line/wave/analyze/${stockCode}`);
+                
+                if (!res.ok) {
+                    throw new Error(`HTTP 錯誤: ${res.status}`);
+                }
+                
+                const contentType = res.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error('伺服器回應格式錯誤');
+                }
+                
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                
+                // 顯示結果
+                renderWaveAnalysis(data);
+                loading.style.display = 'none';
+                result.style.display = 'block';
+                
+            } catch (e) {
+                console.error('波浪分析錯誤:', e);
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                document.getElementById('waveErrorText').textContent = e.message || '分析失敗，請稍後再試';
+            }
+        }
+        
+        // 渲染波浪分析結果
+        function renderWaveAnalysis(data) {
+            // 波浪圓圈
+            renderWaveCircles(data.currentWave);
+            
+            // 當前波浪資訊
+            const wave = data.currentWave;
+            const isUpTrend = [1,2,3,4,5,'1','2','3','4','5'].includes(wave);
+            
+            document.getElementById('waveCurrentWave').textContent = `第 ${wave} 浪`;
+            document.getElementById('waveCurrentWave').className = 'wave-info-value ' + (isUpTrend ? 'up' : 'down');
+            
+            document.getElementById('waveTrend').textContent = isUpTrend ? '📈 上升趨勢' : '📉 下降趨勢';
+            document.getElementById('waveTrend').className = 'wave-info-value ' + (isUpTrend ? 'up' : 'down');
+            
+            const conf = data.confidence || 50;
+            document.getElementById('waveConfidence').textContent = conf + '%';
+            document.getElementById('waveConfidence').style.color = conf >= 70 ? '#3fb950' : conf >= 40 ? '#d29922' : '#f85149';
+            
+            document.getElementById('wavePrice').textContent = '$' + (data.currentPrice || 0).toFixed(2);
+            
+            // 目標價位
+            document.getElementById('waveTargetUp').textContent = '$' + (data.targetUp || 0).toFixed(1);
+            document.getElementById('waveTargetDown').textContent = '$' + (data.targetDown || 0).toFixed(1);
+            
+            // 波浪規則
+            renderWaveRules(data.rules);
+            
+            // 建議
+            document.getElementById('waveSuggestion').textContent = data.suggestion || '請結合其他技術指標綜合判斷。';
+            
+            // 波浪歷史
+            renderWaveHistory(data.waves, data.currentPrice, wave);
+        }
+        
+        // 渲染波浪圓圈
+        function renderWaveCircles(currentWave) {
+            const waves = ['1', '2', '3', '4', '5', 'A', 'B', 'C'];
+            const container = document.getElementById('waveCircles');
+            
+            container.innerHTML = waves.map(w => {
+                const isActive = String(currentWave) === w;
+                let cls = 'w' + w;
+                if (w === 'A' || w === 'C') cls = 'wA';
+                else if (w === 'B') cls = 'wB';
+                return `<div class="wave-circle ${cls} ${isActive ? 'active' : ''}" onclick="showWaveDesc('${w}')" title="${waveDesc[w]}">${w}</div>`;
+            }).join('');
+        }
+        
+        // 顯示波浪說明
+        function showWaveDesc(wave) {
+            showToast(`🌊 ${waveDesc[wave]}`);
+        }
+        
+        // 渲染波浪規則
+        function renderWaveRules(rules) {
+            const container = document.getElementById('waveRules');
+            const r = rules || [
+                { rule: '第2浪不跌破第1浪起點', pass: true },
+                { rule: '第3浪不是最短推動浪', pass: true },
+                { rule: '第4浪不重疊第1浪區間', pass: true }
+            ];
+            
+            container.innerHTML = r.map(x => `
+                <div class="rule-item ${x.pass ? 'pass' : 'fail'}">
+                    <span>${x.pass ? '✅' : '❌'}</span>
+                    <span>${x.rule}</span>
+                </div>
+            `).join('');
+        }
+        
+        // 渲染波浪歷史
+        function renderWaveHistory(waves, currentPrice, currentWave) {
+            const container = document.getElementById('waveHistoryList');
+            
+            if (!waves || !waves.length) {
+                container.innerHTML = '<div style="color: var(--text-muted);">暫無波浪數據</div>';
+                return;
+            }
+            
+            const order = { '1':1, '2':2, '3':3, '4':4, '5':5, 'A':6, 'B':7, 'C':8, 1:1, 2:2, 3:3, 4:4, 5:5 };
+            const sortedWaves = [...waves].sort((a, b) => (order[a.wave] || 99) - (order[b.wave] || 99));
+            
+            container.innerHTML = sortedWaves.slice(0, 6).map(w => {
+                const up = w.end > w.start;
+                const pct = ((w.end - w.start) / w.start * 100).toFixed(1);
+                const isCurrent = String(w.wave) === String(currentWave);
+                
+                return `
+                    <div class="wave-history-item ${isCurrent ? 'current' : ''}">
+                        <div class="wave-name">第 ${w.wave} 浪 ${isCurrent ? '←' : ''}</div>
+                        <div class="wave-price ${up ? 'up' : 'down'}">
+                            ${w.start.toFixed(1)} → ${w.end.toFixed(1)} (${up ? '+' : ''}${pct}%)
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // 現價
+            if (currentPrice) {
+                container.innerHTML += `
+                    <div class="wave-history-item" style="border-color: var(--accent-blue); background: rgba(88,166,255,0.1);">
+                        <div class="wave-name" style="color: var(--accent-blue);">📍 現價</div>
+                        <div class="wave-price" style="color: var(--text-primary); font-weight: 700;">$${currentPrice.toFixed(2)}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        // 關閉波浪分析面板
+        function closeWavePanel() {
+            document.getElementById('waveAnalysisPanel').style.display = 'none';
+        }
+        
+        // 單股詳細分析（跳轉到分析頁面）
+        function analyzeStockSingle(stockCode) {
+            document.getElementById('stockCode').value = stockCode;
+            startAnalysis();
+            // 滾動到分析區域
+            document.querySelector('.analysis-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     </script>
 

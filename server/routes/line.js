@@ -11,6 +11,16 @@ const lineService = require('../services/lineService');
 const twStocks = require('../data/twStocks');
 const { pool } = require('../db');
 
+// 🌊 引入進階波浪分析模組
+let elliottWaveAdvanced;
+try {
+  elliottWaveAdvanced = require('../services/elliottWaveAdvanced');
+  console.log('✅ 進階波浪分析模組載入成功');
+} catch (e) {
+  console.log('⚠️ 進階波浪分析模組載入失敗，使用內建版本:', e.message);
+  elliottWaveAdvanced = null;
+}
+
 
 // 顏色輔助函數 - 根據設定決定漲跌顏色
 let cachedColorMode = null;
@@ -5570,7 +5580,7 @@ async function getStockPK(stockId1, stockId2) {
 }
 
 /**
- * 🌊 艾略特波浪理論分析
+ * 🌊 艾略特波浪理論分析（進階版）
  */
 async function getElliottWaveAnalysis(stockId) {
   try {
@@ -5579,46 +5589,87 @@ async function getElliottWaveAnalysis(stockId) {
     const stockName = stockData?.name || getStockNameById(stockId) || stockId;
     const currentPrice = parseFloat(stockData?.price) || 0;
     
-    // 取得歷史資料（120 天）
-    const historyRaw = await fetchYahooHistory(stockId, 120);
-    if (!historyRaw || historyRaw.length < 20) {
+    // 取得歷史資料（250 天 = 約1年）
+    const historyRaw = await fetchYahooHistory(stockId, 250);
+    if (!historyRaw || historyRaw.length < 30) {
       return { type: 'text', text: `❌ ${stockName} 歷史資料不足（僅 ${historyRaw?.length || 0} 筆），無法進行波浪分析` };
     }
     
-    // 🔑 關鍵：將 history 反轉為升序（舊→新）
-    // fetchYahooHistory 返回降序（新→舊），波浪分析需要升序
+    // 🔑 將 history 反轉為升序（舊→新）
     const history = [...historyRaw].reverse();
     
-    // 🆕 使用 ZigZag 找出轉折點（根據資料量調整靈敏度）
-    const sensitivity = history.length < 40 ? 3 : 5; // 資料少時更敏感
-    const pivots = findZigZagPivots(history, sensitivity);
+    // 🌊 使用進階波浪分析模組
+    let waveResult;
+    if (elliottWaveAdvanced) {
+      console.log(`🌊 使用進階波浪分析: ${stockId}`);
+      waveResult = await elliottWaveAdvanced.analyzeElliottWaveAdvanced(history, currentPrice);
+    } else {
+      // 備援：使用內建分析
+      console.log(`🌊 使用內建波浪分析: ${stockId}`);
+      const sensitivity = history.length < 40 ? 3 : 5;
+      const pivots = findZigZagPivots(history, sensitivity);
+      const waveAnalysis = analyzeWaveStructure(pivots, currentPrice, history);
+      const fibTargets = calculateFibonacciTargets(waveAnalysis, currentPrice);
+      const ruleChecks = checkWaveRules(waveAnalysis);
+      const passedRules = ruleChecks.filter(r => r.pass).length;
+      
+      waveResult = {
+        currentWave: waveAnalysis.currentWave,
+        waves: waveAnalysis.waves,
+        rules: ruleChecks,
+        targetUp: fibTargets.upper,
+        targetDown: fibTargets.lower,
+        stopLoss: fibTargets.lower * 0.98,
+        confidence: Math.round((passedRules / 3) * 100),
+        confidenceLevel: passedRules >= 2 ? '高' : passedRules >= 1 ? '中' : '低',
+        suggestion: getWaveSuggestion(waveAnalysis),
+        action: '觀望',
+        details: [],
+        isUptrend: typeof waveAnalysis.currentWave === 'number' && waveAnalysis.currentWave <= 5,
+        technicals: { rsi: 50, macd: 0 }
+      };
+    }
     
-    // 分析波浪結構
-    const waveAnalysis = analyzeWaveStructure(pivots, currentPrice, history);
+    // 取得分析結果
+    const {
+      currentWave,
+      waves,
+      rules,
+      guidelines,
+      targetUp,
+      targetDown,
+      stopLoss,
+      fibLevels,
+      riskReward,
+      confidence,
+      confidenceLevel,
+      confidenceBreakdown,
+      suggestion,
+      action,
+      details,
+      psychology,
+      volumePattern,
+      keyIndicators,
+      isUptrend,
+      technicals,
+      waveKnowledge
+    } = waveResult;
     
-    // 🆕 斐波那契計算目標價
-    const fibTargets = calculateFibonacciTargets(waveAnalysis, currentPrice);
-    
-    // 波浪規則檢查
-    const ruleChecks = checkWaveRules(waveAnalysis);
-    
-    // 🆕 計算信心分數
-    const passedRules = ruleChecks.filter(r => r.pass).length;
-    const confidence = Math.round((passedRules / 3) * 100);
-    const confidenceText = confidence >= 70 ? '高' : confidence >= 40 ? '中' : '低';
+    // 信心分數顏色
     const confidenceColor = confidence >= 70 ? '#27AE60' : confidence >= 40 ? '#F39C12' : '#E74C3C';
     
-    // 操作建議
-    const suggestion = getWaveSuggestion(waveAnalysis);
-    
     // 趨勢判斷
-    const isUpTrend = typeof waveAnalysis.currentWave === 'number' && waveAnalysis.currentWave <= 5;
-    const trend = isUpTrend ? '上升趨勢' : '下跌趨勢';
-    const trendColor = isUpTrend ? '#D63031' : '#00B894';
+    const trend = isUptrend ? '上升趨勢' : '下降趨勢';
+    const trendColor = isUptrend ? '#D63031' : '#00B894';
+    
+    // 計算漲跌
+    const priceChange = stockData?.change || 0;
+    const priceChangePercent = stockData?.changePercent || 0;
+    const changeSymbol = priceChange >= 0 ? '▲' : '▼';
     
     // 波浪圓圈
     const waveCircles = [1, 2, 3, 4, 5, 'A', 'B', 'C'].map((w, i) => {
-      const isCurrentWave = String(w) === String(waveAnalysis.currentWave);
+      const isCurrentWave = String(w) === String(currentWave);
       return {
         type: 'box',
         layout: 'vertical',
@@ -5642,7 +5693,7 @@ async function getElliottWaveAnalysis(stockId) {
     });
     
     // 規則檢查結果
-    const ruleRows = ruleChecks.map(r => ({
+    const ruleRows = (rules || []).map(r => ({
       type: 'box',
       layout: 'horizontal',
       contents: [
@@ -5653,19 +5704,39 @@ async function getElliottWaveAnalysis(stockId) {
     }));
     
     // 近期波浪
-    const recentWaves = waveAnalysis.waves.slice(-3).map(w => ({
+    const recentWaves = (waves || []).slice(-3).map(w => ({
       type: 'box',
       layout: 'horizontal',
       contents: [
         { type: 'text', text: `${w.wave}浪`, size: 'xxs', flex: 1, color: '#666666' },
-        { type: 'text', text: `${w.start.toFixed(0)}→${w.end.toFixed(0)}`, size: 'xxs', flex: 2, align: 'end', color: w.direction === 'up' ? '#D63031' : '#00B894' }
+        { type: 'text', text: `${w.start?.toFixed(0) || '?'}→${w.end?.toFixed(0) || '?'}`, size: 'xxs', flex: 2, align: 'end', color: w.direction === 'up' ? '#D63031' : '#00B894' }
       ],
       margin: 'xs'
     }));
     
+    // 📊 技術指標顯示
+    const techRows = [];
+    if (technicals) {
+      if (technicals.rsi !== undefined) {
+        const rsiColor = technicals.rsi > 70 ? '#E74C3C' : technicals.rsi < 30 ? '#27AE60' : '#3498DB';
+        techRows.push({ type: 'text', text: `RSI: ${technicals.rsi?.toFixed(1) || '--'}`, size: 'xxs', color: rsiColor });
+      }
+      if (technicals.rsiDivergence) {
+        techRows.push({ type: 'text', text: '⚠️ RSI背離', size: 'xxs', color: '#E74C3C' });
+      }
+      if (technicals.macdDivergence) {
+        techRows.push({ type: 'text', text: '⚠️ MACD背離', size: 'xxs', color: '#E74C3C' });
+      }
+    }
+    
+    // 詳細建議
+    const detailRows = (details || []).slice(0, 4).map(d => ({
+      type: 'text', text: d, size: 'xxs', color: '#555555', wrap: true, margin: 'xs'
+    }));
+    
     return {
       type: 'flex',
-      altText: `🌊 ${stockName} 波浪分析`,
+      altText: `🌊 ${stockName} 波浪分析 - 第${currentWave}浪`,
       contents: {
         type: 'bubble',
         size: 'mega',
@@ -5676,13 +5747,15 @@ async function getElliottWaveAnalysis(stockId) {
             { type: 'box', layout: 'vertical', flex: 4,
               contents: [
                 { type: 'text', text: '🌊 艾略特波浪分析', size: 'md', weight: 'bold', color: '#ffffff' },
-                { type: 'text', text: `${stockName} (${stockId})`, size: 'xs', color: '#ffffffaa', margin: 'xs' }
+                { type: 'text', text: `${stockName} (${stockId})`, size: 'xs', color: '#ffffffaa', margin: 'xs' },
+                { type: 'text', text: `$${currentPrice} ${changeSymbol}${Math.abs(priceChangePercent).toFixed(2)}%`, size: 'sm', color: priceChange >= 0 ? '#ff6b6b' : '#51cf66', margin: 'xs' }
               ]
             },
             { type: 'box', layout: 'vertical', flex: 2, alignItems: 'flex-end',
               contents: [
-                { type: 'text', text: `信心: ${confidenceText}`, size: 'xs', color: '#ffffff' },
-                { type: 'text', text: `${confidence}%`, size: 'lg', weight: 'bold', color: confidenceColor }
+                { type: 'text', text: `信心: ${confidenceLevel}`, size: 'xs', color: '#ffffff' },
+                { type: 'text', text: `${confidence}%`, size: 'lg', weight: 'bold', color: confidenceColor },
+                { type: 'text', text: action || '觀望', size: 'xs', color: '#FFD93D', margin: 'xs' }
               ]
             }
           ],
@@ -5698,8 +5771,8 @@ async function getElliottWaveAnalysis(stockId) {
             // 目前位置
             { type: 'box', layout: 'vertical', margin: 'lg', alignItems: 'center',
               contents: [
-                { type: 'text', text: `目前推測位於 第 ${waveAnalysis.currentWave} 浪`, size: 'md', weight: 'bold' },
-                { type: 'text', text: `${trend} | 現價: $${currentPrice} ${waveAnalysis.changeFromLastWave}`, size: 'xs', color: trendColor, margin: 'xs' }
+                { type: 'text', text: `目前推測位於 第 ${currentWave} 浪`, size: 'md', weight: 'bold' },
+                { type: 'text', text: `${trend} | R/R: ${riskReward || '--'}`, size: 'xs', color: trendColor, margin: 'xs' }
               ]
             },
             { type: 'separator', margin: 'lg' },
@@ -5709,7 +5782,7 @@ async function getElliottWaveAnalysis(stockId) {
                 { type: 'box', layout: 'vertical', flex: 1,
                   contents: [
                     { type: 'text', text: '📋 規則檢查', size: 'xs', weight: 'bold', color: '#3498DB' },
-                    ...ruleRows
+                    ...ruleRows.slice(0, 3)
                   ]
                 },
                 { type: 'separator', margin: 'sm' },
@@ -5722,28 +5795,35 @@ async function getElliottWaveAnalysis(stockId) {
               ]
             },
             { type: 'separator', margin: 'md' },
-            // 🆕 目標價區域
+            // 目標價區域
             { type: 'box', layout: 'horizontal', margin: 'md',
               contents: [
                 { type: 'box', layout: 'vertical', flex: 1, backgroundColor: '#FDEDEC', cornerRadius: 'md', paddingAll: '8px', alignItems: 'center',
                   contents: [
                     { type: 'text', text: '🎯 目標上檔', size: 'xxs', color: '#E74C3C' },
-                    { type: 'text', text: `$${fibTargets.upper.toFixed(1)}`, size: 'md', weight: 'bold', color: '#E74C3C' }
+                    { type: 'text', text: `$${(targetUp || 0).toFixed(1)}`, size: 'md', weight: 'bold', color: '#E74C3C' }
                   ]
                 },
                 { type: 'box', layout: 'vertical', flex: 1, backgroundColor: '#E8F8F5', cornerRadius: 'md', paddingAll: '8px', alignItems: 'center', margin: 'sm',
                   contents: [
-                    { type: 'text', text: '🛡️ 支撐下檔', size: 'xxs', color: '#27AE60' },
-                    { type: 'text', text: `$${fibTargets.lower.toFixed(1)}`, size: 'md', weight: 'bold', color: '#27AE60' }
+                    { type: 'text', text: '🛡️ 支撐/停損', size: 'xxs', color: '#27AE60' },
+                    { type: 'text', text: `$${(stopLoss || targetDown || 0).toFixed(1)}`, size: 'md', weight: 'bold', color: '#27AE60' }
                   ]
                 }
               ]
             },
+            // 技術指標（如果有）
+            ...(techRows.length > 0 ? [
+              { type: 'box', layout: 'horizontal', margin: 'sm', justifyContent: 'center',
+                contents: techRows.map(t => ({ ...t, margin: 'md' }))
+              }
+            ] : []),
             // 操作建議
             { type: 'box', layout: 'vertical', margin: 'md', backgroundColor: '#FEF9E7', cornerRadius: 'md', paddingAll: '8px',
               contents: [
-                { type: 'text', text: '💡 操作建議', size: 'xs', weight: 'bold', color: '#F39C12' },
-                { type: 'text', text: suggestion, size: 'xxs', color: '#666666', wrap: true, margin: 'xs' }
+                { type: 'text', text: `💡 ${action || '操作建議'}`, size: 'xs', weight: 'bold', color: '#F39C12' },
+                { type: 'text', text: suggestion || '請結合其他技術指標綜合判斷。', size: 'xxs', color: '#666666', wrap: true, margin: 'xs' },
+                ...(detailRows.length > 0 ? detailRows.slice(0, 2) : [])
               ]
             }
           ],
@@ -5754,7 +5834,7 @@ async function getElliottWaveAnalysis(stockId) {
           layout: 'horizontal',
           contents: [
             { type: 'button', style: 'primary', color: '#2C3E50', height: 'sm',
-              action: { type: 'message', label: 'K線圖', text: `K線 ${stockId}` }
+              action: { type: 'uri', label: '🌐 網頁版', uri: `https://stock-assistant-production-8ce3.up.railway.app/wave.html?stock=${stockId}` }
             },
             { type: 'button', style: 'secondary', height: 'sm', margin: 'sm',
               action: { type: 'message', label: '回測', text: `回測 ${stockId}` }
@@ -5762,7 +5842,9 @@ async function getElliottWaveAnalysis(stockId) {
           ],
           paddingAll: '10px'
         }
-      }
+      },
+      // 🆕 附加完整分析資料（供 API 使用）
+      fullAnalysis: waveResult
     };
   } catch (error) {
     console.error('波浪分析錯誤:', error);
@@ -11936,7 +12018,7 @@ router.get('/wave/test', (req, res) => {
 
 /**
  * GET /api/wave/analyze/:stockId
- * 波浪分析 API（供網頁版使用）
+ * 波浪分析 API（供網頁版使用）- 進階版
  */
 router.get('/wave/analyze/:stockId', async (req, res) => {
   try {
@@ -11949,57 +12031,104 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
     const currentPrice = parseFloat(stockData?.price) || 0;
     console.log(`📈 ${stockId} 股價: ${currentPrice}, 名稱: ${stockName}`);
     
-    // 取得歷史資料（180天 = 約6個月）
-    const historyRaw = await fetchYahooHistory(stockId, 180);
+    // 取得歷史資料（250天 = 約1年）
+    const historyRaw = await fetchYahooHistory(stockId, 250);
     console.log(`📊 ${stockId} 歷史資料筆數: ${historyRaw?.length || 0}`);
     
-    if (!historyRaw || historyRaw.length < 20) {
+    if (!historyRaw || historyRaw.length < 30) {
       return res.json({ 
         error: `${stockName} 歷史資料不足（僅 ${historyRaw?.length || 0} 筆）`
       });
     }
     
-    // 🔑 關鍵：將 history 反轉為升序（舊→新）
+    // 🔑 將 history 反轉為升序（舊→新）
     const history = [...historyRaw].reverse();
     
-    // ZigZag 轉折點
-    const sensitivity = history.length < 40 ? 3 : 5;
-    const pivots = findZigZagPivots(history, sensitivity);
+    // 🌊 使用進階波浪分析模組
+    let waveResult;
+    if (elliottWaveAdvanced) {
+      console.log(`🌊 使用進階波浪分析模組: ${stockId}`);
+      waveResult = await elliottWaveAdvanced.analyzeElliottWaveAdvanced(history, currentPrice);
+    } else {
+      // 備援：使用內建分析
+      console.log(`⚠️ 使用內建波浪分析: ${stockId}`);
+      const sensitivity = history.length < 40 ? 3 : 5;
+      const pivots = findZigZagPivots(history, sensitivity);
+      const waveAnalysis = analyzeWaveStructure(pivots, currentPrice, history);
+      const fibTargets = calculateFibonacciTargets(waveAnalysis, currentPrice);
+      const ruleChecks = checkWaveRules(waveAnalysis);
+      const passedRules = ruleChecks.filter(r => r.pass).length;
+      
+      waveResult = {
+        currentWave: waveAnalysis.currentWave,
+        waves: waveAnalysis.waves,
+        pivots: pivots,
+        rules: ruleChecks,
+        targetUp: fibTargets.upper,
+        targetDown: fibTargets.lower,
+        stopLoss: fibTargets.lower * 0.98,
+        confidence: Math.round((passedRules / 3) * 100),
+        confidenceLevel: passedRules >= 2 ? '高' : passedRules >= 1 ? '中' : '低',
+        suggestion: getWaveSuggestion(waveAnalysis),
+        action: '觀望',
+        details: [],
+        isUptrend: typeof waveAnalysis.currentWave === 'number' && waveAnalysis.currentWave <= 5,
+        technicals: {}
+      };
+    }
     
-    // 波浪結構分析
-    const waveAnalysis = analyzeWaveStructure(pivots, currentPrice, history);
-    
-    // 斐波那契目標價
-    const fibTargets = calculateFibonacciTargets(waveAnalysis, currentPrice);
-    
-    // 規則檢查
-    const ruleChecks = checkWaveRules(waveAnalysis);
-    
-    // 信心分數
-    const passedRules = ruleChecks.filter(r => r.pass).length;
-    const confidence = Math.round((passedRules / 3) * 100);
-    
-    // 操作建議
-    const suggestion = getWaveSuggestion(waveAnalysis);
-    
-    // 漲跌幅（history 是升序，最後一筆是最新，倒數第二筆是前一天）
+    // 漲跌幅計算
     const prevClose = history.length > 1 ? history[history.length - 2].close : currentPrice;
     const changePercent = ((currentPrice - prevClose) / prevClose * 100);
+    const fromWaveChange = waveResult.waves?.length > 0 ? 
+      ((currentPrice - waveResult.waves[waveResult.waves.length - 1].end) / waveResult.waves[waveResult.waves.length - 1].end * 100) : changePercent;
     
+    // 返回完整分析結果
     res.json({
+      // 基本資訊
       stockId,
       stockName,
       currentPrice,
-      currentWave: waveAnalysis.currentWave,
-      changePercent,
-      confidence,
-      suggestion,
-      targetUp: fibTargets.upper,
-      targetDown: fibTargets.lower,
-      rules: ruleChecks,
-      waves: waveAnalysis.waves,
-      pivots: pivots.slice(-15),
-      history: history.slice(-180) // 最近180天（約6個月），已經是升序（舊→新）
+      changePercent: parseFloat(changePercent.toFixed(2)),
+      fromWaveChange: parseFloat(fromWaveChange.toFixed(2)),
+      
+      // 波浪分析
+      currentWave: waveResult.currentWave,
+      waves: waveResult.waves || [],
+      pivots: (waveResult.pivots || []).slice(-20),
+      isUptrend: waveResult.isUptrend,
+      
+      // 規則與指引
+      rules: waveResult.rules || [],
+      guidelines: waveResult.guidelines || [],
+      
+      // 目標價
+      targetUp: waveResult.targetUp || currentPrice * 1.1,
+      targetDown: waveResult.targetDown || currentPrice * 0.9,
+      stopLoss: waveResult.stopLoss || currentPrice * 0.95,
+      fibLevels: waveResult.fibLevels || [],
+      riskReward: waveResult.riskReward || '1.5',
+      
+      // 信心分數
+      confidence: waveResult.confidence || 50,
+      confidenceLevel: waveResult.confidenceLevel || '中',
+      confidenceBreakdown: waveResult.confidenceBreakdown || {},
+      
+      // 建議
+      suggestion: waveResult.suggestion || '請結合其他技術指標綜合判斷。',
+      action: waveResult.action || '觀望',
+      details: waveResult.details || [],
+      psychology: waveResult.psychology || '',
+      volumePattern: waveResult.volumePattern || '',
+      
+      // 技術指標
+      technicals: waveResult.technicals || {},
+      
+      // 知識庫
+      waveKnowledge: waveResult.waveKnowledge || null,
+      
+      // 歷史資料（供圖表使用）
+      history: history.slice(-180)
     });
   } catch (error) {
     console.error('波浪分析 API 錯誤:', error);
