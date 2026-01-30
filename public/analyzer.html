@@ -5260,10 +5260,12 @@
             }, 2000);
         }
 
-        // Proxy URL for CORS - with fallback options
+        // ===== 資料獲取核心函數 =====
+        // CORS Proxy 列表（多重備援）
         const CORS_PROXIES = [
             'https://api.allorigins.win/raw?url=',
-            'https://corsproxy.io/?'
+            'https://corsproxy.io/?',
+            'https://api.codetabs.com/v1/proxy?quest='
         ];
         let currentProxyIndex = 0;
 
@@ -5293,13 +5295,15 @@
                 const proxy = CORS_PROXIES[proxyIndex];
                 try {
                     const proxyUrl = proxy + encodeURIComponent(url);
-                    const response = await fetchWithTimeout(proxyUrl, 8000);
+                    console.log(`嘗試 Proxy ${proxyIndex}: ${proxy.substring(0, 30)}...`);
+                    const response = await fetchWithTimeout(proxyUrl, 10000);
                     if (response.ok) {
                         const text = await response.text();
                         if (text && text.trim()) {
                             try {
                                 const data = JSON.parse(text);
                                 currentProxyIndex = proxyIndex;
+                                console.log(`✅ Proxy ${proxyIndex} 成功`);
                                 return data;
                             } catch {
                                 return { raw: text };
@@ -5307,11 +5311,235 @@
                         }
                     }
                 } catch (e) {
-                    console.log(`Proxy ${proxyIndex} failed:`, e.message);
+                    console.log(`❌ Proxy ${proxyIndex} 失敗:`, e.message);
                 }
             }
             
-            return { stat: 'ERROR', data: null };
+            return null;
+        }
+        
+        // ===== 股票報價獲取（多重來源）=====
+        // 來源1: TWSE 即時報價 API（盤中有效）
+        async function fetchFromTWSE(code, market) {
+            try {
+                const exch = market === 'tpex' ? 'otc' : 'tse';
+                const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${exch}_${code}.tw&json=1&delay=0&_=${Date.now()}`;
+                
+                // 先直接請求（TWSE 支援 CORS）
+                try {
+                    const response = await fetchWithTimeout(url, 5000);
+                    const data = await response.json();
+                    if (data && data.msgArray && data.msgArray.length > 0) {
+                        const stock = data.msgArray[0];
+                        const price = parseFloat(stock.z) || parseFloat(stock.pz) || 0;
+                        if (price > 0) {
+                            return parseStockData(stock, code, 'twse');
+                        }
+                    }
+                } catch (e) {
+                    console.log('TWSE 直接請求失敗:', e.message);
+                }
+                
+                // 使用 Proxy
+                const data = await fetchWithProxy(url);
+                if (data && data.msgArray && data.msgArray.length > 0) {
+                    const stock = data.msgArray[0];
+                    const price = parseFloat(stock.z) || parseFloat(stock.pz) || 0;
+                    if (price > 0) {
+                        return parseStockData(stock, code, 'twse-proxy');
+                    }
+                }
+            } catch (e) {
+                console.log('TWSE API 失敗:', e.message);
+            }
+            return null;
+        }
+        
+        // 來源2: Yahoo Finance API（盤後有效）
+        async function fetchFromYahoo(code, market) {
+            try {
+                const symbol = market === 'tpex' ? `${code}.TWO` : `${code}.TW`;
+                const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=5d&_=${Date.now()}`;
+                
+                console.log(`嘗試 Yahoo Finance: ${symbol}`);
+                const data = await fetchWithProxy(url);
+                
+                if (data && data.chart && data.chart.result && data.chart.result[0]) {
+                    const result = data.chart.result[0];
+                    const meta = result.meta;
+                    
+                    // 取得價格
+                    let price = meta.regularMarketPrice || 0;
+                    let prevClose = meta.chartPreviousClose || meta.previousClose || 0;
+                    
+                    // 如果 regularMarketPrice 是 0，從 quotes 取
+                    if (price === 0 && result.indicators && result.indicators.quote) {
+                        const quotes = result.indicators.quote[0];
+                        if (quotes && quotes.close) {
+                            for (let i = quotes.close.length - 1; i >= 0; i--) {
+                                if (quotes.close[i] && !isNaN(quotes.close[i])) {
+                                    price = quotes.close[i];
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (price > 0) {
+                        console.log(`✅ Yahoo Finance ${symbol}: ${price}`);
+                        return {
+                            code: code,
+                            name: getStockChineseName(code, meta.shortName),
+                            price: price,
+                            prevClose: prevClose,
+                            change: price - prevClose,
+                            changePercent: prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0,
+                            open: meta.regularMarketOpen || 0,
+                            high: meta.regularMarketDayHigh || 0,
+                            low: meta.regularMarketDayLow || 0,
+                            volume: Math.round((meta.regularMarketVolume || 0) / 1000),
+                            limitUp: Math.round(prevClose * 1.1 * 100) / 100,
+                            limitDown: Math.round(prevClose * 0.9 * 100) / 100,
+                            tradeTime: new Date().toLocaleTimeString('zh-TW'),
+                            source: 'yahoo'
+                        };
+                    }
+                }
+            } catch (e) {
+                console.log('Yahoo Finance 失敗:', e.message);
+            }
+            return null;
+        }
+        
+        // 來源3: TWSE 收盤行情（盤後歷史資料）
+        async function fetchFromTWSEHistory(code, market) {
+            try {
+                const today = new Date();
+                const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+                
+                let url;
+                if (market === 'tpex') {
+                    // 上櫃：櫃買中心 API
+                    const year = today.getFullYear() - 1911;
+                    const month = String(today.getMonth() + 1).padStart(2, '0');
+                    const day = String(today.getDate()).padStart(2, '0');
+                    url = `https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_result.php?l=zh-tw&d=${year}/${month}/${day}&stkno=${code}&_=${Date.now()}`;
+                } else {
+                    // 上市：證交所 API
+                    url = `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${dateStr}&stockNo=${code}&_=${Date.now()}`;
+                }
+                
+                const data = await fetchWithProxy(url);
+                
+                if (market === 'tpex' && data && data.aaData && data.aaData.length > 0) {
+                    const lastRow = data.aaData[data.aaData.length - 1];
+                    const price = parseFloat(lastRow[6].replace(/,/g, '')) || 0;
+                    const prevClose = parseFloat(lastRow[1].replace(/,/g, '')) || 0;
+                    
+                    if (price > 0) {
+                        return {
+                            code: code,
+                            name: getStockChineseName(code, null),
+                            price: price,
+                            prevClose: prevClose,
+                            change: price - prevClose,
+                            changePercent: prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0,
+                            open: parseFloat(lastRow[3].replace(/,/g, '')) || 0,
+                            high: parseFloat(lastRow[4].replace(/,/g, '')) || 0,
+                            low: parseFloat(lastRow[5].replace(/,/g, '')) || 0,
+                            volume: parseInt(lastRow[2].replace(/,/g, '')) || 0,
+                            tradeTime: lastRow[0],
+                            source: 'tpex-history'
+                        };
+                    }
+                } else if (data && data.data && data.data.length > 0) {
+                    const lastRow = data.data[data.data.length - 1];
+                    const price = parseFloat(lastRow[6].replace(/,/g, '')) || 0;
+                    
+                    if (price > 0) {
+                        return {
+                            code: code,
+                            name: getStockChineseName(code, null),
+                            price: price,
+                            prevClose: parseFloat(lastRow[3].replace(/,/g, '')) || 0,
+                            change: parseFloat(lastRow[7].replace(/,/g, '')) || 0,
+                            changePercent: 0,
+                            open: parseFloat(lastRow[3].replace(/,/g, '')) || 0,
+                            high: parseFloat(lastRow[4].replace(/,/g, '')) || 0,
+                            low: parseFloat(lastRow[5].replace(/,/g, '')) || 0,
+                            volume: parseInt(lastRow[2].replace(/,/g, '')) || 0,
+                            tradeTime: lastRow[0],
+                            source: 'twse-history'
+                        };
+                    }
+                }
+            } catch (e) {
+                console.log('歷史資料 API 失敗:', e.message);
+            }
+            return null;
+        }
+        
+        // 解析 TWSE 即時數據
+        function parseStockData(stock, code, source) {
+            const price = parseFloat(stock.z) || parseFloat(stock.pz) || parseFloat(stock.y) || 0;
+            const prevClose = parseFloat(stock.y) || 0;
+            
+            return {
+                code: code,
+                name: getStockChineseName(code, stock.n),
+                price: price,
+                prevClose: prevClose,
+                change: price - prevClose,
+                changePercent: prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0,
+                open: parseFloat(stock.o) || 0,
+                high: parseFloat(stock.h) || 0,
+                low: parseFloat(stock.l) || 0,
+                volume: parseInt(stock.v) || 0,
+                limitUp: parseFloat(stock.u) || 0,
+                limitDown: parseFloat(stock.w) || 0,
+                tradeTime: stock.t || '',
+                tradeDate: stock.d || '',
+                source: source
+            };
+        }
+        
+        // 🔥 主要股票報價函數（自動選擇最佳來源）
+        async function getStockQuote(code, market) {
+            console.log(`📊 獲取 ${code} 報價...`);
+            
+            // 1. 先嘗試 TWSE 即時（盤中最準確）
+            let data = await fetchFromTWSE(code, market);
+            if (data && data.price > 0) {
+                console.log(`✅ ${code} 從 TWSE 取得: ${data.price}`);
+                return data;
+            }
+            
+            // 2. 嘗試 Yahoo Finance（盤後可用）
+            data = await fetchFromYahoo(code, market);
+            if (data && data.price > 0) {
+                console.log(`✅ ${code} 從 Yahoo 取得: ${data.price}`);
+                return data;
+            }
+            
+            // 3. 最後嘗試歷史資料 API
+            data = await fetchFromTWSEHistory(code, market);
+            if (data && data.price > 0) {
+                console.log(`✅ ${code} 從歷史資料取得: ${data.price}`);
+                return data;
+            }
+            
+            console.log(`❌ ${code} 所有來源都失敗`);
+            
+            // 返回僅有名稱的空資料
+            return {
+                code: code,
+                name: getStockChineseName(code, null),
+                price: 0,
+                prevClose: 0,
+                change: 0,
+                changePercent: 0,
+                source: 'none'
+            };
         }
 
         // Initialize dates and event listeners
@@ -10158,6 +10386,7 @@
         }
 
         // 刷新單一股票數據（含盤後備援）
+        // 刷新單一股票數據（使用多重來源）
         async function refreshMonitorStock(index) {
             const stock = monitorStocks[index];
             if (!stock) return;
@@ -10170,98 +10399,39 @@
             }
             
             try {
-                // 先嘗試 TWSE 即時報價
-                let data = await fetchRealtimeQuoteDetail(stock.code, stock.market);
+                // 🔥 使用新的多重來源獲取函數
+                const data = await getStockQuote(stock.code, stock.market);
                 
-                // 如果 TWSE 無資料，使用 Yahoo Finance 備援
-                if (!data || data.price <= 0) {
-                    console.log(`[${stock.code}] TWSE 無資料，嘗試 Yahoo Finance...`);
-                    data = await fetchMonitorFromYahoo(stock.code, stock.market);
-                }
+                monitorStocks[index].data = data;
+                renderMonitorCard(index);
                 
-                if (data && data.price > 0) {
-                    // 確保名稱正確
-                    data.name = getStockChineseName(stock.code, data.name);
-                    monitorStocks[index].data = data;
-                    renderMonitorCard(index);
-                    
-                    // 重新獲取卡片（因為renderMonitorCard會重建DOM）
-                    const newCard = document.getElementById(`monitorCard${index}`);
-                    if (newCard) {
-                        newCard.classList.add('fetch-done');
-                        // 移除完成動畫
-                        setTimeout(() => {
-                            newCard.classList.remove('fetch-done');
-                        }, 500);
-                    }
-                } else {
-                    // 即使沒有價格資料，也更新名稱
-                    if (!monitorStocks[index].data) {
-                        monitorStocks[index].data = {
-                            code: stock.code,
-                            name: getStockChineseName(stock.code, null),
-                            price: 0,
-                            prevClose: 0,
-                            change: 0,
-                            changePercent: 0
-                        };
-                    }
-                    renderMonitorCard(index);
+                // 重新獲取卡片（因為renderMonitorCard會重建DOM）
+                const newCard = document.getElementById(`monitorCard${index}`);
+                if (newCard && data.price > 0) {
+                    newCard.classList.add('fetch-done');
+                    setTimeout(() => {
+                        newCard.classList.remove('fetch-done');
+                    }, 500);
                 }
             } catch (e) {
                 console.error(`刷新 ${stock.code} 失敗:`, e);
+                // 確保至少有名稱
+                if (!monitorStocks[index].data) {
+                    monitorStocks[index].data = {
+                        code: stock.code,
+                        name: getStockChineseName(stock.code, null),
+                        price: 0
+                    };
+                    renderMonitorCard(index);
+                }
             }
             
-            // 移除閃爍效果（如果卡片還存在）
+            // 移除閃爍效果
             if (card) {
                 card.classList.remove('fetching');
             }
         }
         
-        // Yahoo Finance 備援（用於監控股票）
-        async function fetchMonitorFromYahoo(code, market) {
-            try {
-                const symbol = market === 'tpex' ? `${code}.TWO` : `${code}.TW`;
-                const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=5d&_=${Date.now()}`;
-                
-                const data = await fetchWithProxy(url);
-                
-                if (data && data.chart && data.chart.result && data.chart.result[0]) {
-                    const result = data.chart.result[0];
-                    const meta = result.meta;
-                    
-                    const price = meta.regularMarketPrice || 0;
-                    const prevClose = meta.chartPreviousClose || meta.previousClose || 0;
-                    const open = meta.regularMarketOpen || 0;
-                    const high = meta.regularMarketDayHigh || 0;
-                    const low = meta.regularMarketDayLow || 0;
-                    const volume = Math.round((meta.regularMarketVolume || 0) / 1000);
-                    
-                    if (price > 0) {
-                        return {
-                            code: code,
-                            name: getStockChineseName(code, meta.shortName),
-                            price: price,
-                            prevClose: prevClose,
-                            change: price - prevClose,
-                            changePercent: prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0,
-                            open: open,
-                            high: high,
-                            low: low,
-                            volume: volume,
-                            limitUp: Math.round(prevClose * 1.1 * 100) / 100,
-                            limitDown: Math.round(prevClose * 0.9 * 100) / 100,
-                            tradeTime: new Date().toLocaleTimeString('zh-TW'),
-                            source: 'yahoo'
-                        };
-                    }
-                }
-            } catch (e) {
-                console.error(`Yahoo Finance ${code} 失敗:`, e);
-            }
-            return null;
-        }
-
         // 錯開刷新全部監控股票（避免限流）
         async function refreshAllMonitorStaggered() {
             if (monitorStocks.length === 0) return;
@@ -10491,8 +10661,7 @@
             }).join('');
         }
 
-        // ===== ETF 功能 =====
-        // ===== ETF 功能（使用真實 API）=====
+        // ===== ETF 功能（使用多重來源 API）=====
         const ETF_LIST = [
             { code: '0050', name: '元大台灣50' },
             { code: '0056', name: '元大高股息' },
@@ -10521,95 +10690,46 @@
             if (!grid) return;
             
             // 顯示載入中
-            grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">⏳ 載入 ETF 報價中...</div>';
+            grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">⏳ 載入 ETF 報價中（0/' + ETF_LIST.length + '）...</div>';
             
-            // 批次獲取 ETF 報價
-            const etfCodes = ETF_LIST.map(e => e.code).join(',');
-            const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${ETF_LIST.map(e => `tse_${e.code}.tw`).join('|')}&json=1&delay=0&_=${Date.now()}`;
-            
-            try {
-                let data = null;
-                try {
-                    const response = await fetchWithTimeout(url, 8000);
-                    data = await response.json();
-                } catch (e) {
-                    console.log('ETF 直接請求失敗，使用 proxy...');
-                    data = await fetchWithProxy(url);
-                }
-                
-                if (data && data.msgArray && data.msgArray.length > 0) {
-                    const etfData = data.msgArray.map(stock => {
-                        const price = parseFloat(stock.z) || parseFloat(stock.pz) || parseFloat(stock.y) || 0;
-                        const prevClose = parseFloat(stock.y) || 0;
-                        const change = price - prevClose;
-                        const percent = prevClose > 0 ? (change / prevClose * 100) : 0;
-                        const etfInfo = ETF_LIST.find(e => e.code === stock.c) || {};
-                        
-                        return {
-                            code: stock.c,
-                            name: etfInfo.name || stock.n || stock.c,
-                            price: price,
-                            change: change,
-                            percent: percent
-                        };
-                    }).filter(e => e.price > 0);
-                    
-                    if (etfData.length > 0) {
-                        renderETFGrid(etfData);
-                        return;
-                    }
-                }
-                
-                // 如果 API 無資料，嘗試 Yahoo Finance
-                console.log('TWSE ETF API 無資料，使用 Yahoo Finance...');
-                await loadETFFromYahoo();
-                
-            } catch (e) {
-                console.error('ETF 載入失敗:', e);
-                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #ef4444;">❌ ETF 報價載入失敗，請稍後再試</div>';
-            }
-        }
-        
-        async function loadETFFromYahoo() {
-            const grid = document.getElementById('etfGrid');
             const etfData = [];
             
-            // 逐一獲取（Yahoo 不支援批次）
-            for (const etf of ETF_LIST.slice(0, 10)) { // 只取前10檔避免太慢
+            // 逐一獲取 ETF 報價（使用多重來源）
+            for (let i = 0; i < ETF_LIST.length; i++) {
+                const etf = ETF_LIST[i];
+                
+                // 更新進度
+                grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">⏳ 載入 ETF 報價中（${i + 1}/${ETF_LIST.length}）... ${etf.code}</div>`;
+                
                 try {
-                    const symbol = `${etf.code}.TW`;
-                    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
-                    const data = await fetchWithProxy(url);
+                    const data = await getStockQuote(etf.code, 'twse');
                     
-                    if (data && data.chart && data.chart.result && data.chart.result[0]) {
-                        const meta = data.chart.result[0].meta;
-                        const price = meta.regularMarketPrice || 0;
-                        const prevClose = meta.chartPreviousClose || meta.previousClose || 0;
-                        const change = price - prevClose;
-                        const percent = prevClose > 0 ? (change / prevClose * 100) : 0;
-                        
-                        if (price > 0) {
-                            etfData.push({
-                                code: etf.code,
-                                name: etf.name,
-                                price: price,
-                                change: change,
-                                percent: percent
-                            });
-                        }
+                    if (data && data.price > 0) {
+                        etfData.push({
+                            code: etf.code,
+                            name: etf.name,
+                            price: data.price,
+                            change: data.change || 0,
+                            percent: data.changePercent || 0
+                        });
                     }
                 } catch (e) {
-                    console.log(`Yahoo ETF ${etf.code} 失敗:`, e.message);
+                    console.log(`ETF ${etf.code} 失敗:`, e.message);
                 }
                 
-                // 間隔 200ms 避免限流
-                await new Promise(r => setTimeout(r, 200));
+                // 每 5 檔更新一次顯示
+                if ((i + 1) % 5 === 0 && etfData.length > 0) {
+                    renderETFGrid(etfData);
+                }
+                
+                // 間隔 300ms 避免限流
+                await new Promise(r => setTimeout(r, 300));
             }
             
             if (etfData.length > 0) {
                 renderETFGrid(etfData);
             } else {
-                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">⚠️ 盤後資料更新中，請稍後再試</div>';
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">⚠️ ETF 資料更新中，請稍後再試</div>';
             }
         }
         
