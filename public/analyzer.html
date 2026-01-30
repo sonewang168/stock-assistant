@@ -2388,6 +2388,907 @@
         .update-pulse {
             animation: updatePulse 0.5s ease-out;
         }
+
+        /* ===== 多股監控樣式 ===== */
+        .multi-monitor-section {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .multi-monitor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .multi-monitor-header h3 {
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .multi-monitor-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .multi-monitor-input {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .multi-monitor-input input {
+            padding: 8px 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            width: 80px;
+        }
+
+        .multi-monitor-input select {
+            padding: 8px 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .multi-monitor-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        @media (max-width: 900px) {
+            .multi-monitor-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .monitor-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 15px;
+            border: 2px solid var(--border-color);
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .monitor-card:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .monitor-card.up {
+            border-left: 4px solid var(--accent-up);
+        }
+
+        .monitor-card.down {
+            border-left: 4px solid var(--accent-down);
+        }
+
+        .monitor-card.flat {
+            border-left: 4px solid var(--text-muted);
+        }
+
+        .monitor-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .monitor-stock-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .monitor-stock-code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: var(--accent-cyan);
+        }
+
+        .monitor-stock-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .monitor-market-tag {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .monitor-market-tag.tpex {
+            background: var(--accent-purple);
+        }
+
+        .monitor-remove-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0 5px;
+            transition: color 0.3s;
+        }
+
+        .monitor-remove-btn:hover {
+            color: var(--accent-down);
+        }
+
+        .monitor-price-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .monitor-current-price {
+            font-size: 2.2rem;
+            font-weight: 900;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .monitor-price-change {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .monitor-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .monitor-detail-item {
+            text-align: center;
+        }
+
+        .monitor-detail-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .monitor-holding {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .monitor-holding input {
+            padding: 6px 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            width: 85px;
+        }
+
+        .monitor-profit {
+            display: flex;
+            gap: 15px;
+            margin-left: auto;
+        }
+
+        .monitor-profit-item {
+            text-align: right;
+        }
+
+        .monitor-profit-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .monitor-profit-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .monitor-update-time {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: right;
+            margin-top: 8px;
+        }
+
+        .monitor-empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+
+        .monitor-add-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 30px;
+            border: 2px dashed var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-height: 200px;
+            color: var(--text-muted);
+        }
+
+        .monitor-add-card:hover {
+            border-color: var(--accent-blue);
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+        }
+
+        .monitor-add-card .add-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        .price-up {
+            color: var(--accent-up) !important;
+        }
+
+        .price-down {
+            color: var(--accent-down) !important;
+        }
+
+        /* ===== 開盤/收盤霓虹彈窗 ===== */
+        @keyframes neonBorderPulse {
+            0%, 100% {
+                box-shadow: 
+                    0 0 10px #3b82f6,
+                    0 0 20px #3b82f6,
+                    0 0 40px #3b82f6,
+                    inset 0 0 10px rgba(59, 130, 246, 0.3);
+                border-color: #3b82f6;
+            }
+            25% {
+                box-shadow: 
+                    0 0 10px #8b5cf6,
+                    0 0 20px #8b5cf6,
+                    0 0 40px #8b5cf6,
+                    0 0 60px #8b5cf6,
+                    inset 0 0 15px rgba(139, 92, 246, 0.3);
+                border-color: #8b5cf6;
+            }
+            50% {
+                box-shadow: 
+                    0 0 10px #f59e0b,
+                    0 0 20px #f59e0b,
+                    0 0 40px #f59e0b,
+                    0 0 80px #f59e0b,
+                    inset 0 0 20px rgba(245, 158, 11, 0.3);
+                border-color: #f59e0b;
+            }
+            75% {
+                box-shadow: 
+                    0 0 10px #ef4444,
+                    0 0 20px #ef4444,
+                    0 0 40px #ef4444,
+                    0 0 60px #ef4444,
+                    inset 0 0 15px rgba(239, 68, 68, 0.3);
+                border-color: #ef4444;
+            }
+        }
+
+        @keyframes countdownPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        @keyframes textGlow {
+            0%, 100% { text-shadow: 0 0 10px currentColor, 0 0 20px currentColor; }
+            50% { text-shadow: 0 0 20px currentColor, 0 0 40px currentColor, 0 0 60px currentColor; }
+        }
+
+        .market-popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            z-index: 9998;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .market-popup-overlay.show {
+            display: block;
+            opacity: 1;
+        }
+
+        .market-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #1a2332 0%, #0d1421 100%);
+            border: 4px solid #3b82f6;
+            border-radius: 24px;
+            padding: 40px 60px;
+            z-index: 9999;
+            display: none;
+            cursor: move;
+            user-select: none;
+            min-width: 400px;
+            text-align: center;
+        }
+
+        .market-popup.show {
+            display: block;
+            animation: neonBorderPulse 2s ease-in-out infinite;
+        }
+
+        .market-popup.opening {
+            /* 開盤前 - 藍紫色調 */
+        }
+
+        .market-popup.closing {
+            /* 收盤 - 紅橙色調 */
+        }
+
+        .market-popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .market-popup-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .market-popup-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .market-popup-close:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .market-popup-icon {
+            font-size: 5rem;
+            margin-bottom: 20px;
+            animation: countdownPulse 1s ease-in-out infinite;
+        }
+
+        .market-popup-status {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            animation: textGlow 1.5s ease-in-out infinite;
+        }
+
+        .market-popup-status.opening {
+            color: #3b82f6;
+        }
+
+        .market-popup-status.closing {
+            color: #ef4444;
+        }
+
+        .market-popup-countdown {
+            font-size: 4rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: #f59e0b;
+            margin: 20px 0;
+            animation: countdownPulse 1s ease-in-out infinite;
+            text-shadow: 0 0 20px #f59e0b, 0 0 40px #f59e0b;
+        }
+
+        .market-popup-message {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            margin-top: 15px;
+        }
+
+        .market-popup-progress {
+            width: 100%;
+            height: 10px;
+            background: var(--bg-secondary);
+            border-radius: 5px;
+            margin-top: 20px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .market-popup-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4, #f59e0b, #ef4444);
+            background-size: 400% 100%;
+            animation: progressGradient 3s linear infinite;
+            transition: width 1s linear;
+            border-radius: 5px;
+            box-shadow: 0 0 10px currentColor;
+        }
+
+        @keyframes progressGradient {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+
+        /* ===== 抓取中霓虹閃爍效果 ===== */
+        @keyframes neonPulse {
+            0% {
+                box-shadow: 0 0 5px #3b82f6, 0 0 10px #3b82f6, 0 0 20px #3b82f6;
+                border-color: #3b82f6;
+            }
+            25% {
+                box-shadow: 0 0 5px #8b5cf6, 0 0 10px #8b5cf6, 0 0 20px #8b5cf6, 0 0 30px #8b5cf6;
+                border-color: #8b5cf6;
+            }
+            50% {
+                box-shadow: 0 0 5px #06b6d4, 0 0 10px #06b6d4, 0 0 20px #06b6d4, 0 0 40px #06b6d4;
+                border-color: #06b6d4;
+            }
+            75% {
+                box-shadow: 0 0 5px #f59e0b, 0 0 10px #f59e0b, 0 0 20px #f59e0b, 0 0 30px #f59e0b;
+                border-color: #f59e0b;
+            }
+            100% {
+                box-shadow: 0 0 5px #3b82f6, 0 0 10px #3b82f6, 0 0 20px #3b82f6;
+                border-color: #3b82f6;
+            }
+        }
+
+        .monitor-card.fetching {
+            animation: neonPulse 0.8s ease-in-out infinite;
+            border-width: 3px;
+            transform: scale(1.02);
+            z-index: 10;
+            position: relative;
+        }
+
+        .monitor-card.fetching::before {
+            content: '⏳ 抓取中...';
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+            animation: pulse 0.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { opacity: 0.8; }
+            to { opacity: 1; }
+        }
+
+        .monitor-card.fetch-done {
+            animation: fetchSuccess 0.5s ease-out;
+        }
+
+        @keyframes fetchSuccess {
+            0% {
+                box-shadow: 0 0 20px #10b981, 0 0 40px #10b981;
+                border-color: #10b981;
+            }
+            100% {
+                box-shadow: none;
+                border-color: var(--border-color);
+            }
+        }
+
+        /* ===== AI 投資組合分析樣式 ===== */
+        .ai-portfolio-section {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 2px solid transparent;
+            background-image: linear-gradient(var(--bg-card), var(--bg-card)), 
+                              linear-gradient(135deg, #d68946, #4285f4, #10a37f);
+            background-origin: border-box;
+            background-clip: padding-box, border-box;
+        }
+
+        .ai-portfolio-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .ai-portfolio-header h3 {
+            font-size: 1.4rem;
+            background: linear-gradient(135deg, #d68946, #4285f4, #10a37f);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .ai-portfolio-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .ai-api-settings {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .ai-api-settings-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+
+        .ai-api-settings-title h4 {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ai-api-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        @media (max-width: 1100px) {
+            .ai-api-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .ai-api-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 15px;
+            border: 2px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .ai-api-card.claude { border-left: 4px solid #d68946; }
+        .ai-api-card.gemini { border-left: 4px solid #4285f4; }
+        .ai-api-card.openai { border-left: 4px solid #10a37f; }
+
+        .ai-api-card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .ai-api-card-header .icon { font-size: 1.3rem; }
+        .ai-api-card-header .name { font-weight: 600; font-size: 1rem; }
+
+        .ai-api-card-header .status {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+        }
+
+        .ai-api-card-header .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+
+        .ai-api-card-header .status-dot.connected { background: #10b981; box-shadow: 0 0 8px #10b981; }
+        .ai-api-card-header .status-dot.error { background: #ef4444; }
+        .ai-api-card-header .status-dot.testing { background: #f59e0b; animation: blink 1s infinite; }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .ai-api-card input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .ai-api-card input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .ai-api-card-btns {
+            display: flex;
+            gap: 8px;
+        }
+
+        .ai-api-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .ai-api-btn:hover { transform: scale(1.02); }
+        .ai-api-btn.test { background: var(--accent-blue); color: white; }
+        .ai-api-btn.save { background: var(--accent-purple); color: white; }
+        .ai-api-btn.clear { background: var(--accent-up); color: white; }
+
+        .ai-portfolio-results {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .ai-portfolio-results {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .ai-portfolio-card {
+            background: var(--bg-secondary);
+            border-radius: 14px;
+            padding: 20px;
+            border: 2px solid var(--border-color);
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+
+        .ai-portfolio-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .ai-portfolio-card.claude { border-top: 4px solid #d68946; }
+        .ai-portfolio-card.gemini { border-top: 4px solid #4285f4; }
+        .ai-portfolio-card.openai { border-top: 4px solid #10a37f; }
+
+        .ai-portfolio-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 15px;
+        }
+
+        .ai-portfolio-card-header .ai-icon { font-size: 1.8rem; }
+        .ai-portfolio-card-header .ai-name { font-weight: 700; font-size: 1.15rem; }
+
+        .ai-portfolio-card-header .ai-status {
+            margin-left: auto;
+            font-size: 0.8rem;
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: var(--bg-card);
+            color: var(--text-muted);
+        }
+
+        .ai-portfolio-card-header .ai-status.analyzing {
+            background: rgba(59, 130, 246, 0.2);
+            color: var(--accent-blue);
+            animation: pulse 1.5s infinite;
+        }
+
+        .ai-portfolio-card-header .ai-status.done {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .ai-portfolio-card-header .ai-status.error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .ai-portfolio-content {
+            flex: 1;
+            overflow-y: auto;
+            font-size: 0.95rem;
+            line-height: 1.8;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            max-height: 450px;
+            padding-right: 5px;
+        }
+
+        .ai-portfolio-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .ai-portfolio-content::-webkit-scrollbar-track {
+            background: var(--bg-card);
+            border-radius: 3px;
+        }
+
+        .ai-portfolio-content::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+
+        .ai-portfolio-verdict {
+            margin-top: 15px;
+            padding: 12px;
+            background: var(--bg-card);
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .ai-portfolio-verdict .label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+
+        .ai-portfolio-verdict .value {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .ai-portfolio-verdict .value.bullish { color: #ef4444; }
+        .ai-portfolio-verdict .value.bearish { color: #10b981; }
+        .ai-portfolio-verdict .value.neutral { color: #f59e0b; }
+
+        .ai-analyze-btn {
+            background: linear-gradient(135deg, #d68946, #4285f4, #10a37f);
+            background-size: 200% 200%;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(66, 133, 244, 0.3);
+        }
+
+        .ai-analyze-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 25px rgba(66, 133, 244, 0.5);
+        }
+
+        .ai-analyze-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .ai-analyze-btn.analyzing {
+            animation: gradientMove 2s ease infinite;
+        }
+
+        @keyframes gradientMove {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .ai-vote-summary {
+            margin-top: 25px;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(214, 137, 70, 0.1), rgba(66, 133, 244, 0.1), rgba(16, 163, 127, 0.1));
+            border-radius: 14px;
+            border: 1px solid var(--border-color);
+        }
+
+        .ai-vote-summary h4 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            color: var(--text-primary);
+        }
+
+        .ai-vote-grid {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 20px;
+        }
+
+        .ai-vote-item {
+            text-align: center;
+        }
+
+        .ai-vote-item .count {
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .ai-vote-item .count.bullish { color: #ef4444; }
+        .ai-vote-item .count.neutral { color: #f59e0b; }
+        .ai-vote-item .count.bearish { color: #10b981; }
+
+        .ai-vote-item .label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+
+        .ai-vote-conclusion {
+            text-align: center;
+            font-size: 1.3rem;
+            font-weight: 700;
+            padding: 15px;
+            background: var(--bg-card);
+            border-radius: 10px;
+        }
+
     </style>
 </head>
 <body>
@@ -2419,10 +3320,6 @@
                 <span>⚡</span>
                 <span>即時報價</span>
             </button>
-            <a href="analyzer.html" target="_blank" class="quick-btn" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; padding: 12px 20px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
-                <span>📊</span>
-                <span>多股監控</span>
-            </a>
             <button class="analyze-btn" id="analyzeBtn" onclick="startAnalysis()">
                 <span>🔍</span>
                 <span>歷史分析</span>
@@ -2566,9 +3463,235 @@
                     <input type="checkbox" id="rtAutoRefresh" onchange="toggleAutoRefresh()">
                     🔄 自動更新報價（每 15 秒）
                 </label>
-                <button class="quick-btn" onclick="startHistoricalAnalysis()" style="margin-left: auto;">
-                    📊 開始歷史數據分析
+                <button class="quick-btn" onclick="addCurrentToMonitor()" style="background: var(--accent-purple);">
+                    📊 加入監控
                 </button>
+                <button class="quick-btn" onclick="startHistoricalAnalysis()" style="margin-left: auto;">
+                    📈 開始歷史數據分析
+                </button>
+            </div>
+        </div>
+
+        <!-- 多股即時監控 -->
+        <div class="multi-monitor-section" id="multiMonitorSection">
+            <div class="multi-monitor-header">
+                <h3>📊 多股即時監控 <span style="font-size: 0.8rem; color: var(--text-muted);">(最多8檔)</span>
+                    <span id="tradingStatusText" style="font-size: 0.8rem; margin-left: 10px;">🟢 交易中</span>
+                </h3>
+                <div class="multi-monitor-controls">
+                    <div class="multi-monitor-input">
+                        <select id="monitorMarket">
+                            <option value="twse">上市</option>
+                            <option value="tpex">上櫃</option>
+                        </select>
+                        <input type="text" id="monitorCode" placeholder="代碼" maxlength="6">
+                        <button class="quick-btn" onclick="addMonitorStock()">➕ 新增</button>
+                    </div>
+                    <button class="quick-btn" style="background: var(--accent-blue);" onclick="refreshAllMonitorStaggered()">🔄 全部更新</button>
+                    <button class="quick-btn" style="background: var(--accent-purple);" onclick="testNeonEffect()" title="測試霓虹閃爍效果">✨ 測試效果</button>
+                    <button class="quick-btn" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6);" onclick="testOpeningPopup()" title="測試開盤倒數彈窗">🔔 開盤</button>
+                    <button class="quick-btn" style="background: linear-gradient(135deg, #ef4444, #f59e0b);" onclick="testClosingPopup()" title="測試收盤彈窗">🔕 收盤</button>
+                    <select id="monitorInterval" onchange="updateMonitorInterval()" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;">
+                        <option value="15">15秒</option>
+                        <option value="30" selected>30秒</option>
+                        <option value="45">45秒</option>
+                        <option value="60">60秒</option>
+                    </select>
+                    <label style="display: flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--text-secondary);" title="手動開啟自動更新">
+                        <input type="checkbox" id="monitorAutoRefresh" onchange="toggleMonitorAutoRefresh()">
+                        自動更新
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--accent-cyan); background: var(--bg-secondary); padding: 5px 10px; border-radius: 6px; cursor: pointer;" title="交易時間(09:00~13:30)自動啟動，收盤後自動停止">
+                        <input type="checkbox" id="monitorSmartAuto" onchange="toggleSmartAutoMode()">
+                        🧠 智能模式
+                    </label>
+                    <button id="holidayToggleBtn" class="quick-btn" style="background: var(--accent-up);" onclick="toggleManualHoliday()" title="颱風假/臨時休市時點擊">🔴 設定休市</button>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                <div id="holidayStatusText" style="font-size: 0.85rem;">🟢 今日正常交易</div>
+                <div class="monitor-status" id="monitorStatus" style="font-size: 0.8rem; color: var(--text-muted); display: none; margin: 0;">
+                    <span id="monitorStatusText">⏳ 更新中...</span>
+                </div>
+            </div>
+            <div class="multi-monitor-grid" id="monitorGrid">
+                <div class="monitor-add-card" onclick="document.getElementById('monitorCode').focus()">
+                    <div class="add-icon">➕</div>
+                    <div>點擊新增監控股票</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🤖 AI 投資組合解析與建議 -->
+        <div class="ai-portfolio-section" id="aiPortfolioSection">
+            <div class="ai-portfolio-header">
+                <h3>🤖 AI 投資組合解析與建議</h3>
+                <div class="ai-portfolio-controls">
+                    <button class="ai-analyze-btn" id="aiPortfolioBtn" onclick="startPortfolioAIAnalysis()">
+                        <span>🧠</span> 開始 3AI 分析
+                    </button>
+                    <button class="quick-btn" style="background: var(--accent-purple);" onclick="togglePortfolioApiSettings()">
+                        ⚙️ API 設定
+                    </button>
+                </div>
+            </div>
+
+            <!-- API 金鑰設定區 -->
+            <div class="ai-api-settings" id="portfolioApiSettings" style="display: none;">
+                <div class="ai-api-settings-title">
+                    <h4>🔑 API 金鑰管理</h4>
+                    <span style="color: var(--text-muted); font-size: 0.9rem;">金鑰僅儲存於本機瀏覽器</span>
+                </div>
+                <div class="ai-api-grid">
+                    <!-- Claude API -->
+                    <div class="ai-api-card claude">
+                        <div class="ai-api-card-header">
+                            <span class="icon">🤖</span>
+                            <span class="name">Claude (Anthropic)</span>
+                            <div class="status">
+                                <span class="status-dot" id="portfolioClaudeDot"></span>
+                                <span id="portfolioClaudeStatusText">未設定</span>
+                            </div>
+                        </div>
+                        <input type="password" id="portfolioClaudeKey" placeholder="sk-ant-api03-...">
+                        <div class="ai-api-card-btns">
+                            <button class="ai-api-btn test" onclick="testPortfolioApiKey('claude')">🔗 測試</button>
+                            <button class="ai-api-btn save" onclick="savePortfolioApiKey('claude')">💾 儲存</button>
+                            <button class="ai-api-btn clear" onclick="clearPortfolioApiKey('claude')">🗑️ 清除</button>
+                        </div>
+                    </div>
+                    <!-- Gemini API -->
+                    <div class="ai-api-card gemini">
+                        <div class="ai-api-card-header">
+                            <span class="icon">✨</span>
+                            <span class="name">Gemini (Google)</span>
+                            <div class="status">
+                                <span class="status-dot" id="portfolioGeminiDot"></span>
+                                <span id="portfolioGeminiStatusText">未設定</span>
+                            </div>
+                        </div>
+                        <input type="password" id="portfolioGeminiKey" placeholder="AIzaSy...">
+                        <div class="ai-api-card-btns">
+                            <button class="ai-api-btn test" onclick="testPortfolioApiKey('gemini')">🔗 測試</button>
+                            <button class="ai-api-btn save" onclick="savePortfolioApiKey('gemini')">💾 儲存</button>
+                            <button class="ai-api-btn clear" onclick="clearPortfolioApiKey('gemini')">🗑️ 清除</button>
+                        </div>
+                    </div>
+                    <!-- OpenAI API -->
+                    <div class="ai-api-card openai">
+                        <div class="ai-api-card-header">
+                            <span class="icon">🧠</span>
+                            <span class="name">OpenAI GPT</span>
+                            <div class="status">
+                                <span class="status-dot" id="portfolioOpenaiDot"></span>
+                                <span id="portfolioOpenaiStatusText">未設定</span>
+                            </div>
+                        </div>
+                        <input type="password" id="portfolioOpenaiKey" placeholder="sk-...">
+                        <div class="ai-api-card-btns">
+                            <button class="ai-api-btn test" onclick="testPortfolioApiKey('openai')">🔗 測試</button>
+                            <button class="ai-api-btn save" onclick="savePortfolioApiKey('openai')">💾 儲存</button>
+                            <button class="ai-api-btn clear" onclick="clearPortfolioApiKey('openai')">🗑️ 清除</button>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 15px; padding: 12px; background: var(--bg-card); border-radius: 10px; font-size: 0.85rem; color: var(--text-muted);">
+                    ⚠️ <strong>安全提醒：</strong>API 金鑰僅儲存在您的瀏覽器本機，不會傳送至任何第三方伺服器。<br>
+                    💡 <strong>建議：</strong>三個 AI 都設定可獲得最完整的投資建議票決結果，至少需設定一個才能分析。
+                </div>
+            </div>
+
+            <!-- AI 分析結果區 -->
+            <div class="ai-portfolio-results" id="aiPortfolioResults">
+                <!-- Claude 分析 -->
+                <div class="ai-portfolio-card claude">
+                    <div class="ai-portfolio-card-header">
+                        <span class="ai-icon">🤖</span>
+                        <span class="ai-name">Claude Sonnet</span>
+                        <span class="ai-status" id="portfolioClaudeStatus">待命</span>
+                    </div>
+                    <div class="ai-portfolio-content" id="portfolioClaudeContent">
+                        <div style="text-align: center; color: var(--text-muted); padding: 80px 20px;">
+                            <div style="font-size: 3rem; margin-bottom: 15px;">🤖</div>
+                            <div>請先在上方監控區新增股票<br>再點擊「開始 3AI 分析」</div>
+                        </div>
+                    </div>
+                    <div class="ai-portfolio-verdict" id="portfolioClaudeVerdict" style="display: none;">
+                        <div class="label">Claude 評分</div>
+                        <div class="value" id="portfolioClaudeVerdictValue">-</div>
+                    </div>
+                </div>
+                <!-- Gemini 分析 -->
+                <div class="ai-portfolio-card gemini">
+                    <div class="ai-portfolio-card-header">
+                        <span class="ai-icon">✨</span>
+                        <span class="ai-name">Gemini Pro</span>
+                        <span class="ai-status" id="portfolioGeminiStatus">待命</span>
+                    </div>
+                    <div class="ai-portfolio-content" id="portfolioGeminiContent">
+                        <div style="text-align: center; color: var(--text-muted); padding: 80px 20px;">
+                            <div style="font-size: 3rem; margin-bottom: 15px;">✨</div>
+                            <div>請先在上方監控區新增股票<br>再點擊「開始 3AI 分析」</div>
+                        </div>
+                    </div>
+                    <div class="ai-portfolio-verdict" id="portfolioGeminiVerdict" style="display: none;">
+                        <div class="label">Gemini 評分</div>
+                        <div class="value" id="portfolioGeminiVerdictValue">-</div>
+                    </div>
+                </div>
+                <!-- OpenAI 分析 -->
+                <div class="ai-portfolio-card openai">
+                    <div class="ai-portfolio-card-header">
+                        <span class="ai-icon">🧠</span>
+                        <span class="ai-name">GPT-4o</span>
+                        <span class="ai-status" id="portfolioOpenaiStatus">待命</span>
+                    </div>
+                    <div class="ai-portfolio-content" id="portfolioOpenaiContent">
+                        <div style="text-align: center; color: var(--text-muted); padding: 80px 20px;">
+                            <div style="font-size: 3rem; margin-bottom: 15px;">🧠</div>
+                            <div>請先在上方監控區新增股票<br>再點擊「開始 3AI 分析」</div>
+                        </div>
+                    </div>
+                    <div class="ai-portfolio-verdict" id="portfolioOpenaiVerdict" style="display: none;">
+                        <div class="label">GPT 評分</div>
+                        <div class="value" id="portfolioOpenaiVerdictValue">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 綜合票決結果 -->
+            <!-- 分數統計區塊 -->
+            <div class="ai-vote-summary" id="portfolioVoteSummary" style="display: none;">
+                <h4>📊 三大 AI 評分統計</h4>
+                <div class="ai-vote-grid">
+                    <div class="ai-vote-item">
+                        <div class="count" id="portfolioVoteBullish" style="font-size: 2rem;">-</div>
+                        <div class="label">🤖 Claude</div>
+                    </div>
+                    <div class="ai-vote-item">
+                        <div class="count" id="portfolioVoteNeutral" style="font-size: 2rem;">-</div>
+                        <div class="label">✨ Gemini</div>
+                    </div>
+                    <div class="ai-vote-item">
+                        <div class="count" id="portfolioVoteBearish" style="font-size: 2rem;">-</div>
+                        <div class="label">🧠 GPT-4o</div>
+                    </div>
+                </div>
+                <div class="ai-vote-conclusion" id="portfolioVoteConclusion">
+                    等待分析結果...
+                </div>
+            </div>
+
+            <!-- 🏆 總評區塊 -->
+            <div class="ai-vote-summary" id="portfolioFinalSummary" style="display: none; margin-top: 20px; background: linear-gradient(135deg, rgba(214, 137, 70, 0.15), rgba(66, 133, 244, 0.15), rgba(16, 163, 127, 0.15));">
+                <h4 id="portfolioFinalTitle" style="font-size: 1.3rem; margin-bottom: 20px;">
+                    🏆【總評】等待分析完成...
+                </h4>
+                <div id="portfolioFinalContent" style="font-size: 0.95rem; line-height: 1.9; color: var(--text-secondary); white-space: pre-wrap; max-height: 500px; overflow-y: auto; padding: 15px; background: var(--bg-card); border-radius: 12px;">
+                    <div style="text-align: center; color: var(--text-muted); padding: 40px;">
+                        分析完成後，將由最接近平均分的 AI 撰寫 500 字以上的專業總評報告
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -4163,76 +5286,6 @@
             }
         }
 
-        // 🆕 後端 API 配置（Railway 部署的 LINE BOT）
-        const BACKEND_API_URL = window.location.origin; // 同源，使用相同 domain
-        
-        // 使用後端 API 取得股票資料（解決手機 CORS 問題）
-        async function fetchFromBackendAPI(code) {
-            try {
-                const response = await fetchWithTimeout(`${BACKEND_API_URL}/api/stock/${code}`, 5000);
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log(`[${code}] 後端 API 原始回傳:`, data);
-                    
-                    if (data && data.price) {
-                        // 解析數值
-                        const price = parseFloat(data.price) || 0;
-                        const prevClose = parseFloat(data.yesterday) || 0;
-                        const open = parseFloat(data.open) || 0;
-                        const high = parseFloat(data.high) || 0;
-                        const low = parseFloat(data.low) || 0;
-                        
-                        // 🔧 如果關鍵數據不完整，返回 null 讓前端使用備援
-                        if (price <= 0) {
-                            console.log(`[${code}] 後端 API 價格無效，使用備援`);
-                            return null;
-                        }
-                        
-                        // 計算漲跌
-                        const change = parseFloat(data.change) || (prevClose > 0 ? price - prevClose : 0);
-                        const changePercent = parseFloat(data.changePercent) || (prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0);
-                        
-                        // 🔧 開高低收：如果是 0，用現價替代（盤後時段常見）
-                        const finalOpen = open > 0 ? open : price;
-                        const finalHigh = high > 0 ? high : price;
-                        const finalLow = low > 0 ? low : price;
-                        const finalPrevClose = prevClose > 0 ? prevClose : price; // 若無昨收，用現價避免顯示 ---
-                        
-                        const result = {
-                            code: code,
-                            name: data.name || code,
-                            price: price,
-                            prevClose: finalPrevClose,
-                            change: prevClose > 0 ? change : 0,
-                            changePercent: prevClose > 0 ? changePercent : 0,
-                            open: finalOpen,
-                            high: finalHigh,
-                            low: finalLow,
-                            volume: parseInt(data.volume) || 0,
-                            turnover: 0,
-                            limitUp: finalPrevClose > 0 ? parseFloat((finalPrevClose * 1.1).toFixed(2)) : 0,
-                            limitDown: finalPrevClose > 0 ? parseFloat((finalPrevClose * 0.9).toFixed(2)) : 0,
-                            tradeDate: '',
-                            tradeTime: data.time || new Date().toLocaleTimeString('zh-TW'),
-                            hasTraded: true,
-                            priceSource: prevClose > 0 ? '後端API' : '後端API(無昨收)',
-                            askPrices: [],
-                            askVolumes: [],
-                            bidPrices: [],
-                            bidVolumes: [],
-                            source: 'backend'
-                        };
-                        
-                        console.log(`[${code}] 後端 API 處理後:`, result);
-                        return result;
-                    }
-                }
-            } catch (e) {
-                console.log(`後端 API 失敗 [${code}]:`, e.message);
-            }
-            return null;
-        }
-
         async function fetchWithProxy(url) {
             // 嘗試各個代理
             for (let i = 0; i < CORS_PROXIES.length; i++) {
@@ -4269,6 +5322,7 @@
             loadHeatmapData(); // 載入類股熱力圖
             loadETFData(); // 載入ETF報價
             initRealtimeQuickSearch(); // 初始化即時報價快速查詢
+            loadMonitorList(); // 載入多股監控清單
             
             document.getElementById('stockCode').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') quickFetchRealtime(); // 按Enter先查即時報價
@@ -4276,6 +5330,10 @@
             
             document.getElementById('watchlistCode').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') quickAddWatchlist();
+            });
+            
+            document.getElementById('monitorCode').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') addMonitorStock();
             });
             
             document.getElementById('startDate').addEventListener('change', updateDateInfo);
@@ -6523,13 +7581,6 @@
         // 獲取即時報價詳細資訊
         async function fetchRealtimeQuoteDetail(code, market) {
             try {
-                // 🆕 優先使用後端 API（解決手機 CORS 問題）
-                const backendData = await fetchFromBackendAPI(code);
-                if (backendData) {
-                    return backendData;
-                }
-                
-                // 後端 API 失敗，使用原本的方式
                 const exch = market === 'tpex' ? 'otc' : 'tse';
                 const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${exch}_${code}.tw&json=1&delay=0&_=${Date.now()}`;
                 
@@ -7013,6 +8064,546 @@
                     }, 500);
                 }
             });
+        }
+
+        // ===== 多股即時監控功能 =====
+        let monitorStocks = []; // 監控清單 [{code, market, holdPrice, shares, data}]
+        let monitorInterval = null;
+        let monitorIntervalSeconds = 30; // 預設30秒
+        let tradingTimeChecker = null; // 交易時間檢查器
+        const MAX_MONITOR = 8;
+        const STAGGER_DELAY = 2000; // 每檔間隔2秒錯開
+
+        // 檢查是否為交易時間 (週一~週五 09:00~13:30)
+        function isTradingTime() {
+            // 先檢查是否為休市日（包含週末、國定假日、颱風假等）
+            if (isMarketHoliday()) {
+                return false;
+            }
+            
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const timeValue = hours * 60 + minutes; // 轉換為分鐘數方便比較
+            
+            // 交易時間 09:00 ~ 13:30
+            const marketOpen = 9 * 60; // 09:00 = 540分鐘
+            const marketClose = 13 * 60 + 30; // 13:30 = 810分鐘
+            
+            return timeValue >= marketOpen && timeValue <= marketClose;
+        }
+
+        // 取得交易狀態文字
+        function getTradingStatusText() {
+            // 先檢查休市日
+            if (isMarketHoliday()) {
+                return `🔴 休市（${getHolidayReason()}）`;
+            }
+            
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const timeValue = hours * 60 + minutes;
+            
+            const marketOpen = 9 * 60;
+            const marketClose = 13 * 60 + 30;
+            
+            if (timeValue < marketOpen) {
+                const diffMin = marketOpen - timeValue;
+                const diffHours = Math.floor(diffMin / 60);
+                const diffMins = diffMin % 60;
+                return `🟡 盤前（${diffHours}時${diffMins}分後開盤）`;
+            } else if (timeValue > marketClose) {
+                return '🔴 已收盤';
+            } else {
+                return '🟢 交易中';
+            }
+        }
+
+        // 更新交易狀態顯示
+        function updateTradingStatus() {
+            const statusEl = document.getElementById('tradingStatusText');
+            if (statusEl) {
+                statusEl.textContent = getTradingStatusText();
+            }
+        }
+
+        // 自動啟動/停止監控（根據交易時間）
+        function checkAndAutoStartMonitor() {
+            const autoCheckbox = document.getElementById('monitorAutoRefresh');
+            const smartAutoCheckbox = document.getElementById('monitorSmartAuto');
+            
+            if (!smartAutoCheckbox || !smartAutoCheckbox.checked) {
+                return; // 智能模式未開啟
+            }
+            
+            const isTradingNow = isTradingTime();
+            const isCurrentlyRunning = monitorInterval !== null;
+            
+            if (isTradingNow && !isCurrentlyRunning && monitorStocks.length > 0) {
+                // 交易時間且未運行 → 自動啟動
+                console.log('[智能監控] 進入交易時間，自動啟動監控');
+                autoCheckbox.checked = true;
+                startMonitorAutoRefresh();
+                showToast('🟢 交易時間，自動啟動監控');
+            } else if (!isTradingNow && isCurrentlyRunning) {
+                // 非交易時間且正在運行 → 自動停止
+                console.log('[智能監控] 離開交易時間，自動停止監控');
+                autoCheckbox.checked = false;
+                stopMonitorAutoRefresh();
+                showToast('🔴 非交易時間，自動停止監控');
+            }
+            
+            updateTradingStatus();
+        }
+
+        // 啟動監控自動更新
+        function startMonitorAutoRefresh() {
+            if (monitorInterval) return; // 已經在運行
+            
+            refreshAllMonitorStaggered();
+            monitorInterval = setInterval(refreshAllMonitorStaggered, monitorIntervalSeconds * 1000);
+        }
+
+        // 停止監控自動更新
+        function stopMonitorAutoRefresh() {
+            if (monitorInterval) {
+                clearInterval(monitorInterval);
+                monitorInterval = null;
+            }
+        }
+
+        // 開啟/關閉智能交易時間模式
+        function toggleSmartAutoMode() {
+            const smartCheckbox = document.getElementById('monitorSmartAuto');
+            
+            if (smartCheckbox.checked) {
+                // 開啟智能模式 - 每分鐘檢查一次交易時間
+                tradingTimeChecker = setInterval(checkAndAutoStartMonitor, 60000);
+                checkAndAutoStartMonitor(); // 立即檢查一次
+                showToast('🧠 已開啟智能模式（交易時間自動監控）');
+                localStorage.setItem('monitorSmartAuto', 'true');
+            } else {
+                // 關閉智能模式
+                if (tradingTimeChecker) {
+                    clearInterval(tradingTimeChecker);
+                    tradingTimeChecker = null;
+                }
+                showToast('⏹️ 已關閉智能模式');
+                localStorage.setItem('monitorSmartAuto', 'false');
+            }
+            
+            updateTradingStatus();
+        }
+
+        // 從 localStorage 載入監控清單
+        function loadMonitorList() {
+            try {
+                const saved = localStorage.getItem('monitorStocks');
+                if (saved) {
+                    monitorStocks = JSON.parse(saved);
+                    renderMonitorGrid();
+                    if (monitorStocks.length > 0) {
+                        refreshAllMonitorStaggered();
+                    }
+                }
+                // 載入間隔設定
+                const savedInterval = localStorage.getItem('monitorIntervalSeconds');
+                if (savedInterval) {
+                    monitorIntervalSeconds = parseInt(savedInterval);
+                    document.getElementById('monitorInterval').value = monitorIntervalSeconds;
+                }
+                // 載入智能模式設定
+                const savedSmartAuto = localStorage.getItem('monitorSmartAuto');
+                if (savedSmartAuto === 'true') {
+                    const smartCheckbox = document.getElementById('monitorSmartAuto');
+                    if (smartCheckbox) {
+                        smartCheckbox.checked = true;
+                        toggleSmartAutoMode();
+                    }
+                }
+                // 更新交易狀態
+                updateTradingStatus();
+            } catch (e) {
+                console.error('載入監控清單失敗:', e);
+            }
+        }
+
+        // 儲存監控清單
+        function saveMonitorList() {
+            try {
+                localStorage.setItem('monitorStocks', JSON.stringify(monitorStocks.map(s => ({
+                    code: s.code,
+                    market: s.market,
+                    holdPrice: s.holdPrice || 0,
+                    shares: s.shares || 1
+                }))));
+            } catch (e) {
+                console.error('儲存監控清單失敗:', e);
+            }
+        }
+
+        // 更新間隔設定
+        function updateMonitorInterval() {
+            monitorIntervalSeconds = parseInt(document.getElementById('monitorInterval').value);
+            localStorage.setItem('monitorIntervalSeconds', monitorIntervalSeconds);
+            
+            // 如果自動更新開啟中，重新設定間隔
+            if (monitorInterval) {
+                stopMonitorAutoRefresh();
+                startMonitorAutoRefresh();
+                showToast(`⏱️ 更新間隔已改為 ${monitorIntervalSeconds} 秒`);
+            }
+        }
+
+        // 新增監控股票
+        function addMonitorStock() {
+            const codeInput = document.getElementById('monitorCode');
+            const code = codeInput.value.trim();
+            const market = document.getElementById('monitorMarket').value;
+            
+            if (!code || code.length < 4) {
+                showToast('❌ 請輸入有效的股票代碼');
+                return;
+            }
+            
+            if (monitorStocks.length >= MAX_MONITOR) {
+                showToast(`❌ 最多只能監控 ${MAX_MONITOR} 檔股票`);
+                return;
+            }
+            
+            // 檢查是否已存在
+            if (monitorStocks.find(s => s.code === code)) {
+                showToast('⚠️ 此股票已在監控清單中');
+                return;
+            }
+            
+            monitorStocks.push({
+                code: code,
+                market: market,
+                holdPrice: 0,
+                shares: 1,
+                data: null
+            });
+            
+            saveMonitorList();
+            renderMonitorGrid();
+            refreshMonitorStock(monitorStocks.length - 1);
+            
+            codeInput.value = '';
+            showToast(`✅ 已新增 ${code} 到監控清單`);
+        }
+
+        // 移除監控股票
+        function removeMonitorStock(index) {
+            const stock = monitorStocks[index];
+            monitorStocks.splice(index, 1);
+            saveMonitorList();
+            renderMonitorGrid();
+            showToast(`🗑️ 已移除 ${stock.code}`);
+        }
+
+        // 更新持有價
+        function updateMonitorHoldPrice(index, value) {
+            monitorStocks[index].holdPrice = parseFloat(value) || 0;
+            saveMonitorList();
+            renderMonitorCard(index);
+        }
+
+        // 更新持有張數
+        function updateMonitorShares(index, value) {
+            monitorStocks[index].shares = parseInt(value) || 1;
+            saveMonitorList();
+            renderMonitorCard(index);
+        }
+
+        // 渲染整個監控網格
+        function renderMonitorGrid() {
+            const grid = document.getElementById('monitorGrid');
+            if (!grid) return;
+            
+            if (monitorStocks.length === 0) {
+                grid.innerHTML = `
+                    <div class="monitor-add-card" onclick="document.getElementById('monitorCode').focus()">
+                        <div class="add-icon">➕</div>
+                        <div>點擊新增監控股票</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            
+            // 渲染已有的股票卡片
+            monitorStocks.forEach((stock, index) => {
+                html += renderMonitorCardHTML(stock, index);
+            });
+            
+            // 添加空白新增卡片（如果還沒達到上限）
+            if (monitorStocks.length < MAX_MONITOR) {
+                html += `
+                    <div class="monitor-add-card" onclick="document.getElementById('monitorCode').focus()">
+                        <div class="add-icon">➕</div>
+                        <div>新增監控</div>
+                    </div>
+                `;
+            }
+            
+            grid.innerHTML = html;
+        }
+
+        // 渲染單一股票卡片HTML
+        function renderMonitorCardHTML(stock, index) {
+            const data = stock.data;
+            const isUp = data && data.change > 0;
+            const isDown = data && data.change < 0;
+            const cardClass = isUp ? 'up' : (isDown ? 'down' : 'flat');
+            const priceClass = isUp ? 'price-up' : (isDown ? 'price-down' : '');
+            
+            const price = data ? data.price.toFixed(2) : '---';
+            const change = data ? `${isUp ? '▲' : (isDown ? '▼' : '－')}${isUp ? '+' : ''}${data.change.toFixed(2)}` : '---';
+            const changePercent = data ? `(${isUp ? '+' : ''}${data.changePercent.toFixed(2)}%)` : '';
+            const prevClose = data ? data.prevClose.toFixed(2) : '---';
+            const open = data && data.open ? data.open.toFixed(2) : '---';
+            const high = data && data.high ? data.high.toFixed(2) : '---';
+            const low = data && data.low ? data.low.toFixed(2) : '---';
+            const volume = data ? formatVolume(data.volume) : '---';
+            const limitUp = data && data.limitUp ? data.limitUp.toFixed(2) : '---';
+            const limitDown = data && data.limitDown ? data.limitDown.toFixed(2) : '---';
+            const updateTime = data ? data.tradeTime : '--:--';
+            const name = data ? data.name : stock.code;
+            
+            // 計算持有損益
+            let profitDisplay = '---';
+            let totalProfitDisplay = '---';
+            let profitClass = '';
+            
+            if (data && stock.holdPrice > 0) {
+                const profit = data.price - stock.holdPrice;
+                const profitPercent = (profit / stock.holdPrice) * 100;
+                const totalProfit = profit * (stock.shares || 1) * 1000;
+                const isProfit = profit > 0;
+                const isLoss = profit < 0;
+                profitClass = isProfit ? 'price-up' : (isLoss ? 'price-down' : '');
+                const sign = isProfit ? '+' : '';
+                profitDisplay = `${sign}${profit.toFixed(2)} (${sign}${profitPercent.toFixed(1)}%)`;
+                totalProfitDisplay = Math.abs(totalProfit) >= 10000 
+                    ? `${sign}${(totalProfit/10000).toFixed(1)}萬`
+                    : `${sign}${totalProfit.toLocaleString()}`;
+            }
+            
+            return `
+                <div class="monitor-card ${cardClass}" id="monitorCard${index}">
+                    <div class="monitor-card-header">
+                        <div class="monitor-stock-info">
+                            <span class="monitor-stock-code">${stock.code}</span>
+                            <span class="monitor-stock-name">${name}</span>
+                            <span class="monitor-market-tag ${stock.market === 'tpex' ? 'tpex' : ''}">${stock.market === 'twse' ? '上市' : '上櫃'}</span>
+                        </div>
+                        <button class="monitor-remove-btn" onclick="removeMonitorStock(${index})" title="移除">✕</button>
+                    </div>
+                    <div class="monitor-price-row">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 0.7rem; color: var(--text-muted);">📊 昨收</div>
+                                <div style="font-size: 1.2rem; font-weight: 600; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace;">${prevClose}</div>
+                            </div>
+                            <div style="color: var(--text-muted); font-size: 1.2rem;">→</div>
+                            <div style="text-align: center;">
+                                <div style="font-size: 0.7rem; color: var(--text-muted);">⚡ 即時</div>
+                                <div class="monitor-current-price ${priceClass}" style="font-size: 1.8rem;">${price}</div>
+                            </div>
+                        </div>
+                        <div class="monitor-price-change ${priceClass}" style="margin-left: auto;">${change} ${changePercent}</div>
+                    </div>
+                    <div class="monitor-details">
+                        <div class="monitor-detail-item">
+                            <div>開盤</div>
+                            <div class="monitor-detail-value">${open}</div>
+                        </div>
+                        <div class="monitor-detail-item">
+                            <div>最高</div>
+                            <div class="monitor-detail-value" style="color: var(--accent-up);">${high}</div>
+                        </div>
+                        <div class="monitor-detail-item">
+                            <div>最低</div>
+                            <div class="monitor-detail-value" style="color: var(--accent-down);">${low}</div>
+                        </div>
+                        <div class="monitor-detail-item">
+                            <div>成交量</div>
+                            <div class="monitor-detail-value">${volume}</div>
+                        </div>
+                    </div>
+                    <div class="monitor-details" style="border-top: none; padding-top: 0;">
+                        <div class="monitor-detail-item">
+                            <div>🎯漲停</div>
+                            <div class="monitor-detail-value" style="color: var(--accent-up);">${limitUp}</div>
+                        </div>
+                        <div class="monitor-detail-item">
+                            <div>⬇️跌停</div>
+                            <div class="monitor-detail-value" style="color: var(--accent-down);">${limitDown}</div>
+                        </div>
+                    </div>
+                    <div class="monitor-holding">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">💰</span>
+                        <input type="number" value="${stock.holdPrice || ''}" placeholder="持有價" step="0.01" 
+                            onchange="updateMonitorHoldPrice(${index}, this.value)" style="width: 90px;">
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">×</span>
+                        <input type="number" value="${stock.shares || 1}" placeholder="張" step="1" min="1" style="width: 55px;"
+                            onchange="updateMonitorShares(${index}, this.value)">
+                        <div class="monitor-profit">
+                            <div class="monitor-profit-item">
+                                <div class="monitor-profit-label">損益</div>
+                                <div class="monitor-profit-value ${profitClass}">${profitDisplay}</div>
+                            </div>
+                            <div class="monitor-profit-item">
+                                <div class="monitor-profit-label">總計</div>
+                                <div class="monitor-profit-value ${profitClass}">${totalProfitDisplay}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="monitor-update-time">🕐 ${updateTime}</div>
+                </div>
+            `;
+        }
+
+        // 更新單一卡片顯示
+        function renderMonitorCard(index) {
+            const card = document.getElementById(`monitorCard${index}`);
+            if (card && monitorStocks[index]) {
+                const newCard = document.createElement('div');
+                newCard.innerHTML = renderMonitorCardHTML(monitorStocks[index], index);
+                card.replaceWith(newCard.firstElementChild);
+            }
+        }
+
+        // 刷新單一股票數據
+        async function refreshMonitorStock(index) {
+            const stock = monitorStocks[index];
+            if (!stock) return;
+            
+            // 添加霓虹閃爍效果
+            const card = document.getElementById(`monitorCard${index}`);
+            if (card) {
+                card.classList.remove('fetch-done');
+                card.classList.add('fetching');
+            }
+            
+            try {
+                const data = await fetchRealtimeQuoteDetail(stock.code, stock.market);
+                if (data && data.price > 0) {
+                    monitorStocks[index].data = data;
+                    renderMonitorCard(index);
+                    
+                    // 重新獲取卡片（因為renderMonitorCard會重建DOM）
+                    const newCard = document.getElementById(`monitorCard${index}`);
+                    if (newCard) {
+                        newCard.classList.add('fetch-done');
+                        // 移除完成動畫
+                        setTimeout(() => {
+                            newCard.classList.remove('fetch-done');
+                        }, 500);
+                    }
+                }
+            } catch (e) {
+                console.error(`刷新 ${stock.code} 失敗:`, e);
+            }
+            
+            // 移除閃爍效果（如果卡片還存在）
+            if (card) {
+                card.classList.remove('fetching');
+            }
+        }
+
+        // 錯開刷新全部監控股票（避免限流）
+        async function refreshAllMonitorStaggered() {
+            if (monitorStocks.length === 0) return;
+            
+            const statusEl = document.getElementById('monitorStatus');
+            const statusText = document.getElementById('monitorStatusText');
+            
+            if (statusEl) statusEl.style.display = 'block';
+            
+            for (let i = 0; i < monitorStocks.length; i++) {
+                if (statusText) {
+                    statusText.textContent = `⏳ 更新中... (${i + 1}/${monitorStocks.length}) ${monitorStocks[i].code}`;
+                }
+                
+                await refreshMonitorStock(i);
+                
+                // 除了最後一檔，每檔之間等待2秒
+                if (i < monitorStocks.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, STAGGER_DELAY));
+                }
+            }
+            
+            if (statusEl) statusEl.style.display = 'none';
+            
+            const now = new Date().toLocaleTimeString('zh-TW');
+            console.log(`[${now}] 監控更新完成，共 ${monitorStocks.length} 檔`);
+        }
+
+        // 自動刷新開關（手動模式）
+        function toggleMonitorAutoRefresh() {
+            const checked = document.getElementById('monitorAutoRefresh').checked;
+            
+            if (checked) {
+                startMonitorAutoRefresh();
+                showToast(`🔄 已開啟監控自動更新（每 ${monitorIntervalSeconds} 秒）`);
+            } else {
+                stopMonitorAutoRefresh();
+                showToast('⏸️ 已關閉監控自動更新');
+            }
+        }
+
+        // 從主要即時報價添加到監控
+        function addCurrentToMonitor() {
+            if (currentRealtimeCode) {
+                document.getElementById('monitorCode').value = currentRealtimeCode;
+                document.getElementById('monitorMarket').value = currentRealtimeMarket;
+                addMonitorStock();
+            }
+        }
+
+        // 測試霓虹閃爍效果（休市時可用）
+        async function testNeonEffect() {
+            if (monitorStocks.length === 0) {
+                showToast('❌ 請先添加監控股票');
+                return;
+            }
+            
+            showToast('✨ 開始測試霓虹效果...');
+            
+            const statusEl = document.getElementById('monitorStatus');
+            const statusText = document.getElementById('monitorStatusText');
+            if (statusEl) statusEl.style.display = 'block';
+            
+            for (let i = 0; i < monitorStocks.length; i++) {
+                const card = document.getElementById(`monitorCard${i}`);
+                if (card) {
+                    // 顯示狀態
+                    if (statusText) {
+                        statusText.textContent = `✨ 測試效果 (${i + 1}/${monitorStocks.length}) ${monitorStocks[i].code}`;
+                    }
+                    
+                    // 添加霓虹效果
+                    card.classList.add('fetching');
+                    
+                    // 等待1.5秒模擬抓取時間
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    // 移除霓虹，添加完成效果
+                    card.classList.remove('fetching');
+                    card.classList.add('fetch-done');
+                    
+                    // 等待0.5秒後移除完成效果
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    card.classList.remove('fetch-done');
+                }
+            }
+            
+            if (statusEl) statusEl.style.display = 'none';
+            showToast('✅ 測試完成！');
         }
 
         function loadHeatmapData() {
@@ -9780,10 +11371,1348 @@ ${wavePrediction.substring(0, 200)}
             document.getElementById('aiWaveFinalLightSummary').textContent = lightSummary;
         }
 
+        // ===== 開盤/收盤霓虹彈窗系統 =====
+        let marketPopupInterval = null;
+        let marketCheckInterval = null;
+        let popupDragOffset = { x: 0, y: 0 };
+        let isDraggingPopup = false;
+        let hasShownOpeningPopup = false; // 今天是否已顯示開盤彈窗
+        let hasShownClosingPopup = false; // 今天是否已顯示收盤彈窗
+        let lastCheckedDate = '';
+        let manualHolidayToday = false; // 手動設定今日休市
+
+        // ===== 台股休市日清單 (2026-2030) =====
+        // 資料來源：證交所、行政院人事行政總處
+        const taiwanHolidays = [
+            // ========== 2026年 ==========
+            '2026-01-01', // 元旦
+            '2026-01-02', // 彈性放假
+            '2026-02-16', // 春節前調整放假
+            '2026-02-17', // 除夕
+            '2026-02-18', // 春節
+            '2026-02-19', // 春節
+            '2026-02-20', // 春節
+            '2026-02-23', // 春節補假
+            '2026-02-27', // 和平紀念日調整放假
+            '2026-02-28', // 和平紀念日
+            '2026-04-02', // 兒童節調整放假
+            '2026-04-03', // 兒童節
+            '2026-04-04', // 清明節調整放假
+            '2026-04-05', // 清明節
+            '2026-04-06', // 清明節補假
+            '2026-05-01', // 勞動節
+            '2026-06-19', // 端午節
+            '2026-09-28', // 中秋節
+            '2026-10-09', // 國慶日調整放假
+            '2026-10-10', // 國慶日
+            
+            // ========== 2027年 ==========
+            '2027-01-01', // 元旦
+            '2027-02-05', // 春節前調整放假
+            '2027-02-06', // 除夕
+            '2027-02-07', // 春節
+            '2027-02-08', // 春節
+            '2027-02-09', // 春節
+            '2027-02-10', // 春節補假
+            '2027-02-28', // 和平紀念日
+            '2027-03-01', // 和平紀念日補假
+            '2027-04-04', // 兒童節
+            '2027-04-05', // 清明節
+            '2027-04-06', // 調整放假
+            '2027-05-01', // 勞動節
+            '2027-06-09', // 端午節
+            '2027-09-16', // 中秋節
+            '2027-09-17', // 中秋節補假
+            '2027-10-10', // 國慶日
+            '2027-10-11', // 國慶日補假
+            
+            // ========== 2028年 ==========
+            '2028-01-01', // 元旦
+            '2028-01-25', // 春節前調整放假
+            '2028-01-26', // 除夕
+            '2028-01-27', // 春節
+            '2028-01-28', // 春節
+            '2028-01-29', // 春節
+            '2028-02-01', // 春節補假
+            '2028-02-28', // 和平紀念日
+            '2028-02-29', // 和平紀念日補假
+            '2028-04-03', // 兒童節調整放假
+            '2028-04-04', // 兒童節/清明節
+            '2028-05-01', // 勞動節
+            '2028-05-27', // 端午節調整放假
+            '2028-05-28', // 端午節
+            '2028-05-29', // 端午節補假
+            '2028-10-03', // 中秋節調整放假
+            '2028-10-04', // 中秋節
+            '2028-10-09', // 國慶日調整放假
+            '2028-10-10', // 國慶日
+            
+            // ========== 2029年 ==========
+            '2029-01-01', // 元旦
+            '2029-02-12', // 春節前調整放假
+            '2029-02-13', // 除夕
+            '2029-02-14', // 春節
+            '2029-02-15', // 春節
+            '2029-02-16', // 春節
+            '2029-02-19', // 春節補假
+            '2029-02-28', // 和平紀念日
+            '2029-04-03', // 兒童節調整放假
+            '2029-04-04', // 兒童節/清明節
+            '2029-05-01', // 勞動節
+            '2029-06-15', // 端午節調整放假
+            '2029-06-16', // 端午節
+            '2029-09-24', // 中秋節
+            '2029-10-10', // 國慶日
+            
+            // ========== 2030年 ==========
+            '2030-01-01', // 元旦
+            '2030-02-01', // 春節前調整放假
+            '2030-02-02', // 除夕
+            '2030-02-03', // 春節
+            '2030-02-04', // 春節
+            '2030-02-05', // 春節
+            '2030-02-06', // 春節補假
+            '2030-02-28', // 和平紀念日
+            '2030-03-01', // 和平紀念日補假
+            '2030-04-04', // 兒童節/清明節
+            '2030-04-05', // 清明節補假
+            '2030-05-01', // 勞動節
+            '2030-06-05', // 端午節
+            '2030-09-12', // 中秋節調整放假
+            '2030-09-13', // 中秋節
+            '2030-10-10', // 國慶日
+            '2030-10-11', // 國慶日補假
+        ];
+        
+        // 假日名稱對照表
+        const holidayNames = {
+            // 2026年
+            '2026-01-01': '元旦', '2026-01-02': '彈性放假',
+            '2026-02-16': '春節調整放假', '2026-02-17': '除夕', '2026-02-18': '春節',
+            '2026-02-19': '春節', '2026-02-20': '春節', '2026-02-23': '春節補假',
+            '2026-02-27': '和平紀念日調整放假', '2026-02-28': '和平紀念日',
+            '2026-04-02': '兒童節調整放假', '2026-04-03': '兒童節', 
+            '2026-04-04': '清明節調整放假', '2026-04-05': '清明節', '2026-04-06': '清明節補假',
+            '2026-05-01': '勞動節', '2026-06-19': '端午節', '2026-09-28': '中秋節',
+            '2026-10-09': '國慶日調整放假', '2026-10-10': '國慶日',
+            // 2027年
+            '2027-01-01': '元旦',
+            '2027-02-05': '春節調整放假', '2027-02-06': '除夕', '2027-02-07': '春節',
+            '2027-02-08': '春節', '2027-02-09': '春節', '2027-02-10': '春節補假',
+            '2027-02-28': '和平紀念日', '2027-03-01': '和平紀念日補假',
+            '2027-04-04': '兒童節', '2027-04-05': '清明節', '2027-04-06': '調整放假',
+            '2027-05-01': '勞動節', '2027-06-09': '端午節',
+            '2027-09-16': '中秋節', '2027-09-17': '中秋節補假',
+            '2027-10-10': '國慶日', '2027-10-11': '國慶日補假',
+            // 2028年
+            '2028-01-01': '元旦',
+            '2028-01-25': '春節調整放假', '2028-01-26': '除夕', '2028-01-27': '春節',
+            '2028-01-28': '春節', '2028-01-29': '春節', '2028-02-01': '春節補假',
+            '2028-02-28': '和平紀念日', '2028-02-29': '和平紀念日補假',
+            '2028-04-03': '兒童節調整放假', '2028-04-04': '兒童節/清明節',
+            '2028-05-01': '勞動節',
+            '2028-05-27': '端午節調整放假', '2028-05-28': '端午節', '2028-05-29': '端午節補假',
+            '2028-10-03': '中秋節調整放假', '2028-10-04': '中秋節',
+            '2028-10-09': '國慶日調整放假', '2028-10-10': '國慶日',
+            // 2029年
+            '2029-01-01': '元旦',
+            '2029-02-12': '春節調整放假', '2029-02-13': '除夕', '2029-02-14': '春節',
+            '2029-02-15': '春節', '2029-02-16': '春節', '2029-02-19': '春節補假',
+            '2029-02-28': '和平紀念日',
+            '2029-04-03': '兒童節調整放假', '2029-04-04': '兒童節/清明節',
+            '2029-05-01': '勞動節',
+            '2029-06-15': '端午節調整放假', '2029-06-16': '端午節',
+            '2029-09-24': '中秋節', '2029-10-10': '國慶日',
+            // 2030年
+            '2030-01-01': '元旦',
+            '2030-02-01': '春節調整放假', '2030-02-02': '除夕', '2030-02-03': '春節',
+            '2030-02-04': '春節', '2030-02-05': '春節', '2030-02-06': '春節補假',
+            '2030-02-28': '和平紀念日', '2030-03-01': '和平紀念日補假',
+            '2030-04-04': '兒童節/清明節', '2030-04-05': '清明節補假',
+            '2030-05-01': '勞動節', '2030-06-05': '端午節',
+            '2030-09-12': '中秋節調整放假', '2030-09-13': '中秋節',
+            '2030-10-10': '國慶日', '2030-10-11': '國慶日補假',
+        };
+
+        // 檢查今天是否為休市日
+        function isMarketHoliday() {
+            // 手動設定優先
+            if (manualHolidayToday) return true;
+            
+            const now = new Date();
+            const day = now.getDay();
+            
+            // 週末
+            if (day === 0 || day === 6) return true;
+            
+            // 國定假日
+            const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+            if (taiwanHolidays.includes(dateStr)) return true;
+            
+            // 檢查localStorage中的臨時休市設定（颱風假等）
+            const tempHolidays = JSON.parse(localStorage.getItem('tempHolidays') || '[]');
+            if (tempHolidays.includes(dateStr)) return true;
+            
+            return false;
+        }
+
+        // 取得休市原因
+        function getHolidayReason() {
+            if (manualHolidayToday) return '手動設定休市';
+            
+            const now = new Date();
+            const day = now.getDay();
+            
+            if (day === 0) return '週日休市';
+            if (day === 6) return '週六休市';
+            
+            const dateStr = now.toISOString().split('T')[0];
+            
+            // 檢查臨時休市
+            const tempHolidays = JSON.parse(localStorage.getItem('tempHolidays') || '[]');
+            if (tempHolidays.includes(dateStr)) return '臨時休市（颱風/特殊狀況）';
+            
+            // 從對照表取得假日名稱
+            if (holidayNames[dateStr]) {
+                return holidayNames[dateStr];
+            }
+            
+            return '國定假日';
+        }
+
+        // 切換今日休市狀態
+        function toggleManualHoliday() {
+            const today = new Date().toISOString().split('T')[0];
+            let tempHolidays = JSON.parse(localStorage.getItem('tempHolidays') || '[]');
+            
+            if (tempHolidays.includes(today)) {
+                // 取消休市
+                tempHolidays = tempHolidays.filter(d => d !== today);
+                showToast('✅ 已取消今日休市設定，恢復正常監控');
+            } else {
+                // 設定休市
+                tempHolidays.push(today);
+                showToast('🔴 已設定今日為休市日（颱風/特殊狀況）');
+                // 關閉任何開啟的彈窗
+                hideMarketPopup();
+            }
+            
+            localStorage.setItem('tempHolidays', JSON.stringify(tempHolidays));
+            updateHolidayStatus();
+        }
+
+        // 更新休市狀態顯示
+        function updateHolidayStatus() {
+            const statusEl = document.getElementById('holidayStatusText');
+            const toggleBtn = document.getElementById('holidayToggleBtn');
+            
+            if (isMarketHoliday()) {
+                const reason = getHolidayReason();
+                if (statusEl) statusEl.innerHTML = `<span style="color: var(--accent-yellow);">🔴 今日休市：${reason}</span>`;
+                if (toggleBtn) {
+                    toggleBtn.textContent = '✅ 取消休市';
+                    toggleBtn.style.background = 'var(--accent-down)';
+                }
+            } else {
+                if (statusEl) statusEl.innerHTML = `<span style="color: var(--accent-down);">🟢 今日正常交易</span>`;
+                if (toggleBtn) {
+                    toggleBtn.textContent = '🔴 設定休市';
+                    toggleBtn.style.background = 'var(--accent-up)';
+                }
+            }
+        }
+
+        // 顯示開盤倒數彈窗
+        function showOpeningPopup() {
+            const popup = document.getElementById('marketPopup');
+            const overlay = document.getElementById('marketPopupOverlay');
+            const icon = document.getElementById('marketPopupIcon');
+            const status = document.getElementById('marketPopupStatus');
+            const message = document.getElementById('marketPopupMessage');
+            
+            icon.textContent = '🔔';
+            status.textContent = '即將開盤';
+            status.className = 'market-popup-status opening';
+            message.textContent = '台股即將開盤，準備好了嗎？';
+            
+            popup.className = 'market-popup show opening';
+            overlay.className = 'market-popup-overlay show';
+            
+            // 重置位置到中央
+            popup.style.left = '50%';
+            popup.style.top = '50%';
+            popup.style.transform = 'translate(-50%, -50%)';
+            
+            startOpeningCountdown();
+        }
+
+        // 開盤倒數計時
+        function startOpeningCountdown() {
+            const countdownEl = document.getElementById('marketPopupCountdown');
+            const progressBar = document.getElementById('marketPopupProgressBar');
+            const totalSeconds = 5 * 60; // 5分鐘
+            
+            if (marketPopupInterval) clearInterval(marketPopupInterval);
+            
+            marketPopupInterval = setInterval(() => {
+                const now = new Date();
+                const target = new Date();
+                target.setHours(9, 0, 0, 0);
+                
+                const diff = Math.max(0, Math.floor((target - now) / 1000));
+                
+                if (diff <= 0) {
+                    // 開盤了！
+                    clearInterval(marketPopupInterval);
+                    hideMarketPopup();
+                    hasShownOpeningPopup = true;
+                    
+                    // 自動開始抓取
+                    showToast('🔔 開盤！自動啟動監控');
+                    if (monitorStocks.length > 0) {
+                        document.getElementById('monitorAutoRefresh').checked = true;
+                        startMonitorAutoRefresh();
+                    }
+                    return;
+                }
+                
+                const minutes = Math.floor(diff / 60);
+                const seconds = diff % 60;
+                countdownEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                
+                // 更新進度條
+                const progress = ((totalSeconds - diff) / totalSeconds) * 100;
+                progressBar.style.width = `${progress}%`;
+            }, 1000);
+        }
+
+        // 顯示收盤彈窗
+        function showClosingPopup() {
+            const popup = document.getElementById('marketPopup');
+            const overlay = document.getElementById('marketPopupOverlay');
+            const icon = document.getElementById('marketPopupIcon');
+            const status = document.getElementById('marketPopupStatus');
+            const message = document.getElementById('marketPopupMessage');
+            const countdownEl = document.getElementById('marketPopupCountdown');
+            const progressBar = document.getElementById('marketPopupProgressBar');
+            
+            icon.textContent = '🔕';
+            status.textContent = '交易結束';
+            status.className = 'market-popup-status closing';
+            message.textContent = '台股今日交易已結束，明天見！';
+            
+            popup.className = 'market-popup show closing';
+            overlay.className = 'market-popup-overlay show';
+            
+            // 重置位置到中央
+            popup.style.left = '50%';
+            popup.style.top = '50%';
+            popup.style.transform = 'translate(-50%, -50%)';
+            
+            // 100秒倒數後自動消失
+            let remaining = 100; // 100秒
+            const totalSeconds = remaining;
+            progressBar.style.width = '100%'; // 從滿格開始
+            
+            if (marketPopupInterval) clearInterval(marketPopupInterval);
+            
+            const updateCountdown = () => {
+                const minutes = Math.floor(remaining / 60);
+                const seconds = remaining % 60;
+                countdownEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                
+                // 更新進度條（反向：從滿到空）
+                const progress = (remaining / totalSeconds) * 100;
+                progressBar.style.width = `${progress}%`;
+                
+                remaining--;
+                
+                if (remaining < 0) {
+                    clearInterval(marketPopupInterval);
+                    hideMarketPopup();
+                    hasShownClosingPopup = true;
+                    
+                    // 停止自動更新
+                    document.getElementById('monitorAutoRefresh').checked = false;
+                    stopMonitorAutoRefresh();
+                    showToast('🔕 收盤，自動停止監控');
+                }
+            };
+            
+            updateCountdown();
+            marketPopupInterval = setInterval(updateCountdown, 1000);
+        }
+
+        // 隱藏彈窗
+        function hideMarketPopup() {
+            const popup = document.getElementById('marketPopup');
+            const overlay = document.getElementById('marketPopupOverlay');
+            
+            popup.className = 'market-popup';
+            overlay.className = 'market-popup-overlay';
+            
+            if (marketPopupInterval) {
+                clearInterval(marketPopupInterval);
+                marketPopupInterval = null;
+            }
+        }
+
+        // 檢查是否該顯示彈窗
+        function checkMarketPopupTime() {
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const timeValue = hours * 60 + minutes;
+            const today = now.toDateString();
+            
+            // 重置每日狀態
+            if (lastCheckedDate !== today) {
+                lastCheckedDate = today;
+                hasShownOpeningPopup = false;
+                hasShownClosingPopup = false;
+                updateHolidayStatus(); // 更新休市狀態顯示
+            }
+            
+            // 休市日不顯示彈窗
+            if (isMarketHoliday()) {
+                updateHolidayStatus();
+                return;
+            }
+            
+            // 開盤前5分鐘 (08:55 ~ 09:00)
+            const preMarket = 8 * 60 + 55; // 08:55
+            const marketOpen = 9 * 60;      // 09:00
+            
+            if (!hasShownOpeningPopup && timeValue >= preMarket && timeValue < marketOpen) {
+                showOpeningPopup();
+            }
+            
+            // 收盤時間 (13:30)
+            const marketClose = 13 * 60 + 30; // 13:30
+            
+            if (!hasShownClosingPopup && timeValue >= marketClose && timeValue < marketClose + 1) {
+                showClosingPopup();
+            }
+        }
+
+        // 初始化彈窗拖曳功能
+        function initPopupDrag() {
+            const popup = document.getElementById('marketPopup');
+            
+            popup.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('market-popup-close')) return;
+                isDraggingPopup = true;
+                const rect = popup.getBoundingClientRect();
+                popupDragOffset.x = e.clientX - rect.left;
+                popupDragOffset.y = e.clientY - rect.top;
+                popup.style.transform = 'none';
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!isDraggingPopup) return;
+                popup.style.left = (e.clientX - popupDragOffset.x) + 'px';
+                popup.style.top = (e.clientY - popupDragOffset.y) + 'px';
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isDraggingPopup = false;
+            });
+            
+            // 觸控支援
+            popup.addEventListener('touchstart', (e) => {
+                if (e.target.classList.contains('market-popup-close')) return;
+                isDraggingPopup = true;
+                const rect = popup.getBoundingClientRect();
+                const touch = e.touches[0];
+                popupDragOffset.x = touch.clientX - rect.left;
+                popupDragOffset.y = touch.clientY - rect.top;
+                popup.style.transform = 'none';
+            });
+            
+            document.addEventListener('touchmove', (e) => {
+                if (!isDraggingPopup) return;
+                const touch = e.touches[0];
+                popup.style.left = (touch.clientX - popupDragOffset.x) + 'px';
+                popup.style.top = (touch.clientY - popupDragOffset.y) + 'px';
+            });
+            
+            document.addEventListener('touchend', () => {
+                isDraggingPopup = false;
+            });
+        }
+
+        // 測試開盤彈窗
+        function testOpeningPopup() {
+            hasShownOpeningPopup = false;
+            showOpeningPopup();
+            // 模擬快速倒數（測試用）
+            if (marketPopupInterval) clearInterval(marketPopupInterval);
+            
+            let testSeconds = 10; // 10秒測試
+            const countdownEl = document.getElementById('marketPopupCountdown');
+            const progressBar = document.getElementById('marketPopupProgressBar');
+            progressBar.style.width = '0%';
+            
+            marketPopupInterval = setInterval(() => {
+                testSeconds--;
+                const minutes = Math.floor(testSeconds / 60);
+                const seconds = testSeconds % 60;
+                countdownEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                progressBar.style.width = `${(10 - testSeconds) / 10 * 100}%`;
+                
+                if (testSeconds <= 0) {
+                    clearInterval(marketPopupInterval);
+                    hideMarketPopup();
+                    showToast('🔔 測試完成：開盤彈窗');
+                }
+            }, 1000);
+        }
+
+        // 測試收盤彈窗
+        function testClosingPopup() {
+            hasShownClosingPopup = false;
+            
+            const popup = document.getElementById('marketPopup');
+            const overlay = document.getElementById('marketPopupOverlay');
+            const icon = document.getElementById('marketPopupIcon');
+            const status = document.getElementById('marketPopupStatus');
+            const message = document.getElementById('marketPopupMessage');
+            const countdownEl = document.getElementById('marketPopupCountdown');
+            const progressBar = document.getElementById('marketPopupProgressBar');
+            
+            icon.textContent = '🔕';
+            status.textContent = '交易結束';
+            status.className = 'market-popup-status closing';
+            message.textContent = '台股今日交易已結束，明天見！';
+            
+            popup.className = 'market-popup show closing';
+            overlay.className = 'market-popup-overlay show';
+            
+            popup.style.left = '50%';
+            popup.style.top = '50%';
+            popup.style.transform = 'translate(-50%, -50%)';
+            
+            // 10秒測試
+            let testSeconds = 10;
+            progressBar.style.width = '100%';
+            
+            if (marketPopupInterval) clearInterval(marketPopupInterval);
+            
+            marketPopupInterval = setInterval(() => {
+                testSeconds--;
+                const minutes = Math.floor(testSeconds / 60);
+                const seconds = testSeconds % 60;
+                countdownEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                progressBar.style.width = `${testSeconds / 10 * 100}%`;
+                
+                if (testSeconds <= 0) {
+                    clearInterval(marketPopupInterval);
+                    hideMarketPopup();
+                    showToast('🔕 測試完成：收盤彈窗');
+                }
+            }, 1000);
+        }
+
         // 頁面載入時載入 API 金鑰
         document.addEventListener('DOMContentLoaded', function() {
             loadApiKeys();
+            
+            // 初始化開盤/收盤彈窗系統
+            initPopupDrag();
+            updateHolidayStatus(); // 更新休市狀態
+            checkMarketPopupTime();
+            // 每10秒檢查一次是否該顯示彈窗
+            marketCheckInterval = setInterval(checkMarketPopupTime, 10000);
+            
+            // 🆕 載入 AI 投資組合分析的 API 金鑰
+            loadPortfolioApiKeys();
         });
+
+        // ===== 🤖 AI 投資組合分析功能 =====
+        
+        // 切換 API 設定區顯示
+        function togglePortfolioApiSettings() {
+            const settings = document.getElementById('portfolioApiSettings');
+            settings.style.display = settings.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        // 載入已儲存的 API 金鑰
+        function loadPortfolioApiKeys() {
+            const providers = ['claude', 'gemini', 'openai'];
+            providers.forEach(provider => {
+                const key = localStorage.getItem(`portfolio_${provider}_api_key`);
+                const input = document.getElementById(`portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}Key`);
+                const dot = document.getElementById(`portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}Dot`);
+                const text = document.getElementById(`portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}StatusText`);
+                
+                if (key && input) {
+                    input.value = key;
+                    if (dot) dot.classList.add('connected');
+                    if (text) text.textContent = '已設定';
+                }
+            });
+        }
+        
+        // 儲存 API 金鑰
+        function savePortfolioApiKey(provider) {
+            const inputId = `portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}Key`;
+            const key = document.getElementById(inputId).value.trim();
+            
+            if (!key) {
+                showToast(`⚠️ 請輸入 ${provider.toUpperCase()} API 金鑰`);
+                return;
+            }
+            
+            localStorage.setItem(`portfolio_${provider}_api_key`, key);
+            
+            const dot = document.getElementById(`portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}Dot`);
+            const text = document.getElementById(`portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}StatusText`);
+            if (dot) dot.classList.add('connected');
+            if (text) text.textContent = '已儲存';
+            
+            showToast(`✅ ${provider.toUpperCase()} API 金鑰已儲存`);
+        }
+        
+        // 清除 API 金鑰
+        function clearPortfolioApiKey(provider) {
+            const inputId = `portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}Key`;
+            document.getElementById(inputId).value = '';
+            localStorage.removeItem(`portfolio_${provider}_api_key`);
+            
+            const dot = document.getElementById(`portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}Dot`);
+            const text = document.getElementById(`portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}StatusText`);
+            if (dot) dot.classList.remove('connected', 'error');
+            if (text) text.textContent = '未設定';
+            
+            showToast(`🗑️ ${provider.toUpperCase()} API 金鑰已清除`);
+        }
+        
+        // 測試 API 連線
+        async function testPortfolioApiKey(provider) {
+            const inputId = `portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}Key`;
+            const key = document.getElementById(inputId).value.trim() || localStorage.getItem(`portfolio_${provider}_api_key`);
+            
+            if (!key) {
+                showToast(`⚠️ 請先輸入 ${provider.toUpperCase()} API 金鑰`);
+                return;
+            }
+            
+            const dot = document.getElementById(`portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}Dot`);
+            const text = document.getElementById(`portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}StatusText`);
+            
+            dot.classList.remove('connected', 'error');
+            dot.classList.add('testing');
+            text.textContent = '測試中...';
+            
+            try {
+                let testResult = false;
+                
+                if (provider === 'claude') {
+                    const response = await fetch('https://api.anthropic.com/v1/messages', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-api-key': key,
+                            'anthropic-version': '2023-06-01',
+                            'anthropic-dangerous-direct-browser-access': 'true'
+                        },
+                        body: JSON.stringify({
+                            model: 'claude-sonnet-4-20250514',
+                            max_tokens: 10,
+                            messages: [{ role: 'user', content: 'Hi' }]
+                        })
+                    });
+                    testResult = response.ok || response.status === 400;
+                } else if (provider === 'gemini') {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: 'Hi' }] }]
+                        })
+                    });
+                    testResult = response.ok;
+                } else if (provider === 'openai') {
+                    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${key}`
+                        },
+                        body: JSON.stringify({
+                            model: 'gpt-4o-mini',
+                            max_tokens: 10,
+                            messages: [{ role: 'user', content: 'Hi' }]
+                        })
+                    });
+                    testResult = response.ok;
+                }
+                
+                dot.classList.remove('testing');
+                if (testResult) {
+                    dot.classList.add('connected');
+                    text.textContent = '連線成功 ✓';
+                    showToast(`✅ ${provider.toUpperCase()} 連線測試成功！`);
+                } else {
+                    dot.classList.add('error');
+                    text.textContent = '連線失敗';
+                    showToast(`❌ ${provider.toUpperCase()} 連線測試失敗`);
+                }
+            } catch (error) {
+                dot.classList.remove('testing');
+                dot.classList.add('error');
+                text.textContent = '連線錯誤';
+                showToast(`❌ ${provider.toUpperCase()} 測試錯誤: ${error.message}`);
+            }
+        }
+        
+        // 取得監控股票的資料摘要
+        function getMonitorStocksSummary() {
+            if (!monitorStocks || monitorStocks.length === 0) {
+                return null;
+            }
+            
+            let summary = '【投資組合即時數據】\n\n';
+            let totalValue = 0;
+            let totalCost = 0;
+            let totalProfit = 0;
+            
+            monitorStocks.forEach((stock, idx) => {
+                const data = stock.data || {};
+                const name = data.name || stock.code;
+                const price = data.price || 0;
+                const prevClose = data.prevClose || data.yesterday || price;
+                const change = data.change || (price - prevClose);
+                const changePercent = data.changePercent || (prevClose > 0 ? ((change / prevClose) * 100) : 0);
+                const holdPrice = stock.holdPrice || 0;
+                const shares = stock.shares || 0;
+                const volume = data.volume || 0;
+                
+                const marketValue = price * shares * 1000;
+                const costValue = holdPrice * shares * 1000;
+                const profitValue = marketValue - costValue;
+                const profitPercent = costValue > 0 ? ((profitValue / costValue) * 100) : 0;
+                
+                totalValue += marketValue;
+                totalCost += costValue;
+                totalProfit += profitValue;
+                
+                const changeIcon = change > 0 ? '🔺' : (change < 0 ? '🔻' : '➖');
+                const profitIcon = profitValue > 0 ? '📈' : (profitValue < 0 ? '📉' : '➖');
+                
+                summary += `${idx + 1}. ${name} (${stock.code}) - ${stock.market === 'tpex' ? '上櫃' : '上市'}\n`;
+                summary += `   現價: $${price.toFixed(2)} ${changeIcon} ${change >= 0 ? '+' : ''}${change.toFixed(2)} (${changePercent >= 0 ? '+' : ''}${parseFloat(changePercent).toFixed(2)}%)\n`;
+                if (holdPrice > 0 && shares > 0) {
+                    summary += `   持有: ${shares}張 @ $${holdPrice} | 市值: $${(marketValue/10000).toFixed(2)}萬\n`;
+                    summary += `   損益: ${profitIcon} ${profitValue >= 0 ? '+' : ''}$${(profitValue/10000).toFixed(2)}萬 (${profitPercent >= 0 ? '+' : ''}${profitPercent.toFixed(2)}%)\n`;
+                }
+                summary += `   成交量: ${volume.toLocaleString()}張\n\n`;
+            });
+            
+            if (totalCost > 0) {
+                const totalProfitPercent = ((totalProfit / totalCost) * 100);
+                summary += `【投資組合總覽】\n`;
+                summary += `總市值: $${(totalValue/10000).toFixed(2)}萬\n`;
+                summary += `總成本: $${(totalCost/10000).toFixed(2)}萬\n`;
+                summary += `總損益: ${totalProfit >= 0 ? '+' : ''}$${(totalProfit/10000).toFixed(2)}萬 (${totalProfitPercent >= 0 ? '+' : ''}${totalProfitPercent.toFixed(2)}%)\n`;
+            }
+            
+            return summary;
+        }
+        
+        // 建立 AI 分析提示詞
+        function buildPortfolioAnalysisPrompt(stockSummary) {
+            const today = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+            
+            return `你是一位資深台股投資分析師，擁有20年以上的實戰經驗，專精於技術分析、籌碼分析與總體經濟研判。
+
+今天是 ${today}，以下是用戶的投資組合即時數據：
+
+${stockSummary}
+
+請針對這個投資組合提供專業的分析與建議，分析內容必須超過 400 字，包含以下面向：
+
+【一、個股分析】
+針對每一檔股票，分析其：
+- 目前股價位置與技術面狀態（是否處於支撐/壓力區）
+- 短期走勢預判（1-2週）
+- 潛在風險與機會
+
+【二、投資組合評估】
+- 整體配置是否合理（產業分散度、風險集中度）
+- 目前持股的強弱排序
+- 需要關注的警訊
+
+【三、操作建議】
+- 哪些股票建議續抱、加碼或減碼
+- 具體的停損/停利價位建議
+- 短期操作策略
+
+【四、風險提醒】
+- 當前市場環境的潛在風險
+- 需要注意的總經或產業因素
+
+【五、投資組合評分】
+請給予這個投資組合一個 1-100 分的綜合評分（必須是整數）：
+- 80-100分：優質組合，建議積極持有或加碼
+- 60-79分：良好組合，可持續觀察
+- 40-59分：普通組合，需要調整
+- 20-39分：風險較高，建議減碼
+- 1-19分：高風險組合，建議大幅調整
+
+⚠️ 重要：請務必在回覆的最後一行，以下列格式明確給出評分：
+【評分】XX 分
+
+請用專業但易懂的方式分析，提供具體可執行的建議。`;
+        }
+        
+        // 建立總評提示詞
+        function buildFinalSummaryPrompt(stockSummary, aiResults) {
+            const today = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+            
+            let analysisContext = '';
+            if (aiResults.claude) {
+                analysisContext += `\n【Claude 分析摘要】評分：${aiResults.claudeScore}分\n${aiResults.claude.substring(0, 800)}...\n`;
+            }
+            if (aiResults.gemini) {
+                analysisContext += `\n【Gemini 分析摘要】評分：${aiResults.geminiScore}分\n${aiResults.gemini.substring(0, 800)}...\n`;
+            }
+            if (aiResults.openai) {
+                analysisContext += `\n【OpenAI 分析摘要】評分：${aiResults.openaiScore}分\n${aiResults.openai.substring(0, 800)}...\n`;
+            }
+            
+            return `你是一位資深台股投資分析師，現在需要你彙整三大 AI（Claude、Gemini、OpenAI）對同一投資組合的分析結果，撰寫一份專業的總評報告。
+
+今天是 ${today}
+
+【原始投資組合數據】
+${stockSummary}
+
+【三大 AI 分析結果】
+${analysisContext}
+
+【評分統計】
+- Claude 評分：${aiResults.claudeScore || '未分析'} 分
+- Gemini 評分：${aiResults.geminiScore || '未分析'} 分  
+- OpenAI 評分：${aiResults.openaiScore || '未分析'} 分
+- 平均分數：${aiResults.averageScore.toFixed(1)} 分
+
+請撰寫一份 500 字以上的專業總評報告，包含：
+
+1. 【三方觀點彙整】
+   - 三大 AI 的共識點
+   - 三大 AI 的分歧點
+   - 各方獨特見解
+
+2. 【綜合投資評估】
+   - 基於三方分析的整體投資價值判斷
+   - 最值得關注的個股
+   - 最需要警惕的風險
+
+3. 【具體操作建議】
+   - 短期（1-2週）操作策略
+   - 中期（1-3月）持股規劃
+   - 停損停利價位建議
+
+4. 【最終結論】
+   - 明確的投資方向建議
+   - 風險等級評估
+   - 給投資人的一句話建議
+
+請以客觀、專業的角度撰寫，內容要具體且可執行。`;
+        }
+        
+        // 從 AI 回應中解析評分
+        function parseScoreFromContent(content) {
+            // 嘗試多種格式解析評分
+            const patterns = [
+                /【評分】\s*(\d+)\s*分/,
+                /評分[：:]\s*(\d+)\s*分/,
+                /綜合評分[：:]\s*(\d+)\s*分/,
+                /給予\s*(\d+)\s*分/,
+                /(\d+)\s*分\s*[（(]/,
+                /(\d{1,3})\s*\/\s*100/
+            ];
+            
+            for (const pattern of patterns) {
+                const match = content.match(pattern);
+                if (match) {
+                    const score = parseInt(match[1]);
+                    if (score >= 1 && score <= 100) {
+                        return score;
+                    }
+                }
+            }
+            
+            // 如果找不到明確評分，根據內容情緒判斷
+            if (content.includes('優質') || content.includes('積極') || content.includes('看多')) {
+                return 75;
+            } else if (content.includes('風險') || content.includes('減碼') || content.includes('看空')) {
+                return 45;
+            }
+            return 60; // 預設中性分數
+        }
+        
+        // 開始 AI 分析
+        async function startPortfolioAIAnalysis() {
+            const stockSummary = getMonitorStocksSummary();
+            
+            if (!stockSummary) {
+                showToast('⚠️ 請先在監控區新增股票');
+                return;
+            }
+            
+            const claudeKey = localStorage.getItem('portfolio_claude_api_key');
+            const geminiKey = localStorage.getItem('portfolio_gemini_api_key');
+            const openaiKey = localStorage.getItem('portfolio_openai_api_key');
+            
+            if (!claudeKey && !geminiKey && !openaiKey) {
+                showToast('⚠️ 請先設定至少一個 API 金鑰');
+                togglePortfolioApiSettings();
+                return;
+            }
+            
+            const btn = document.getElementById('aiPortfolioBtn');
+            btn.disabled = true;
+            btn.classList.add('analyzing');
+            btn.innerHTML = '<span>⏳</span> 分析中...';
+            
+            // 隱藏之前的總評
+            const finalSummaryEl = document.getElementById('portfolioFinalSummary');
+            if (finalSummaryEl) finalSummaryEl.style.display = 'none';
+            
+            const prompt = buildPortfolioAnalysisPrompt(stockSummary);
+            
+            // 收集 AI 結果和分數
+            let aiResults = {
+                claude: null, claudeScore: null,
+                gemini: null, geminiScore: null,
+                openai: null, openaiScore: null,
+                averageScore: 0
+            };
+            
+            // 並行呼叫三個 AI
+            const analyses = await Promise.allSettled([
+                claudeKey ? analyzeWithClaude(prompt, claudeKey) : Promise.resolve(null),
+                geminiKey ? analyzeWithGemini(prompt, geminiKey) : Promise.resolve(null),
+                openaiKey ? analyzeWithOpenAI(prompt, openaiKey) : Promise.resolve(null)
+            ]);
+            
+            // 處理 Claude 結果
+            if (analyses[0].status === 'fulfilled' && analyses[0].value) {
+                aiResults.claude = analyses[0].value;
+                aiResults.claudeScore = parseScoreFromContent(analyses[0].value);
+                displayPortfolioResult('claude', analyses[0].value, aiResults.claudeScore);
+            } else if (claudeKey) {
+                displayPortfolioError('claude', analyses[0].reason?.message || '分析失敗');
+            }
+            
+            // 處理 Gemini 結果
+            if (analyses[1].status === 'fulfilled' && analyses[1].value) {
+                aiResults.gemini = analyses[1].value;
+                aiResults.geminiScore = parseScoreFromContent(analyses[1].value);
+                displayPortfolioResult('gemini', analyses[1].value, aiResults.geminiScore);
+            } else if (geminiKey) {
+                displayPortfolioError('gemini', analyses[1].reason?.message || '分析失敗');
+            }
+            
+            // 處理 OpenAI 結果
+            if (analyses[2].status === 'fulfilled' && analyses[2].value) {
+                aiResults.openai = analyses[2].value;
+                aiResults.openaiScore = parseScoreFromContent(analyses[2].value);
+                displayPortfolioResult('openai', analyses[2].value, aiResults.openaiScore);
+            } else if (openaiKey) {
+                displayPortfolioError('openai', analyses[2].reason?.message || '分析失敗');
+            }
+            
+            // 計算平均分數並顯示分數統計
+            const validScores = [aiResults.claudeScore, aiResults.geminiScore, aiResults.openaiScore].filter(s => s !== null);
+            if (validScores.length > 0) {
+                aiResults.averageScore = validScores.reduce((a, b) => a + b, 0) / validScores.length;
+                displayScoreSummary(aiResults);
+                
+                // 找出最接近平均分的 AI 來撰寫總評
+                const winnerAI = findClosestToAverage(aiResults);
+                
+                if (winnerAI) {
+                    btn.innerHTML = '<span>📝</span> 生成總評中...';
+                    
+                    // 讓獲勝的 AI 撰寫總評
+                    const summaryPrompt = buildFinalSummaryPrompt(stockSummary, aiResults);
+                    let finalSummary = null;
+                    
+                    try {
+                        if (winnerAI === 'claude' && claudeKey) {
+                            updateFinalSummaryStatus('claude', 'analyzing');
+                            finalSummary = await analyzeWithClaudeForSummary(summaryPrompt, claudeKey);
+                        } else if (winnerAI === 'gemini' && geminiKey) {
+                            updateFinalSummaryStatus('gemini', 'analyzing');
+                            finalSummary = await analyzeWithGeminiForSummary(summaryPrompt, geminiKey);
+                        } else if (winnerAI === 'openai' && openaiKey) {
+                            updateFinalSummaryStatus('openai', 'analyzing');
+                            finalSummary = await analyzeWithOpenAIForSummary(summaryPrompt, openaiKey);
+                        }
+                        
+                        if (finalSummary) {
+                            displayFinalSummary(winnerAI, finalSummary, aiResults);
+                        }
+                    } catch (error) {
+                        console.error('總評生成失敗:', error);
+                        showToast('⚠️ 總評生成失敗');
+                    }
+                }
+            }
+            
+            btn.disabled = false;
+            btn.classList.remove('analyzing');
+            btn.innerHTML = '<span>🧠</span> 開始 3AI 分析';
+        }
+        
+        // 找出最接近平均分的 AI
+        function findClosestToAverage(aiResults) {
+            const avg = aiResults.averageScore;
+            let closest = null;
+            let minDiff = Infinity;
+            
+            if (aiResults.claudeScore !== null) {
+                const diff = Math.abs(aiResults.claudeScore - avg);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closest = 'claude';
+                }
+            }
+            if (aiResults.geminiScore !== null) {
+                const diff = Math.abs(aiResults.geminiScore - avg);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closest = 'gemini';
+                }
+            }
+            if (aiResults.openaiScore !== null) {
+                const diff = Math.abs(aiResults.openaiScore - avg);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closest = 'openai';
+                }
+            }
+            
+            return closest;
+        }
+        
+        // Claude API 呼叫（用於總評）
+        async function analyzeWithClaudeForSummary(prompt, apiKey) {
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-dangerous-direct-browser-access': 'true'
+                },
+                body: JSON.stringify({
+                    model: 'claude-sonnet-4-20250514',
+                    max_tokens: 4000,
+                    messages: [{ role: 'user', content: prompt }]
+                })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            return data.content[0].text;
+        }
+        
+        // Gemini API 呼叫（用於總評）
+        async function analyzeWithGeminiForSummary(prompt, apiKey) {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { maxOutputTokens: 4000, temperature: 0.7 }
+                })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            return data.candidates[0].content.parts[0].text;
+        }
+        
+        // OpenAI API 呼叫（用於總評）
+        async function analyzeWithOpenAIForSummary(prompt, apiKey) {
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o',
+                    max_tokens: 4000,
+                    temperature: 0.7,
+                    messages: [
+                        { role: 'system', content: '你是一位專業的台股投資分析師，負責彙整多方觀點撰寫總評報告。' },
+                        { role: 'user', content: prompt }
+                    ]
+                })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            return data.choices[0].message.content;
+        }
+        
+        // Claude API 呼叫
+        async function analyzeWithClaude(prompt, apiKey) {
+            updatePortfolioStatus('claude', 'analyzing', '分析中...');
+            
+            try {
+                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': apiKey,
+                        'anthropic-version': '2023-06-01',
+                        'anthropic-dangerous-direct-browser-access': 'true'
+                    },
+                    body: JSON.stringify({
+                        model: 'claude-sonnet-4-20250514',
+                        max_tokens: 4000,
+                        messages: [{ role: 'user', content: prompt }]
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return data.content[0].text;
+            } catch (error) {
+                updatePortfolioStatus('claude', 'error', '錯誤');
+                throw error;
+            }
+        }
+        
+        // Gemini API 呼叫
+        async function analyzeWithGemini(prompt, apiKey) {
+            updatePortfolioStatus('gemini', 'analyzing', '分析中...');
+            
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: {
+                            maxOutputTokens: 4000,
+                            temperature: 0.7
+                        }
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return data.candidates[0].content.parts[0].text;
+            } catch (error) {
+                updatePortfolioStatus('gemini', 'error', '錯誤');
+                throw error;
+            }
+        }
+        
+        // OpenAI API 呼叫
+        async function analyzeWithOpenAI(prompt, apiKey) {
+            updatePortfolioStatus('openai', 'analyzing', '分析中...');
+            
+            try {
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: 'gpt-4o',
+                        max_tokens: 4000,
+                        temperature: 0.7,
+                        messages: [
+                            { role: 'system', content: '你是一位專業的台股投資分析師。' },
+                            { role: 'user', content: prompt }
+                        ]
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return data.choices[0].message.content;
+            } catch (error) {
+                updatePortfolioStatus('openai', 'error', '錯誤');
+                throw error;
+            }
+        }
+        
+        // 更新狀態顯示
+        function updatePortfolioStatus(provider, status, text) {
+            const statusEl = document.getElementById(`portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}Status`);
+            if (statusEl) {
+                statusEl.className = 'ai-status ' + status;
+                statusEl.textContent = text;
+            }
+        }
+        
+        // 更新總評狀態
+        function updateFinalSummaryStatus(provider, status) {
+            const providerNames = { claude: 'Claude', gemini: 'Gemini', openai: 'GPT-4o' };
+            const summaryEl = document.getElementById('portfolioFinalSummary');
+            if (summaryEl) {
+                summaryEl.style.display = 'block';
+                const contentEl = document.getElementById('portfolioFinalContent');
+                if (contentEl && status === 'analyzing') {
+                    contentEl.innerHTML = `<div style="text-align: center; padding: 40px;">
+                        <div style="font-size: 2rem; animation: pulse 1.5s infinite;">📝</div>
+                        <div style="margin-top: 15px; color: var(--text-secondary);">${providerNames[provider]} 正在撰寫總評報告...</div>
+                    </div>`;
+                }
+            }
+        }
+        
+        // 顯示分析結果（含評分）
+        function displayPortfolioResult(provider, content, score) {
+            const contentEl = document.getElementById(`portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}Content`);
+            const verdictEl = document.getElementById(`portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}Verdict`);
+            const verdictValueEl = document.getElementById(`portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}VerdictValue`);
+            
+            if (contentEl) {
+                // 格式化內容，增加可讀性
+                let formattedContent = content
+                    .replace(/【(.+?)】/g, '\n<strong style="color: var(--accent-yellow); font-size: 1.05rem;">【$1】</strong>\n')
+                    .replace(/🔴\s*看多/g, '<span style="color: #ef4444; font-weight: 700;">🔴 看多</span>')
+                    .replace(/🟡\s*中性/g, '<span style="color: #f59e0b; font-weight: 700;">🟡 中性</span>')
+                    .replace(/🟢\s*看空/g, '<span style="color: #10b981; font-weight: 700;">🟢 看空</span>');
+                
+                contentEl.innerHTML = formattedContent;
+            }
+            
+            // 顯示評分
+            if (verdictEl && verdictValueEl && score !== null) {
+                verdictEl.style.display = 'block';
+                const scoreColor = score >= 70 ? '#ef4444' : (score >= 50 ? '#f59e0b' : '#10b981');
+                verdictValueEl.innerHTML = `<span style="font-size: 1.8rem; color: ${scoreColor};">${score}</span> <span style="font-size: 1rem;">分</span>`;
+                verdictValueEl.className = 'value';
+            }
+            
+            updatePortfolioStatus(provider, 'done', '完成');
+        }
+        
+        // 顯示錯誤
+        function displayPortfolioError(provider, errorMessage) {
+            const contentEl = document.getElementById(`portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}Content`);
+            if (contentEl) {
+                contentEl.innerHTML = `<div style="text-align: center; color: #ef4444; padding: 50px;">
+                    <div style="font-size: 2rem; margin-bottom: 10px;">❌</div>
+                    <div>分析失敗</div>
+                    <div style="font-size: 0.85rem; margin-top: 10px; color: var(--text-muted);">${errorMessage}</div>
+                </div>`;
+            }
+            updatePortfolioStatus(provider, 'error', '錯誤');
+        }
+        
+        // 顯示分數統計
+        function displayScoreSummary(aiResults) {
+            const summaryEl = document.getElementById('portfolioVoteSummary');
+            if (!summaryEl) return;
+            
+            summaryEl.style.display = 'block';
+            
+            // 更新分數顯示
+            const claudeScoreEl = document.getElementById('portfolioVoteBullish');
+            const geminiScoreEl = document.getElementById('portfolioVoteNeutral');
+            const openaiScoreEl = document.getElementById('portfolioVoteBearish');
+            
+            if (claudeScoreEl) {
+                claudeScoreEl.innerHTML = aiResults.claudeScore !== null ? 
+                    `<span style="color: ${getScoreColor(aiResults.claudeScore)};">${aiResults.claudeScore}</span>` : '-';
+            }
+            if (geminiScoreEl) {
+                geminiScoreEl.innerHTML = aiResults.geminiScore !== null ? 
+                    `<span style="color: ${getScoreColor(aiResults.geminiScore)};">${aiResults.geminiScore}</span>` : '-';
+            }
+            if (openaiScoreEl) {
+                openaiScoreEl.innerHTML = aiResults.openaiScore !== null ? 
+                    `<span style="color: ${getScoreColor(aiResults.openaiScore)};">${aiResults.openaiScore}</span>` : '-';
+            }
+            
+            // 顯示平均分
+            const conclusionEl = document.getElementById('portfolioVoteConclusion');
+            if (conclusionEl) {
+                const avgColor = getScoreColor(aiResults.averageScore);
+                conclusionEl.innerHTML = `📊 平均評分：<span style="font-size: 1.5rem; color: ${avgColor};">${aiResults.averageScore.toFixed(1)}</span> 分`;
+            }
+        }
+        
+        // 根據分數獲取顏色
+        function getScoreColor(score) {
+            if (score >= 70) return '#ef4444';  // 紅色 - 高分
+            if (score >= 50) return '#f59e0b';  // 黃色 - 中等
+            return '#10b981';  // 綠色 - 低分
+        }
+        
+        // 顯示最終總評
+        function displayFinalSummary(winnerAI, content, aiResults) {
+            const summaryEl = document.getElementById('portfolioFinalSummary');
+            const titleEl = document.getElementById('portfolioFinalTitle');
+            const contentEl = document.getElementById('portfolioFinalContent');
+            
+            if (!summaryEl) return;
+            
+            summaryEl.style.display = 'block';
+            
+            const aiNames = { claude: 'Claude', gemini: 'Gemini', openai: 'GPT-4o' };
+            const aiIcons = { claude: '🤖', gemini: '✨', openai: '🧠' };
+            const aiColors = { claude: '#d68946', gemini: '#4285f4', openai: '#10a37f' };
+            
+            // 計算與平均分的差距
+            const winnerScore = aiResults[`${winnerAI}Score`];
+            const diff = Math.abs(winnerScore - aiResults.averageScore).toFixed(1);
+            
+            if (titleEl) {
+                titleEl.innerHTML = `
+                    <span style="font-size: 1.8rem;">${aiIcons[winnerAI]}</span>
+                    【總評】由 <span style="color: ${aiColors[winnerAI]}; font-weight: 700;">${aiNames[winnerAI]}</span> 勝出撰寫
+                    <span style="font-size: 0.9rem; color: var(--text-muted); margin-left: 10px;">
+                        (評分 ${winnerScore} 分，最接近平均 ${aiResults.averageScore.toFixed(1)} 分，差距僅 ${diff} 分)
+                    </span>
+                `;
+            }
+            
+            if (contentEl) {
+                let formattedContent = content
+                    .replace(/【(.+?)】/g, '\n<strong style="color: var(--accent-yellow); font-size: 1.1rem;">【$1】</strong>\n')
+                    .replace(/(\d+)\s*分/g, '<span style="color: var(--accent-blue); font-weight: 600;">$1 分</span>');
+                
+                contentEl.innerHTML = formattedContent;
+            }
+            
+            showToast(`✅ ${aiNames[winnerAI]} 完成總評撰寫！`);
+        }
     </script>
+
+    <!-- 開盤/收盤霓虹彈窗 -->
+    <div id="marketPopupOverlay" class="market-popup-overlay" onclick="hideMarketPopup()"></div>
+    <div id="marketPopup" class="market-popup">
+        <div class="market-popup-header">
+            <div class="market-popup-title">📊 台股市場通知</div>
+            <button class="market-popup-close" onclick="hideMarketPopup()">✕</button>
+        </div>
+        <div id="marketPopupIcon" class="market-popup-icon">🔔</div>
+        <div id="marketPopupStatus" class="market-popup-status opening">即將開盤</div>
+        <div id="marketPopupCountdown" class="market-popup-countdown">05:00</div>
+        <div class="market-popup-progress">
+            <div id="marketPopupProgressBar" class="market-popup-progress-bar" style="width: 0%;"></div>
+        </div>
+        <div id="marketPopupMessage" class="market-popup-message">台股即將開盤，準備好了嗎？</div>
+    </div>
 </body>
 </html>
