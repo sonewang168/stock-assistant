@@ -6092,19 +6092,24 @@ async function getRealtimeWebLinkWithHoldings() {
             continue;
           }
           
-          const profitChg = cost > 0 ? ((price - cost) / cost * 100) : 0;
-          const profitColor = profitChg > 0 ? '#EF4444' : (profitChg < 0 ? '#22C55E' : '#888888');
-          const priceColor = price > prev ? '#EF4444' : (price < prev ? '#22C55E' : '#888888');
+          // 計算今日漲跌（價差）
+          const dayChange = price - prev;
+          const priceColor = dayChange > 0 ? '#EF4444' : (dayChange < 0 ? '#22C55E' : '#888888');
+          const arrow = dayChange > 0 ? '▲' : (dayChange < 0 ? '▼' : '－');
+          
+          // 格式化價格（保留小數，百元以上1位，百元以下2位）
+          const formatPrice = (p) => p >= 100 ? p.toFixed(1) : p.toFixed(2);
           
           allStockLines.push({
             type: 'box',
             layout: 'horizontal',
             margin: 'md',
             contents: [
-              { type: 'text', text: name, size: 'sm', color: '#ffffff', flex: 2 },
-              { type: 'text', text: prev.toFixed(0), size: 'xs', color: '#888888', flex: 2, align: 'end' },
-              { type: 'text', text: price.toFixed(0), size: 'sm', color: priceColor, flex: 2, align: 'end', weight: 'bold' },
-              { type: 'text', text: `${profitChg >= 0 ? '+' : ''}${profitChg.toFixed(1)}%`, size: 'xs', color: profitColor, flex: 2, align: 'end' }
+              { type: 'text', text: name, size: 'xs', color: '#ffffff', flex: 2 },
+              { type: 'text', text: cost > 0 ? formatPrice(cost) : '-', size: 'xxs', color: '#888888', flex: 2, align: 'end' },
+              { type: 'text', text: formatPrice(prev), size: 'xxs', color: '#888888', flex: 2, align: 'end' },
+              { type: 'text', text: formatPrice(price), size: 'xs', color: priceColor, flex: 2, align: 'end', weight: 'bold' },
+              { type: 'text', text: `${arrow}${Math.abs(dayChange).toFixed(1)}`, size: 'xxs', color: priceColor, flex: 2, align: 'end' }
             ]
           });
         } catch (e) {
@@ -6124,9 +6129,10 @@ async function getRealtimeWebLinkWithHoldings() {
         layout: 'horizontal',
         contents: [
           { type: 'text', text: '股票', size: 'xxs', color: '#888888', flex: 2 },
+          { type: 'text', text: '成本', size: 'xxs', color: '#888888', flex: 2, align: 'end' },
           { type: 'text', text: '昨收', size: 'xxs', color: '#888888', flex: 2, align: 'end' },
           { type: 'text', text: '現價', size: 'xxs', color: '#888888', flex: 2, align: 'end' },
-          { type: 'text', text: '損益', size: 'xxs', color: '#888888', flex: 2, align: 'end' }
+          { type: 'text', text: '漲跌', size: 'xxs', color: '#888888', flex: 2, align: 'end' }
         ]
       };
       
@@ -6228,6 +6234,9 @@ async function getRealtimeWebLinkWithHoldings() {
     const defaultStocks = ['2330', '2454', '2317', '2881', '3231'];
     const stockLines = [];
     
+    // 格式化價格（保留小數，百元以上1位，百元以下2位）
+    const formatPrice = (p) => p >= 100 ? p.toFixed(1) : p.toFixed(2);
+    
     for (const sid of defaultStocks) {
       try {
         const d = await stockService.getRealtimePrice(sid);
@@ -6235,18 +6244,19 @@ async function getRealtimeWebLinkWithHoldings() {
         
         const price = parseFloat(d.price);
         const prev = parseFloat(d.prevClose) || parseFloat(d.yesterdayPrice) || price;
-        const chg = prev > 0 ? ((price - prev) / prev * 100) : 0;
-        const color = chg > 0 ? '#EF4444' : (chg < 0 ? '#22C55E' : '#888888');
+        const dayChange = price - prev;
+        const color = dayChange > 0 ? '#EF4444' : (dayChange < 0 ? '#22C55E' : '#888888');
+        const arrow = dayChange > 0 ? '▲' : (dayChange < 0 ? '▼' : '－');
         
         stockLines.push({
           type: 'box',
           layout: 'horizontal',
           margin: 'md',
           contents: [
-            { type: 'text', text: (d.name || sid).substring(0, 4), size: 'sm', color: '#ffffff', flex: 2 },
-            { type: 'text', text: prev.toFixed(0), size: 'xs', color: '#888888', flex: 2, align: 'end' },
-            { type: 'text', text: price.toFixed(0), size: 'sm', color: color, flex: 2, align: 'end', weight: 'bold' },
-            { type: 'text', text: `${chg >= 0 ? '+' : ''}${chg.toFixed(1)}%`, size: 'xs', color: color, flex: 2, align: 'end' }
+            { type: 'text', text: (d.name || sid).substring(0, 4), size: 'xs', color: '#ffffff', flex: 3 },
+            { type: 'text', text: formatPrice(prev), size: 'xxs', color: '#888888', flex: 2, align: 'end' },
+            { type: 'text', text: formatPrice(price), size: 'xs', color: color, flex: 2, align: 'end', weight: 'bold' },
+            { type: 'text', text: `${arrow}${Math.abs(dayChange).toFixed(1)}`, size: 'xxs', color: color, flex: 2, align: 'end' }
           ]
         });
       } catch (e) {}
@@ -6274,7 +6284,7 @@ async function getRealtimeWebLinkWithHoldings() {
           contents: [
             { type: 'box', layout: 'horizontal',
               contents: [
-                { type: 'text', text: '股票', size: 'xxs', color: '#888888', flex: 2 },
+                { type: 'text', text: '股票', size: 'xxs', color: '#888888', flex: 3 },
                 { type: 'text', text: '昨收', size: 'xxs', color: '#888888', flex: 2, align: 'end' },
                 { type: 'text', text: '現價', size: 'xxs', color: '#888888', flex: 2, align: 'end' },
                 { type: 'text', text: '漲跌', size: 'xxs', color: '#888888', flex: 2, align: 'end' }
