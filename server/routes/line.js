@@ -6055,17 +6055,21 @@ async function getRealtimeWebLinkWithHoldings() {
   let holdingsBubbles = [];
   
   try {
-    // 查詢持股資料（使用與「持股」指令相同的條件）
+    // 查詢持股資料（只查詢已得標且未賣出的）
+    console.log('📊 開始查詢持股即時報價...');
     const result = await pool.query(`
-      SELECT stock_id, stock_name, buy_price, won_price, lots, odd_shares 
-      FROM holdings 
+      SELECT * FROM holdings 
       WHERE user_id = 'default' 
+        AND is_won = true
         AND (is_sold = false OR is_sold IS NULL)
       ORDER BY updated_at DESC
       LIMIT 10
     `);
     
-    console.log('📊 持股查詢結果:', result.rows.length, '筆');
+    console.log('📊 持股即時報價查詢結果:', result.rows.length, '筆');
+    if (result.rows.length > 0) {
+      console.log('📊 持股清單:', result.rows.map(r => `${r.stock_name}(${r.stock_id})`).join(', '));
+    }
     
     if (result.rows.length > 0) {
       const allStockLines = [];
@@ -6073,13 +6077,20 @@ async function getRealtimeWebLinkWithHoldings() {
       for (const row of result.rows) {
         try {
           const stockData = await stockService.getRealtimePrice(row.stock_id);
-          if (!stockData) continue;
+          console.log(`📊 ${row.stock_id} 即時價格:`, stockData?.price, stockData?.prevClose);
           
-          const name = (row.stock_name || stockData.name || row.stock_id).substring(0, 4);
-          const price = parseFloat(stockData.price) || 0;
-          const prev = parseFloat(stockData.prevClose) || parseFloat(stockData.yesterdayPrice) || price;
-          // 成本價：優先 won_price（得標價），其次 buy_price
-          const cost = parseFloat(row.won_price) || parseFloat(row.buy_price) || 0;
+          const name = (row.stock_name || stockData?.name || row.stock_id).substring(0, 4);
+          // 非交易時間可能沒有即時價格，使用昨收價
+          const price = parseFloat(stockData?.price) || parseFloat(stockData?.prevClose) || parseFloat(stockData?.yesterdayPrice) || 0;
+          const prev = parseFloat(stockData?.prevClose) || parseFloat(stockData?.yesterdayPrice) || price;
+          // 成本價：優先 won_price（得標價），其次 bid_price（競標價）
+          const cost = parseFloat(row.won_price) || parseFloat(row.bid_price) || 0;
+          
+          // 如果沒有價格資料，跳過
+          if (price === 0) {
+            console.log(`📊 ${row.stock_id} 無價格資料，跳過`);
+            continue;
+          }
           
           const profitChg = cost > 0 ? ((price - cost) / cost * 100) : 0;
           const profitColor = profitChg > 0 ? '#EF4444' : (profitChg < 0 ? '#22C55E' : '#888888');
@@ -6100,6 +6111,8 @@ async function getRealtimeWebLinkWithHoldings() {
           console.error('取得股價失敗:', row.stock_id);
         }
       }
+      
+      console.log('📊 成功取得股價的持股數:', allStockLines.length);
       
       // 分頁：第一頁 1-5 筆，第二頁 6-10 筆
       const page1 = allStockLines.slice(0, 5);
@@ -6206,12 +6219,12 @@ async function getRealtimeWebLinkWithHoldings() {
       }
     }
   } catch (e) {
-    console.error('持股即時報價錯誤:', e.message);
+    console.error('持股即時報價錯誤:', e.message, e.stack);
   }
   
   // 備援：熱門股票
   if (holdingsBubbles.length === 0) {
-    console.log('📊 使用熱門股票備援');
+    console.log('📊 持股卡片為空，使用熱門股票備援');
     const defaultStocks = ['2330', '2454', '2317', '2881', '3231'];
     const stockLines = [];
     
