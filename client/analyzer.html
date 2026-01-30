@@ -10570,40 +10570,47 @@
         async function loadHeatmapFromIndex() {
             const grid = document.getElementById('heatmapGrid');
             
-            // 類股指數代碼對照表
-            const sectorIndices = [
-                { code: 'IX0001', name: '水泥類' },
-                { code: 'IX0002', name: '食品類' },
-                { code: 'IX0003', name: '塑膠類' },
-                { code: 'IX0004', name: '紡織類' },
-                { code: 'IX0005', name: '電機類' },
-                { code: 'IX0006', name: '電器類' },
-                { code: 'IX0008', name: '玻陶類' },
-                { code: 'IX0009', name: '造紙類' },
-                { code: 'IX0010', name: '鋼鐵類' },
-                { code: 'IX0011', name: '橡膠類' },
-                { code: 'IX0012', name: '汽車類' },
-                { code: 'IX0013', name: '營建類' },
-                { code: 'IX0014', name: '航運類' },
-                { code: 'IX0015', name: '觀光類' },
-                { code: 'IX0016', name: '金融類' },
-                { code: 'IX0017', name: '貿易類' },
-                { code: 'IX0018', name: '油電類' },
-                { code: 'IX0019', name: '化工類' },
-                { code: 'IX0020', name: '生技類' },
-                { code: 'IX0021', name: '半導體' },
-                { code: 'IX0022', name: '電腦週邊' },
-                { code: 'IX0023', name: '光電類' },
-                { code: 'IX0024', name: '通信網路' },
-                { code: 'IX0025', name: '電子零組' },
-                { code: 'IX0026', name: '電子通路' },
-                { code: 'IX0027', name: '資訊服務' },
-                { code: 'IX0028', name: '其他電子' },
-                { code: 'IX0029', name: '其他類' }
-            ];
+            // 類股指數代碼對照表（完整版）
+            const sectorIndices = {
+                'IX0001': '水泥類',
+                'IX0002': '食品類',
+                'IX0003': '塑膠類',
+                'IX0004': '紡織類',
+                'IX0005': '電機類',
+                'IX0006': '電器類',
+                'IX0007': '化學生技醫療',
+                'IX0008': '玻陶類',
+                'IX0009': '造紙類',
+                'IX0010': '鋼鐵類',
+                'IX0011': '橡膠類',
+                'IX0012': '汽車類',
+                'IX0013': '營建類',
+                'IX0014': '航運類',
+                'IX0015': '觀光類',
+                'IX0016': '金融類',
+                'IX0017': '貿易類',
+                'IX0018': '油電類',
+                'IX0019': '化工類',
+                'IX0020': '生技類',
+                'IX0021': '半導體',
+                'IX0022': '電腦週邊',
+                'IX0023': '光電類',
+                'IX0024': '通信網路',
+                'IX0025': '電子零組',
+                'IX0026': '電子通路',
+                'IX0027': '資訊服務',
+                'IX0028': '其他電子',
+                'IX0029': '其他類',
+                'IX0030': '電子類',
+                'IX0031': '文創類',
+                'IX0032': '農業類',
+                'IX0033': '電商類',
+                'IX0099': '其他'
+            };
             
             // 嘗試獲取類股指數即時報價
-            const indexUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${sectorIndices.map(s => `tse_${s.code}.tw`).join('|')}&json=1&delay=0&_=${Date.now()}`;
+            const codes = Object.keys(sectorIndices);
+            const indexUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${codes.map(c => `tse_${c}.tw`).join('|')}&json=1&delay=0&_=${Date.now()}`;
             
             try {
                 let data = null;
@@ -10611,21 +10618,31 @@
                     const response = await fetchWithTimeout(indexUrl, 8000);
                     data = await response.json();
                 } catch (e) {
+                    console.log('類股指數直接請求失敗，使用 proxy...');
                     data = await fetchWithProxy(indexUrl);
                 }
                 
                 if (data && data.msgArray && data.msgArray.length > 0) {
-                    const sectors = data.msgArray.map(item => {
-                        const price = parseFloat(item.z) || parseFloat(item.pz) || 0;
-                        const prevClose = parseFloat(item.y) || 0;
-                        const change = prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0;
-                        const sectorInfo = sectorIndices.find(s => s.code === item.c) || {};
-                        
-                        return {
-                            name: sectorInfo.name || item.n || item.c,
-                            change: change
-                        };
-                    }).filter(s => !isNaN(s.change)).sort((a, b) => b.change - a.change);
+                    const sectors = data.msgArray
+                        .map(item => {
+                            const price = parseFloat(item.z) || parseFloat(item.pz) || 0;
+                            const prevClose = parseFloat(item.y) || 0;
+                            const change = prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0;
+                            const name = sectorIndices[item.c] || '';
+                            
+                            return {
+                                code: item.c,
+                                name: name,
+                                change: change,
+                                price: price,
+                                prevClose: prevClose
+                            };
+                        })
+                        // 🔥 過濾掉沒有名稱或價格為 0 的項目
+                        .filter(s => s.name && s.price > 0 && !isNaN(s.change))
+                        .sort((a, b) => b.change - a.change);
+                    
+                    console.log(`✅ 類股資料載入完成，共 ${sectors.length} 個類股`);
                     
                     if (sectors.length > 0) {
                         renderHeatmapGrid(sectors);
