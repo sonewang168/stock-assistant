@@ -319,6 +319,21 @@ async function handleCommand(message, userId) {
     'help': () => getHelpReply()
   };
   
+  // 🆕 持股新增指令：持股新增 2330 2 980
+  if (/^持股新增\s+\d{4,6}/.test(msg)) {
+    return await addHolding(msg);
+  }
+  
+  // 🆕 持股修改指令：持股修改 2330 3 985
+  if (/^持股修改\s+\d{4,6}/.test(msg)) {
+    return await modifyHolding(msg);
+  }
+  
+  // 🆕 持股刪除指令：持股刪除 2330
+  if (/^持股刪除\s+\d{4,6}/.test(msg)) {
+    return await deleteHolding(msg);
+  }
+  
   // 賣出指令：賣出 股票代碼 價格
   if (/^賣出\s*\d{4,6}/.test(msg)) {
     return await markAsSold(msg);
@@ -1135,6 +1150,271 @@ async function callOpenAIForAnalysis(apiKey, prompt) {
 }
 
 /**
+ * 🆕 持股新增：持股新增 2330 2 980
+ */
+async function addHolding(msg) {
+  try {
+    // 解析指令：持股新增 股票代碼 張數 價格
+    const match = msg.match(/^持股新增\s+(\d{4,6})\s+(\d+)\s+([\d.]+)/);
+    if (!match) {
+      return { type: 'text', text: '❌ 格式錯誤\n\n正確格式：持股新增 股票代碼 張數 價格\n範例：持股新增 2330 2 980' };
+    }
+    
+    const [, stockId, lotsStr, priceStr] = match;
+    const lots = parseInt(lotsStr);
+    const price = parseFloat(priceStr);
+    
+    if (lots <= 0 || price <= 0) {
+      return { type: 'text', text: '❌ 張數和價格必須大於 0' };
+    }
+    
+    // 查詢股票名稱
+    const stockData = await stockService.getRealtimePrice(stockId);
+    const stockName = stockData?.name || stockId;
+    
+    // 檢查是否已存在
+    const existing = await pool.query(
+      `SELECT * FROM holdings WHERE stock_id = $1 AND user_id = 'default' AND is_won = true AND (is_sold = false OR is_sold IS NULL)`,
+      [stockId]
+    );
+    
+    if (existing.rows.length > 0) {
+      return { 
+        type: 'text', 
+        text: `⚠️ ${stockName}(${stockId}) 已存在持股紀錄\n\n如需修改請使用：\n持股修改 ${stockId} ${lots} ${price}` 
+      };
+    }
+    
+    // 新增持股
+    await pool.query(`
+      INSERT INTO holdings (user_id, stock_id, stock_name, lots, won_price, is_won, created_at, updated_at)
+      VALUES ('default', $1, $2, $3, $4, true, NOW(), NOW())
+    `, [stockId, stockName, lots, price]);
+    
+    return {
+      type: 'flex',
+      altText: `✅ 已新增 ${stockName} ${lots}張`,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#1a1a2e',
+          paddingAll: '20px',
+          contents: [
+            { type: 'text', text: '✅ 持股新增成功', size: 'lg', weight: 'bold', color: '#10B981', align: 'center' },
+            { type: 'separator', margin: 'lg', color: '#333' },
+            { type: 'box', layout: 'horizontal', margin: 'lg',
+              contents: [
+                { type: 'text', text: '股票', size: 'sm', color: '#9CA3AF', flex: 2 },
+                { type: 'text', text: `${stockName} (${stockId})`, size: 'sm', color: '#ffffff', flex: 3, align: 'end' }
+              ]
+            },
+            { type: 'box', layout: 'horizontal', margin: 'sm',
+              contents: [
+                { type: 'text', text: '張數', size: 'sm', color: '#9CA3AF', flex: 2 },
+                { type: 'text', text: `${lots} 張`, size: 'sm', color: '#ffffff', flex: 3, align: 'end' }
+              ]
+            },
+            { type: 'box', layout: 'horizontal', margin: 'sm',
+              contents: [
+                { type: 'text', text: '成本價', size: 'sm', color: '#9CA3AF', flex: 2 },
+                { type: 'text', text: `$${price}`, size: 'sm', color: '#F59E0B', flex: 3, align: 'end', weight: 'bold' }
+              ]
+            },
+            { type: 'box', layout: 'horizontal', margin: 'sm',
+              contents: [
+                { type: 'text', text: '總成本', size: 'sm', color: '#9CA3AF', flex: 2 },
+                { type: 'text', text: `$${(lots * 1000 * price).toLocaleString()}`, size: 'sm', color: '#ffffff', flex: 3, align: 'end' }
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          paddingAll: '10px',
+          backgroundColor: '#111827',
+          contents: [
+            { type: 'button', style: 'secondary', height: 'sm',
+              action: { type: 'message', label: '📋 查看持股', text: '持股' }
+            }
+          ]
+        }
+      }
+    };
+  } catch (error) {
+    console.error('新增持股錯誤:', error);
+    return { type: 'text', text: `❌ 新增失敗: ${error.message}` };
+  }
+}
+
+/**
+ * 🆕 持股修改：持股修改 2330 3 985
+ */
+async function modifyHolding(msg) {
+  try {
+    // 解析指令：持股修改 股票代碼 張數 價格
+    const match = msg.match(/^持股修改\s+(\d{4,6})\s+(\d+)\s+([\d.]+)/);
+    if (!match) {
+      return { type: 'text', text: '❌ 格式錯誤\n\n正確格式：持股修改 股票代碼 張數 價格\n範例：持股修改 2330 3 985' };
+    }
+    
+    const [, stockId, lotsStr, priceStr] = match;
+    const lots = parseInt(lotsStr);
+    const price = parseFloat(priceStr);
+    
+    if (lots <= 0 || price <= 0) {
+      return { type: 'text', text: '❌ 張數和價格必須大於 0' };
+    }
+    
+    // 查詢現有持股
+    const existing = await pool.query(
+      `SELECT * FROM holdings WHERE stock_id = $1 AND user_id = 'default' AND is_won = true AND (is_sold = false OR is_sold IS NULL)`,
+      [stockId]
+    );
+    
+    if (existing.rows.length === 0) {
+      return { 
+        type: 'text', 
+        text: `❌ 找不到 ${stockId} 的持股紀錄\n\n請先使用：\n持股新增 ${stockId} ${lots} ${price}` 
+      };
+    }
+    
+    const oldData = existing.rows[0];
+    const stockName = oldData.stock_name || stockId;
+    
+    // 更新持股
+    await pool.query(`
+      UPDATE holdings 
+      SET lots = $1, won_price = $2, updated_at = NOW()
+      WHERE stock_id = $3 AND user_id = 'default' AND is_won = true AND (is_sold = false OR is_sold IS NULL)
+    `, [lots, price, stockId]);
+    
+    return {
+      type: 'flex',
+      altText: `✅ 已修改 ${stockName}`,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#1a1a2e',
+          paddingAll: '20px',
+          contents: [
+            { type: 'text', text: '✏️ 持股修改成功', size: 'lg', weight: 'bold', color: '#F59E0B', align: 'center' },
+            { type: 'text', text: `${stockName} (${stockId})`, size: 'md', color: '#ffffff', align: 'center', margin: 'md' },
+            { type: 'separator', margin: 'lg', color: '#333' },
+            { type: 'box', layout: 'horizontal', margin: 'lg',
+              contents: [
+                { type: 'text', text: '張數', size: 'sm', color: '#9CA3AF', flex: 2 },
+                { type: 'text', text: `${oldData.lots || 0} → ${lots} 張`, size: 'sm', color: '#60A5FA', flex: 3, align: 'end' }
+              ]
+            },
+            { type: 'box', layout: 'horizontal', margin: 'sm',
+              contents: [
+                { type: 'text', text: '成本價', size: 'sm', color: '#9CA3AF', flex: 2 },
+                { type: 'text', text: `$${oldData.won_price || 0} → $${price}`, size: 'sm', color: '#60A5FA', flex: 3, align: 'end' }
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          paddingAll: '10px',
+          backgroundColor: '#111827',
+          contents: [
+            { type: 'button', style: 'secondary', height: 'sm',
+              action: { type: 'message', label: '📋 查看持股', text: '持股' }
+            }
+          ]
+        }
+      }
+    };
+  } catch (error) {
+    console.error('修改持股錯誤:', error);
+    return { type: 'text', text: `❌ 修改失敗: ${error.message}` };
+  }
+}
+
+/**
+ * 🆕 持股刪除：持股刪除 2330
+ */
+async function deleteHolding(msg) {
+  try {
+    // 解析指令：持股刪除 股票代碼
+    const match = msg.match(/^持股刪除\s+(\d{4,6})/);
+    if (!match) {
+      return { type: 'text', text: '❌ 格式錯誤\n\n正確格式：持股刪除 股票代碼\n範例：持股刪除 2330' };
+    }
+    
+    const stockId = match[1];
+    
+    // 查詢現有持股
+    const existing = await pool.query(
+      `SELECT * FROM holdings WHERE stock_id = $1 AND user_id = 'default' AND is_won = true AND (is_sold = false OR is_sold IS NULL)`,
+      [stockId]
+    );
+    
+    if (existing.rows.length === 0) {
+      return { type: 'text', text: `❌ 找不到 ${stockId} 的持股紀錄` };
+    }
+    
+    const oldData = existing.rows[0];
+    const stockName = oldData.stock_name || stockId;
+    
+    // 刪除持股
+    await pool.query(`
+      DELETE FROM holdings 
+      WHERE stock_id = $1 AND user_id = 'default' AND is_won = true AND (is_sold = false OR is_sold IS NULL)
+    `, [stockId]);
+    
+    return {
+      type: 'flex',
+      altText: `🗑️ 已刪除 ${stockName}`,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#1a1a2e',
+          paddingAll: '20px',
+          contents: [
+            { type: 'text', text: '🗑️ 持股已刪除', size: 'lg', weight: 'bold', color: '#EF4444', align: 'center' },
+            { type: 'text', text: `${stockName} (${stockId})`, size: 'md', color: '#ffffff', align: 'center', margin: 'md' },
+            { type: 'separator', margin: 'lg', color: '#333' },
+            { type: 'box', layout: 'horizontal', margin: 'lg',
+              contents: [
+                { type: 'text', text: '已刪除', size: 'sm', color: '#9CA3AF', flex: 2 },
+                { type: 'text', text: `${oldData.lots || 0} 張 @ $${oldData.won_price || 0}`, size: 'sm', color: '#EF4444', flex: 3, align: 'end' }
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          paddingAll: '10px',
+          backgroundColor: '#111827',
+          contents: [
+            { type: 'button', style: 'secondary', height: 'sm',
+              action: { type: 'message', label: '📋 查看持股', text: '持股' }
+            }
+          ]
+        }
+      }
+    };
+  } catch (error) {
+    console.error('刪除持股錯誤:', error);
+    return { type: 'text', text: `❌ 刪除失敗: ${error.message}` };
+  }
+}
+
+/**
  * 💼 取得持股 Flex Message（含手續費詳細資訊）
  */
 async function getPortfolioFlex() {
@@ -1189,7 +1469,7 @@ async function getPortfolioFlex() {
   if (result.rows.length === 0) {
     return { 
       type: 'text', 
-      text: '📭 目前沒有持股紀錄\n\n請在網頁版「持股管理」新增持股\n或輸入「持股新增 股票代碼」快速新增' 
+      text: '📭 目前沒有持股紀錄\n\n💡 LINE 快速新增：\n持股新增 2330 2 980\n（股票代碼 張數 價格）\n\n📋 輸入「教學持股」看完整指令' 
     };
   }
   
@@ -7631,67 +7911,128 @@ function getTutorialHoldings() {
     type: 'flex',
     altText: '💼 持股管理教學',
     contents: {
-      type: 'bubble',
-      size: 'mega',
-      header: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          { type: 'text', text: '💼 持股管理', size: 'xl', weight: 'bold', color: '#ffffff' }
-        ],
-        backgroundColor: '#0984E3',
-        paddingAll: '20px'
-      },
-      body: {
-        type: 'box',
-        layout: 'vertical',
-        contents: [
-          { type: 'text', text: '📌 查看持股', weight: 'bold', size: 'md' },
-          { type: 'box', layout: 'vertical', margin: 'md', backgroundColor: '#f5f5f5', cornerRadius: 'md', paddingAll: '10px',
+      type: 'carousel',
+      contents: [
+        {
+          type: 'bubble',
+          size: 'mega',
+          header: {
+            type: 'box',
+            layout: 'vertical',
             contents: [
-              { type: 'text', text: '持股', size: 'sm', color: '#1DB446' },
-              { type: 'text', text: '→ 顯示所有持股與損益', size: 'xs', color: '#888888' }
-            ]
+              { type: 'text', text: '💼 持股管理', size: 'xl', weight: 'bold', color: '#ffffff' },
+              { type: 'text', text: '➡️ 滑動看更多指令', size: 'xs', color: '#ffffffcc', margin: 'sm' }
+            ],
+            backgroundColor: '#0984E3',
+            paddingAll: '20px'
           },
-          { type: 'separator', margin: 'lg' },
-          { type: 'text', text: '📌 新增持股', weight: 'bold', size: 'md', margin: 'lg' },
-          { type: 'text', text: '在網頁版「持股管理」頁面', size: 'sm', color: '#666666', margin: 'sm' },
-          { type: 'text', text: '① 點擊「＋新增」按鈕', size: 'sm', color: '#666666' },
-          { type: 'text', text: '② 輸入股票代碼、張數、成本價', size: 'sm', color: '#666666' },
-          { type: 'text', text: '③ 勾選「已得標」並儲存', size: 'sm', color: '#666666' },
-          { type: 'separator', margin: 'lg' },
-          { type: 'text', text: '📌 標記賣出', weight: 'bold', size: 'md', margin: 'lg' },
-          { type: 'box', layout: 'vertical', margin: 'md', backgroundColor: '#f5f5f5', cornerRadius: 'md', paddingAll: '10px',
+          body: {
+            type: 'box',
+            layout: 'vertical',
             contents: [
-              { type: 'text', text: '賣出 2330 100', size: 'sm', color: '#1DB446' },
-              { type: 'text', text: '→ 將 2330 標記為已賣出（$100）', size: 'xs', color: '#888888' },
-              { type: 'text', text: '自動計算手續費+證交稅', size: 'xs', color: '#888888' }
-            ]
+              { type: 'text', text: '📋 查看持股', weight: 'bold', size: 'md' },
+              { type: 'box', layout: 'vertical', margin: 'sm', backgroundColor: '#f5f5f5', cornerRadius: 'md', paddingAll: '10px',
+                contents: [
+                  { type: 'text', text: '持股', size: 'sm', color: '#1DB446' },
+                  { type: 'text', text: '→ 顯示所有持股與損益', size: 'xs', color: '#888888' }
+                ]
+              },
+              { type: 'separator', margin: 'md' },
+              { type: 'text', text: '➕ 新增持股', weight: 'bold', size: 'md', margin: 'md' },
+              { type: 'box', layout: 'vertical', margin: 'sm', backgroundColor: '#E8F8F5', cornerRadius: 'md', paddingAll: '10px',
+                contents: [
+                  { type: 'text', text: '持股新增 2330 2 980', size: 'sm', color: '#00B894' },
+                  { type: 'text', text: '→ 新增台積電 2張 成本980元', size: 'xs', color: '#888888' }
+                ]
+              },
+              { type: 'separator', margin: 'md' },
+              { type: 'text', text: '✏️ 修改持股', weight: 'bold', size: 'md', margin: 'md' },
+              { type: 'box', layout: 'vertical', margin: 'sm', backgroundColor: '#FEF9E7', cornerRadius: 'md', paddingAll: '10px',
+                contents: [
+                  { type: 'text', text: '持股修改 2330 3 985', size: 'sm', color: '#F39C12' },
+                  { type: 'text', text: '→ 修改為 3張 成本985元', size: 'xs', color: '#888888' }
+                ]
+              }
+            ],
+            paddingAll: '15px'
           },
-          { type: 'separator', margin: 'lg' },
-          { type: 'text', text: '📌 查看已賣出', weight: 'bold', size: 'md', margin: 'lg' },
-          { type: 'box', layout: 'vertical', margin: 'md', backgroundColor: '#f5f5f5', cornerRadius: 'md', paddingAll: '10px',
+          footer: {
+            type: 'box',
+            layout: 'horizontal',
             contents: [
-              { type: 'text', text: '已賣出', size: 'sm', color: '#1DB446' },
-              { type: 'text', text: '→ 顯示所有已賣出紀錄與總損益', size: 'xs', color: '#888888' }
-            ]
+              { type: 'button', style: 'primary', color: '#0984E3', height: 'sm',
+                action: { type: 'message', label: '📋 查看持股', text: '持股' }
+              }
+            ],
+            paddingAll: '10px'
           }
-        ],
-        paddingAll: '20px'
-      },
-      footer: {
-        type: 'box',
-        layout: 'horizontal',
-        contents: [
-          { type: 'button', style: 'primary', color: '#0984E3', height: 'sm',
-            action: { type: 'message', label: '查看持股', text: '持股' }
+        },
+        {
+          type: 'bubble',
+          size: 'mega',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              { type: 'text', text: '💼 持股管理', size: 'xl', weight: 'bold', color: '#ffffff' },
+              { type: 'text', text: '賣出 / 刪除 / 即時報價', size: 'xs', color: '#ffffffcc', margin: 'sm' }
+            ],
+            backgroundColor: '#E17055',
+            paddingAll: '20px'
           },
-          { type: 'button', style: 'secondary', height: 'sm', margin: 'sm',
-            action: { type: 'message', label: '返回教學', text: '教學' }
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              { type: 'text', text: '🗑️ 刪除持股', weight: 'bold', size: 'md' },
+              { type: 'box', layout: 'vertical', margin: 'sm', backgroundColor: '#FDEDEC', cornerRadius: 'md', paddingAll: '10px',
+                contents: [
+                  { type: 'text', text: '持股刪除 2330', size: 'sm', color: '#E74C3C' },
+                  { type: 'text', text: '→ 刪除台積電持股紀錄', size: 'xs', color: '#888888' }
+                ]
+              },
+              { type: 'separator', margin: 'md' },
+              { type: 'text', text: '💰 賣出持股', weight: 'bold', size: 'md', margin: 'md' },
+              { type: 'box', layout: 'vertical', margin: 'sm', backgroundColor: '#f5f5f5', cornerRadius: 'md', paddingAll: '10px',
+                contents: [
+                  { type: 'text', text: '賣出 2330 1050', size: 'sm', color: '#9B59B6' },
+                  { type: 'text', text: '→ 賣出價1050，自動算手續費', size: 'xs', color: '#888888' }
+                ]
+              },
+              { type: 'separator', margin: 'md' },
+              { type: 'text', text: '📊 即時報價', weight: 'bold', size: 'md', margin: 'md' },
+              { type: 'box', layout: 'vertical', margin: 'sm', backgroundColor: '#EBF5FB', cornerRadius: 'md', paddingAll: '10px',
+                contents: [
+                  { type: 'text', text: '即時報價', size: 'sm', color: '#3498DB' },
+                  { type: 'text', text: '→ 查看持股即時價格與漲跌', size: 'xs', color: '#888888' }
+                ]
+              },
+              { type: 'separator', margin: 'md' },
+              { type: 'text', text: '📜 已賣出紀錄', weight: 'bold', size: 'md', margin: 'md' },
+              { type: 'box', layout: 'vertical', margin: 'sm', backgroundColor: '#f5f5f5', cornerRadius: 'md', paddingAll: '10px',
+                contents: [
+                  { type: 'text', text: '已賣出', size: 'sm', color: '#1DB446' },
+                  { type: 'text', text: '→ 顯示所有已賣出紀錄', size: 'xs', color: '#888888' }
+                ]
+              }
+            ],
+            paddingAll: '15px'
+          },
+          footer: {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'button', style: 'primary', color: '#3498DB', height: 'sm',
+                action: { type: 'message', label: '📊 即時報價', text: '即時報價' }
+              },
+              { type: 'button', style: 'secondary', height: 'sm', margin: 'sm',
+                action: { type: 'message', label: '返回教學', text: '教學' }
+              }
+            ],
+            paddingAll: '10px'
           }
-        ],
-        paddingAll: '10px'
-      }
+        }
+      ]
     }
   };
 }
@@ -10940,22 +11281,26 @@ function getHelpReply() {
     `🔍 查詢：2330、台積電現在多少\n` +
     `📈 大盤：大盤、美股、熱門\n` +
     `📊 分析：分析 2330、綜合分析\n` +
-    `🏦 籌碼：籌碼 2330、外資買超\n` +
-    `💼 持股：持股、收盤摘要\n` +
-    `🎯 停損：停利 2330 1100\n\n` +
+    `🏦 籌碼：籌碼 2330、外資買超\n\n` +
+    `💼 持股管理\n` +
+    `━━━━━━━━━━━━━━\n` +
+    `📋 持股（查看持股）\n` +
+    `➕ 持股新增 2330 2 980\n` +
+    `✏️ 持股修改 2330 3 985\n` +
+    `🗑️ 持股刪除 2330\n` +
+    `💰 賣出 2330 1050\n` +
+    `📊 即時報價（持股即時價）\n\n` +
+    `🎯 停利停損\n` +
+    `━━━━━━━━━━━━━━\n` +
+    `🔴 停利 2330 1100\n` +
+    `🟢 停損 2330 900\n` +
+    `🎯 目標 2330 1100 900\n\n` +
     `🆕 買賣預約\n` +
     `━━━━━━━━━━━━━━\n` +
     `📋 預約買 2330 550 2張\n` +
     `📋 預約賣 6770 66 1張\n` +
     `📋 預約（查看清單）\n` +
     `📋 取消預約 2330\n\n` +
-    `🆕 進階功能\n` +
-    `━━━━━━━━━━━━━━\n` +
-    `📊 即時報價（專業看盤網頁）\n` +
-    `💰 股息：股息 2330、高殖利率\n` +
-    `🌊 波浪：波浪 2330（分析）\n` +
-    `🤖 AI：AI預測 2330（三AI）\n` +
-    `⚔️ PK：PK 2330 2317\n\n` +
     `━━━━━━━━━━━━━━\n` +
     `📋 輸入「功能」看完整清單`;
 
