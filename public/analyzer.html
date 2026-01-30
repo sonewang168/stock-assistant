@@ -4034,6 +4034,19 @@
                             <div class="history-label">📊 波浪歷史</div>
                             <div class="wave-history-list" id="waveHistoryList"></div>
                         </div>
+                        
+                        <!-- 🆕 3AI 波浪分析區 -->
+                        <div class="ai-wave-analysis-section" style="margin-top: 20px; padding: 16px; background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                                <div style="font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                                    🤖 3AI 波浪智慧分析
+                                </div>
+                                <button class="ai-wave-analyze-btn" id="aiWaveAnalyzeBtn" onclick="run3AIWaveAnalysisForMonitor()" style="background: linear-gradient(135deg, #8b5cf6, #ec4899); border: none; color: white; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                                    🚀 啟動 3AI 分析
+                                </button>
+                            </div>
+                            <div id="aiWaveAnalysisResults" style="min-height: 50px;"></div>
+                        </div>
                     </div>
                     <div class="wave-error" id="waveError" style="display: none;">
                         <div class="error-icon">❌</div>
@@ -15401,6 +15414,13 @@ ${analysisContext}
         
         // 渲染波浪分析結果
         function renderWaveAnalysis(data) {
+            // 🆕 儲存數據供 3AI 分析使用
+            currentMonitorWaveData = data;
+            
+            // 🆕 清空 3AI 分析結果
+            const aiResultsDiv = document.getElementById('aiWaveAnalysisResults');
+            if (aiResultsDiv) aiResultsDiv.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">點擊上方按鈕啟動 3AI 智慧分析</div>';
+            
             // 🆕 先渲染圖表
             renderWaveChart(data);
             
@@ -15774,6 +15794,155 @@ ${analysisContext}
             startAnalysis();
             // 滾動到分析區域
             document.querySelector('.analysis-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        // ==================== 3AI 波浪分析 for 監控股票 ====================
+        
+        // 儲存當前監控股票的波浪數據
+        let currentMonitorWaveData = null;
+        
+        // 解析 AI 波浪回應
+        function parseMonitorWaveResponse(response) {
+            let wave = null;
+            let score = 50;
+            let analysis = '';
+            
+            const waveMatch = response.match(/【波浪判斷】\s*第?\s*([1-5ABC])\s*浪/i);
+            if (waveMatch) {
+                wave = waveMatch[1].toUpperCase();
+                if (/[1-5]/.test(wave)) wave = parseInt(wave);
+            }
+            
+            const scoreMatch = response.match(/【信心分數】\s*(\d+)/);
+            if (scoreMatch) {
+                score = Math.min(100, Math.max(0, parseInt(scoreMatch[1])));
+            }
+            
+            const analysisMatch = response.match(/【分析說明】\s*([\s\S]*?)(?=【|$)/);
+            if (analysisMatch) {
+                analysis = analysisMatch[1].trim().slice(0, 200);
+            }
+            
+            return { wave, score, analysis };
+        }
+        
+        // 執行 3AI 波浪分析（監控版）
+        async function run3AIWaveAnalysisForMonitor() {
+            if (!currentMonitorWaveData) {
+                showToast('⚠️ 請先分析波浪後再使用 3AI 分析');
+                return;
+            }
+            
+            const keys = JSON.parse(localStorage.getItem('ai_voting_api_keys') || '{}');
+            const activeAIs = [];
+            if (keys.claude) activeAIs.push({ name: 'Claude', key: keys.claude, icon: '🟣', call: callClaudeAPI });
+            if (keys.gemini) activeAIs.push({ name: 'Gemini', key: keys.gemini, icon: '🔵', call: callGeminiAPI });
+            if (keys.openai) activeAIs.push({ name: 'OpenAI', key: keys.openai, icon: '🟢', call: callOpenAIAPI });
+            
+            if (activeAIs.length === 0) {
+                showToast('⚠️ 請先在上方設定至少一個 AI 的 API 金鑰');
+                return;
+            }
+            
+            const btn = document.getElementById('aiWaveAnalyzeBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ 分析中...';
+            
+            const resultsDiv = document.getElementById('aiWaveAnalysisResults');
+            resultsDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-muted);"><div class="wave-spinner" style="margin: 0 auto 10px;"></div>3AI 正在分析波浪結構...</div>';
+            
+            const data = currentMonitorWaveData;
+            const prompt = `你是艾略特波浪理論專家。請分析以下股票數據，判斷目前處於第幾浪。
+
+【股票資訊】
+股票: ${data.stockName || data.stockId} (${data.stockId})
+現價: ${data.currentPrice}
+漲跌: ${data.changePercent?.toFixed(2) || 0}%
+
+【歷史波浪】
+${(data.waves || []).map(w => `第${w.wave}浪: ${w.start} → ${w.end} (${w.change}%)`).join('\n')}
+
+【技術分析系統判斷】
+系統判斷: 第${data.currentWave}浪
+信心度: ${data.confidence}%
+
+請根據以上數據，獨立判斷目前處於第幾浪，並給出你的信心分數。
+
+⚠️ 嚴格依照以下格式回覆：
+【波浪判斷】第 X 浪
+【信心分數】XX（0-100）
+【分析說明】簡述你的判斷理由（100字內）`;
+
+            const promises = activeAIs.map(async (ai) => {
+                try {
+                    const response = await ai.call(prompt, ai.key);
+                    const parsed = parseMonitorWaveResponse(response);
+                    return { ...ai, ...parsed, success: true };
+                } catch (e) {
+                    return { ...ai, success: false, error: e.message };
+                }
+            });
+            
+            const aiResults = await Promise.all(promises);
+            
+            const validResults = aiResults.filter(r => r.success && r.wave !== null);
+            let avgScore = 0;
+            let finalWave = data.currentWave;
+            let closestAI = null;
+            
+            if (validResults.length > 0) {
+                avgScore = validResults.reduce((sum, r) => sum + r.score, 0) / validResults.length;
+                
+                let minDiff = Infinity;
+                for (const r of validResults) {
+                    const diff = Math.abs(r.score - avgScore);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestAI = r;
+                    }
+                }
+                
+                if (closestAI) finalWave = closestAI.wave;
+            }
+            
+            // 渲染結果
+            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px;">';
+            
+            for (const r of aiResults) {
+                const isWinner = closestAI && r.name === closestAI.name;
+                const waveColor = waveColors[String(r.wave)] || '#58a6ff';
+                
+                html += `
+                    <div style="background: ${isWinner ? 'rgba(245, 158, 11, 0.1)' : 'var(--bg-secondary)'}; border: 2px solid ${isWinner ? '#f59e0b' : 'var(--border-color)'}; border-radius: 10px; padding: 12px; text-align: center;">
+                        <div style="font-weight: 600; margin-bottom: 8px;">${r.icon} ${r.name} ${isWinner ? '👑' : ''}</div>
+                        ${r.success ? `
+                            <div style="font-size: 1.8rem; font-weight: 900; color: ${waveColor};">第 ${r.wave} 浪</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">信心: ${r.score}/100</div>
+                        ` : `
+                            <div style="color: var(--accent-down); font-size: 0.85rem;">❌ 分析失敗</div>
+                        `}
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            
+            if (validResults.length > 0) {
+                const verdictColor = waveColors[String(finalWave)] || '#f59e0b';
+                html += `
+                    <div style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(236, 72, 153, 0.1)); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 10px; padding: 16px; text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--text-muted);">🏆 3AI 波浪裁決</div>
+                        <div style="font-size: 2.5rem; font-weight: 900; color: ${verdictColor}; margin: 8px 0;">第 ${finalWave} 浪</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">${closestAI?.analysis || ''}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">平均信心: ${avgScore.toFixed(1)} | 裁決: ${closestAI?.name || '-'}</div>
+                    </div>
+                `;
+            }
+            
+            resultsDiv.innerHTML = html;
+            
+            btn.disabled = false;
+            btn.textContent = '🚀 啟動 3AI 分析';
         }
     </script>
 
