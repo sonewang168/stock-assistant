@@ -1297,7 +1297,7 @@ const TW_STOCKS = {
   '6282': { name: '康舒', market: 'OTC' },
   '6283': { name: '淳安', market: 'OTC' },
   '6284': { name: '佳邦', market: 'OTC' },
-  '6285': { name: '啟碁', market: 'OTC' },
+  '6285': { name: '啟碁', market: 'TSE' },
   '6287': { name: '元隆', market: 'OTC' },
   '6288': { name: '聯嘉', market: 'OTC' },
   '6289': { name: '華上', market: 'OTC' },
