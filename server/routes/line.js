@@ -6055,12 +6055,11 @@ async function getRealtimeWebLinkWithHoldings() {
   let holdingsBubbles = [];
   
   try {
-    // 查詢持股資料（最多 10 筆）
+    // 查詢持股資料（使用與「持股」指令相同的條件）
     const result = await pool.query(`
-      SELECT stock_id, stock_name, buy_price, lots, odd_shares 
+      SELECT stock_id, stock_name, buy_price, won_price, lots, odd_shares 
       FROM holdings 
       WHERE user_id = 'default' 
-        AND (is_won = true OR is_won IS NULL)
         AND (is_sold = false OR is_sold IS NULL)
       ORDER BY updated_at DESC
       LIMIT 10
@@ -6079,7 +6078,8 @@ async function getRealtimeWebLinkWithHoldings() {
           const name = (row.stock_name || stockData.name || row.stock_id).substring(0, 4);
           const price = parseFloat(stockData.price) || 0;
           const prev = parseFloat(stockData.prevClose) || parseFloat(stockData.yesterdayPrice) || price;
-          const cost = parseFloat(row.buy_price) || 0;
+          // 成本價：優先 won_price（得標價），其次 buy_price
+          const cost = parseFloat(row.won_price) || parseFloat(row.buy_price) || 0;
           
           const profitChg = cost > 0 ? ((price - cost) / cost * 100) : 0;
           const profitColor = profitChg > 0 ? '#EF4444' : (profitChg < 0 ? '#22C55E' : '#888888');
