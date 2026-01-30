@@ -1236,6 +1236,7 @@
       // 左邊 = 最舊，右邊 = 最新
       const labels = history.map(h => h.date ? new Date(h.date).toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'}) : '');
       const prices = history.map(h => h.close);
+      const dates = history.map(h => h.date);
       
       // 建立波浪標記 annotations - 從 waves 陣列取得
       const annotations = {};
@@ -1249,15 +1250,40 @@
         const waveLabel = String(w.wave);
         const color = waveColors[waveLabel] || '#58a6ff';
         
-        // 找到最接近 end 價格的索引位置
+        // 🔧 優先使用 endIndex，其次用 endDate 匹配，最後才用價格匹配
         let bestIdx = -1;
-        let bestDiff = Infinity;
         
-        for (let j = 0; j < prices.length; j++) {
-          const diff = Math.abs(prices[j] - w.end);
-          if (diff < bestDiff) {
-            bestDiff = diff;
-            bestIdx = j;
+        // 方法1: 直接使用 endIndex（最準確）
+        if (w.endIndex !== undefined && w.endIndex >= 0 && w.endIndex < history.length) {
+          bestIdx = w.endIndex;
+        }
+        // 方法2: 使用 endDate 匹配
+        else if (w.endDate) {
+          bestIdx = dates.findIndex(d => d === w.endDate);
+          // 如果找不到精確匹配，找最接近的日期
+          if (bestIdx < 0) {
+            const endTime = new Date(w.endDate).getTime();
+            let minDiff = Infinity;
+            for (let j = 0; j < dates.length; j++) {
+              if (dates[j]) {
+                const diff = Math.abs(new Date(dates[j]).getTime() - endTime);
+                if (diff < minDiff) {
+                  minDiff = diff;
+                  bestIdx = j;
+                }
+              }
+            }
+          }
+        }
+        // 方法3: 使用價格匹配（備援）
+        if (bestIdx < 0) {
+          let bestDiff = Infinity;
+          for (let j = 0; j < prices.length; j++) {
+            const diff = Math.abs(prices[j] - w.end);
+            if (diff < bestDiff) {
+              bestDiff = diff;
+              bestIdx = j;
+            }
           }
         }
         
@@ -1283,10 +1309,10 @@
             content: waveLabel,
             backgroundColor: color,
             color: 'white',
-            font: { size: 14, weight: 'bold' },  // 🆕 加大字體
-            padding: { top: 5, bottom: 5, left: 9, right: 9 },  // 🆕 加大 padding
+            font: { size: 14, weight: 'bold' },
+            padding: { top: 5, bottom: 5, left: 9, right: 9 },
             borderRadius: 14,
-            borderWidth: 2,  // 🆕 加邊框
+            borderWidth: 2,
             borderColor: 'white',
             yAdjust: (isHigh ? -20 : 20) + yAdjust  // 高點往上移，低點往下移
           };

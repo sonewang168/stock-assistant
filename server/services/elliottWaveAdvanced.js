@@ -421,19 +421,31 @@ function findAdvancedPivots(history, threshold = 5) {
   if (history.length < 10) return pivots;
   
   const closes = history.map(h => h.close);
-  const highs = history.map(h => h.high);
-  const lows = history.map(h => h.low);
+  const highs = history.map(h => h.high || h.close);
+  const lows = history.map(h => h.low || h.close);
   
-  // 使用 ATR 動態調整閾值
-  const atr = calculateATR(history, 14);
-  const avgPrice = closes.reduce((a, b) => a + b, 0) / closes.length;
-  const atrPercent = (atr / avgPrice) * 100;
-  const dynamicThreshold = Math.max(threshold, atrPercent * 1.5);
+  // 🔧 計算總漲跌幅來動態調整閾值
+  const overallHigh = Math.max(...closes);
+  const overallLow = Math.min(...closes);
+  const totalChangePercent = ((overallHigh - overallLow) / overallLow) * 100;
   
-  let trend = null; // 'up' or 'down'
+  // 🆕 根據總漲跌幅動態調整閾值（大幅波動用較小閾值）
+  let dynamicThreshold;
+  if (totalChangePercent > 200) {
+    dynamicThreshold = Math.max(3, threshold * 0.5);  // 大幅波動：降低閾值
+  } else if (totalChangePercent > 100) {
+    dynamicThreshold = Math.max(4, threshold * 0.7);
+  } else if (totalChangePercent > 50) {
+    dynamicThreshold = Math.max(5, threshold * 0.8);
+  } else {
+    dynamicThreshold = threshold;
+  }
+  
+  console.log(`📊 ZigZag: 總漲跌 ${totalChangePercent.toFixed(1)}%, 動態閾值: ${dynamicThreshold.toFixed(1)}%`);
+  
+  let trend = null;
   let lastPivotPrice = closes[0];
   let lastPivotIdx = 0;
-  let lastPivotType = null;
   
   for (let i = 1; i < history.length; i++) {
     const high = highs[i];
@@ -441,28 +453,21 @@ function findAdvancedPivots(history, threshold = 5) {
     const close = closes[i];
     
     if (trend === null) {
-      // 初始化趨勢
       if (close > lastPivotPrice * (1 + dynamicThreshold / 100)) {
         trend = 'up';
-        lastPivotType = 'low';
         pivots.push({
           type: 'low',
           price: lastPivotPrice,
           index: lastPivotIdx,
-          date: history[lastPivotIdx]?.date,
-          high: highs[lastPivotIdx],
-          low: lows[lastPivotIdx]
+          date: history[lastPivotIdx]?.date
         });
       } else if (close < lastPivotPrice * (1 - dynamicThreshold / 100)) {
         trend = 'down';
-        lastPivotType = 'high';
         pivots.push({
           type: 'high',
           price: lastPivotPrice,
           index: lastPivotIdx,
-          date: history[lastPivotIdx]?.date,
-          high: highs[lastPivotIdx],
-          low: lows[lastPivotIdx]
+          date: history[lastPivotIdx]?.date
         });
       }
     } else if (trend === 'up') {
@@ -475,9 +480,7 @@ function findAdvancedPivots(history, threshold = 5) {
           type: 'high',
           price: lastPivotPrice,
           index: lastPivotIdx,
-          date: history[lastPivotIdx]?.date,
-          high: highs[lastPivotIdx],
-          low: lows[lastPivotIdx]
+          date: history[lastPivotIdx]?.date
         });
         trend = 'down';
         lastPivotPrice = low;
@@ -493,9 +496,7 @@ function findAdvancedPivots(history, threshold = 5) {
           type: 'low',
           price: lastPivotPrice,
           index: lastPivotIdx,
-          date: history[lastPivotIdx]?.date,
-          high: highs[lastPivotIdx],
-          low: lows[lastPivotIdx]
+          date: history[lastPivotIdx]?.date
         });
         trend = 'up';
         lastPivotPrice = high;
@@ -509,27 +510,30 @@ function findAdvancedPivots(history, threshold = 5) {
     const lastPivot = pivots[pivots.length - 1];
     const lastClose = closes[closes.length - 1];
     
-    if (lastPivot.type === 'high' && lastClose < lastPivot.price) {
+    if (lastPivot.type === 'high' && lastClose < lastPivot.price * 0.95) {
       pivots.push({
         type: 'low',
-        price: Math.min(...lows.slice(-5)),
-        index: history.length - 1,
-        date: history[history.length - 1]?.date,
-        high: highs[history.length - 1],
-        low: lows[history.length - 1]
+        price: Math.min(...lows.slice(-10)),
+        index: lows.slice(-10).indexOf(Math.min(...lows.slice(-10))) + history.length - 10,
+        date: history[history.length - 1]?.date
       });
-    } else if (lastPivot.type === 'low' && lastClose > lastPivot.price) {
+    } else if (lastPivot.type === 'low' && lastClose > lastPivot.price * 1.05) {
       pivots.push({
         type: 'high',
-        price: Math.max(...highs.slice(-5)),
-        index: history.length - 1,
-        date: history[history.length - 1]?.date,
-        high: highs[history.length - 1],
-        low: lows[history.length - 1]
+        price: Math.max(...highs.slice(-10)),
+        index: highs.slice(-10).indexOf(Math.max(...highs.slice(-10))) + history.length - 10,
+        date: history[history.length - 1]?.date
       });
     }
   }
   
+  // 🆕 如果轉折點太少，用更小的閾值再找
+  if (pivots.length < 4 && dynamicThreshold > 3) {
+    console.log(`⚠️ 轉折點不足 (${pivots.length})，降低閾值重試...`);
+    return findAdvancedPivots(history, dynamicThreshold * 0.6);
+  }
+  
+  console.log(`✅ 找到 ${pivots.length} 個轉折點`);
   return pivots;
 }
 
@@ -600,29 +604,67 @@ function analyzeWaveStructureAdvanced(pivots, currentPrice, history) {
       });
       
       waveCount++;
+      // 🔧 波浪週期結束時重置（但保留所有波浪用於後續篩選）
       if (waveCount > 8) waveCount = 1;
     }
     
     lastP = pivot;
   }
   
-  // 分析子浪結構
-  const subwaveAnalysis = analyzeSubwaves(waves, history);
+  // 🆕 只保留最後一個完整週期的波浪（避免重複標記）
+  const lastCycleWaves = getLastCycleWaves(waves);
   
-  // 判斷當前波浪位置
-  const currentWave = determineCurrentWaveAdvanced(waves, currentPrice, history);
+  // 分析子浪結構
+  const subwaveAnalysis = analyzeSubwaves(lastCycleWaves, history);
+  
+  // 判斷當前波浪位置（使用最後週期的波浪）
+  const currentWave = determineCurrentWaveAdvanced(lastCycleWaves, currentPrice, history);
   
   // 計算波浪統計
-  const waveStats = calculateWaveStatistics(waves);
+  const waveStats = calculateWaveStatistics(lastCycleWaves);
   
   return {
     currentWave,
-    waves: waves.length > 0 ? waves : createDefaultWaves(history, currentPrice),
+    waves: lastCycleWaves.length > 0 ? lastCycleWaves : createDefaultWaves(history, currentPrice),
+    allWaves: waves,  // 保留完整波浪歷史（用於詳細分析）
     pivots: organizedPivots,
     isUptrend,
     subwaves: subwaveAnalysis,
     statistics: waveStats
   };
+}
+
+/**
+ * 🆕 取得最後一個完整週期的波浪
+ * 艾略特波浪：1-2-3-4-5（推動）+ A-B-C（修正）= 8 浪
+ */
+function getLastCycleWaves(waves) {
+  if (waves.length <= 8) {
+    return waves;
+  }
+  
+  // 找到最後一個「第1浪」的位置，作為最後週期的開始
+  let lastCycleStart = 0;
+  for (let i = waves.length - 1; i >= 0; i--) {
+    if (waves[i].wave === 1 || waves[i].wave === '1') {
+      lastCycleStart = i;
+      break;
+    }
+  }
+  
+  // 如果找不到第1浪，找最後一個 A 浪作為起點
+  if (lastCycleStart === 0 && waves.length > 8) {
+    for (let i = waves.length - 1; i >= 0; i--) {
+      if (waves[i].wave === 'A') {
+        lastCycleStart = Math.max(0, i - 5);  // A 浪前面可能有 1-5
+        break;
+      }
+    }
+  }
+  
+  // 返回最後週期的波浪（最多 8 個）
+  const lastCycle = waves.slice(lastCycleStart);
+  return lastCycle.slice(-8);  // 確保最多 8 個
 }
 
 /**
@@ -733,11 +775,27 @@ function createDefaultWaveStructure(history, currentPrice) {
   const closes = history.map(h => h.close);
   const high = Math.max(...closes);
   const low = Math.min(...closes);
+  const highIdx = closes.indexOf(high);
+  const lowIdx = closes.indexOf(low);
   const isUptrend = currentPrice > (high + low) / 2;
   
+  // 🔧 生成更準確的波浪結構
+  const waves = createSmartWaves(history, currentPrice);
+  
+  // 根據波浪結構判斷當前位置
+  let currentWave = 1;
+  if (waves.length > 0) {
+    const lastWave = waves[waves.length - 1];
+    const nextWaveMap = {
+      1: 2, 2: 3, 3: 4, 4: 5, 5: 'A',
+      'A': 'B', 'B': 'C', 'C': 1
+    };
+    currentWave = nextWaveMap[lastWave.wave] || 1;
+  }
+  
   return {
-    currentWave: isUptrend ? 3 : 'A',
-    waves: createDefaultWaves(history, currentPrice),
+    currentWave,
+    waves,
     pivots: [],
     isUptrend,
     subwaves: [],
@@ -746,21 +804,233 @@ function createDefaultWaveStructure(history, currentPrice) {
 }
 
 /**
- * 創建預設波浪
+ * 🆕 智能生成波浪結構（改進版）
+ * 根據價格走勢自動識別關鍵轉折點
+ */
+function createSmartWaves(history, currentPrice) {
+  if (history.length < 20) return [];
+  
+  const closes = history.map(h => h.close);
+  const highs = history.map(h => h.high || h.close);
+  const lows = history.map(h => h.low || h.close);
+  
+  // 找到關鍵點位
+  const overallHigh = Math.max(...closes);
+  const overallLow = Math.min(...closes);
+  const highIdx = closes.indexOf(overallHigh);
+  const lowIdx = closes.indexOf(overallLow);
+  
+  // 計算總漲跌幅
+  const startPrice = closes[0];
+  const endPrice = currentPrice;
+  const totalChange = (endPrice - startPrice) / startPrice * 100;
+  
+  const waves = [];
+  
+  // 使用較小的閾值來找轉折點
+  const range = overallHigh - overallLow;
+  const smallThreshold = range * 0.1; // 10% of range
+  
+  // 找到所有顯著轉折點
+  const pivots = findSignificantPivots(history, smallThreshold);
+  
+  if (pivots.length >= 2) {
+    // 根據轉折點生成波浪
+    let waveNum = 1;
+    for (let i = 1; i < pivots.length && waveNum <= 8; i++) {
+      const prev = pivots[i - 1];
+      const curr = pivots[i];
+      const isRising = curr.price > prev.price;
+      
+      let waveName, waveType;
+      if (waveNum <= 5) {
+        waveName = waveNum;
+        waveType = (waveNum % 2 === 1) ? '推動' : '修正';
+      } else {
+        const abcNames = ['A', 'B', 'C'];
+        waveName = abcNames[waveNum - 6] || 'C';
+        waveType = waveName === 'B' ? '反彈' : '修正';
+      }
+      
+      waves.push({
+        wave: waveName,
+        type: waveType,
+        direction: isRising ? 'up' : 'down',
+        start: prev.price,
+        end: curr.price,
+        startDate: history[prev.index]?.date,
+        endDate: history[curr.index]?.date,
+        startIndex: prev.index,
+        endIndex: curr.index,
+        change: ((curr.price - prev.price) / prev.price * 100).toFixed(2)
+      });
+      
+      waveNum++;
+    }
+  }
+  
+  // 如果還是沒有波浪，生成基本結構
+  if (waves.length === 0) {
+    // 根據趨勢生成基本波浪
+    if (totalChange > 50) {
+      // 大漲：可能是第3浪
+      waves.push({
+        wave: 1,
+        type: '推動',
+        direction: 'up',
+        start: overallLow,
+        end: overallLow + range * 0.3,
+        startIndex: lowIdx,
+        endIndex: Math.min(lowIdx + Math.floor(history.length * 0.2), history.length - 1),
+        startDate: history[lowIdx]?.date,
+        endDate: history[Math.min(lowIdx + Math.floor(history.length * 0.2), history.length - 1)]?.date,
+        change: '30'
+      });
+      waves.push({
+        wave: 2,
+        type: '修正',
+        direction: 'down',
+        start: overallLow + range * 0.3,
+        end: overallLow + range * 0.15,
+        startIndex: Math.min(lowIdx + Math.floor(history.length * 0.2), history.length - 1),
+        endIndex: Math.min(lowIdx + Math.floor(history.length * 0.35), history.length - 1),
+        startDate: history[Math.min(lowIdx + Math.floor(history.length * 0.2), history.length - 1)]?.date,
+        endDate: history[Math.min(lowIdx + Math.floor(history.length * 0.35), history.length - 1)]?.date,
+        change: '-15'
+      });
+      waves.push({
+        wave: 3,
+        type: '推動',
+        direction: 'up',
+        start: overallLow + range * 0.15,
+        end: overallHigh,
+        startIndex: Math.min(lowIdx + Math.floor(history.length * 0.35), history.length - 1),
+        endIndex: highIdx,
+        startDate: history[Math.min(lowIdx + Math.floor(history.length * 0.35), history.length - 1)]?.date,
+        endDate: history[highIdx]?.date,
+        change: ((overallHigh - (overallLow + range * 0.15)) / (overallLow + range * 0.15) * 100).toFixed(2)
+      });
+      
+      // 如果現價低於高點，加入第4浪或第5浪
+      if (currentPrice < overallHigh * 0.95) {
+        waves.push({
+          wave: 4,
+          type: '修正',
+          direction: 'down',
+          start: overallHigh,
+          end: currentPrice,
+          startIndex: highIdx,
+          endIndex: history.length - 1,
+          startDate: history[highIdx]?.date,
+          endDate: history[history.length - 1]?.date,
+          change: ((currentPrice - overallHigh) / overallHigh * 100).toFixed(2)
+        });
+      }
+    } else if (totalChange > 0) {
+      // 小漲：可能是第1浪
+      waves.push({
+        wave: 1,
+        type: '推動',
+        direction: 'up',
+        start: overallLow,
+        end: currentPrice,
+        startIndex: lowIdx,
+        endIndex: history.length - 1,
+        startDate: history[lowIdx]?.date,
+        endDate: history[history.length - 1]?.date,
+        change: totalChange.toFixed(2)
+      });
+    } else {
+      // 下跌：可能是 A 浪
+      waves.push({
+        wave: 'A',
+        type: '修正',
+        direction: 'down',
+        start: overallHigh,
+        end: currentPrice,
+        startIndex: highIdx,
+        endIndex: history.length - 1,
+        startDate: history[highIdx]?.date,
+        endDate: history[history.length - 1]?.date,
+        change: totalChange.toFixed(2)
+      });
+    }
+  }
+  
+  return waves;
+}
+
+/**
+ * 🆕 找到顯著的轉折點
+ */
+function findSignificantPivots(history, threshold) {
+  const pivots = [];
+  const closes = history.map(h => h.close);
+  const highs = history.map(h => h.high || h.close);
+  const lows = history.map(h => h.low || h.close);
+  
+  if (history.length < 5) return pivots;
+  
+  let trend = null;
+  let lastPivotPrice = closes[0];
+  let lastPivotIdx = 0;
+  
+  for (let i = 1; i < history.length; i++) {
+    const high = highs[i];
+    const low = lows[i];
+    const close = closes[i];
+    
+    if (trend === null) {
+      if (close > lastPivotPrice + threshold) {
+        trend = 'up';
+        pivots.push({ type: 'low', price: lastPivotPrice, index: lastPivotIdx });
+      } else if (close < lastPivotPrice - threshold) {
+        trend = 'down';
+        pivots.push({ type: 'high', price: lastPivotPrice, index: lastPivotIdx });
+      }
+    } else if (trend === 'up') {
+      if (high > lastPivotPrice) {
+        lastPivotPrice = high;
+        lastPivotIdx = i;
+      }
+      if (close < lastPivotPrice - threshold) {
+        pivots.push({ type: 'high', price: lastPivotPrice, index: lastPivotIdx });
+        trend = 'down';
+        lastPivotPrice = low;
+        lastPivotIdx = i;
+      }
+    } else {
+      if (low < lastPivotPrice) {
+        lastPivotPrice = low;
+        lastPivotIdx = i;
+      }
+      if (close > lastPivotPrice + threshold) {
+        pivots.push({ type: 'low', price: lastPivotPrice, index: lastPivotIdx });
+        trend = 'up';
+        lastPivotPrice = high;
+        lastPivotIdx = i;
+      }
+    }
+  }
+  
+  // 加入最後一個點
+  if (pivots.length > 0) {
+    const lastPivot = pivots[pivots.length - 1];
+    if (lastPivot.type === 'high') {
+      pivots.push({ type: 'low', price: Math.min(...lows.slice(-5)), index: history.length - 1 });
+    } else {
+      pivots.push({ type: 'high', price: Math.max(...highs.slice(-5)), index: history.length - 1 });
+    }
+  }
+  
+  return pivots;
+}
+
+/**
+ * 創建預設波浪（舊版保留向後相容）
  */
 function createDefaultWaves(history, currentPrice) {
-  const closes = history.map(h => h.close);
-  const high = Math.max(...closes);
-  const low = Math.min(...closes);
-  
-  return [{
-    wave: 1,
-    type: '推動',
-    direction: 'up',
-    start: low,
-    end: currentPrice,
-    change: ((currentPrice - low) / low * 100).toFixed(2)
-  }];
+  return createSmartWaves(history, currentPrice);
 }
 
 // ========================================
@@ -769,69 +1039,96 @@ function createDefaultWaves(history, currentPrice) {
 
 /**
  * 判斷當前波浪位置（進階版）
+ * 🔧 主要改進：根據總漲幅和波浪結構來判斷
  */
 function determineCurrentWaveAdvanced(waves, currentPrice, history) {
-  if (waves.length === 0) return 1;
+  if (!history || history.length === 0) return 1;
   
   const closes = history.map(h => h.close);
-  const recentCloses = closes.slice(-30);
+  const overallHigh = Math.max(...closes);
+  const overallLow = Math.min(...closes);
+  const startPrice = closes[0];
   
-  // 計算多重指標
+  // 🆕 計算總漲跌幅（從起點）
+  const totalChangeFromStart = ((currentPrice - startPrice) / startPrice) * 100;
+  // 計算從最低點的漲幅
+  const totalChangeFromLow = ((currentPrice - overallLow) / overallLow) * 100;
+  // 計算距離高點的回撤
+  const pullbackFromHigh = ((overallHigh - currentPrice) / overallHigh) * 100;
+  // 計算當前價格在整體區間的位置 (0-1)
+  const pricePosition = (currentPrice - overallLow) / (overallHigh - overallLow);
+  
+  const recentCloses = closes.slice(-30);
   const shortMA = calculateSMA(recentCloses, 5);
   const mediumMA = calculateSMA(recentCloses, 10);
   const longMA = calculateSMA(recentCloses, 20);
   
   const rsi = calculateRSI(closes, 14);
-  const macd = calculateMACD(closes);
-  
-  // 計算動能
   const momentum5 = recentCloses.length >= 5 ? 
     (recentCloses[recentCloses.length - 1] - recentCloses[recentCloses.length - 5]) / recentCloses[recentCloses.length - 5] * 100 : 0;
-  const momentum10 = recentCloses.length >= 10 ?
-    (recentCloses[recentCloses.length - 1] - recentCloses[recentCloses.length - 10]) / recentCloses[recentCloses.length - 10] * 100 : 0;
   
-  // 計算價格位置
-  const recentHigh = Math.max(...recentCloses);
-  const recentLow = Math.min(...recentCloses);
-  const pricePosition = (currentPrice - recentLow) / (recentHigh - recentLow);
-  
-  // 檢查背離
-  const priceTrend = recentCloses[recentCloses.length - 1] > recentCloses[0];
-  const rsiDivergence = (priceTrend && rsi < 50) || (!priceTrend && rsi > 50);
-  const macdDivergence = (priceTrend && macd.histogram < 0) || (!priceTrend && macd.histogram > 0);
-  
-  // 綜合判斷
   const isUpTrend = shortMA > mediumMA && mediumMA > longMA;
   const isDownTrend = shortMA < mediumMA && mediumMA < longMA;
   
-  if (isUpTrend) {
-    // 上升趨勢判斷
-    if (momentum10 > 15 && pricePosition > 0.85 && !rsiDivergence) {
-      return 3; // 主升段
-    } else if (momentum5 > 5 && pricePosition > 0.7 && (rsiDivergence || macdDivergence)) {
-      return 5; // 末升段（有背離）
-    } else if (momentum5 < 0 && pricePosition < 0.4) {
-      return 2; // 回調段
-    } else if (pricePosition > 0.5 && pricePosition < 0.7 && momentum5 < 3) {
-      return 4; // 整理段
-    } else if (momentum5 > 0 && pricePosition > 0.3) {
-      return 1; // 初升段
+  console.log(`🌊 波浪判斷: 總漲跌=${totalChangeFromStart.toFixed(1)}%, 從低點漲=${totalChangeFromLow.toFixed(1)}%, 回撤=${pullbackFromHigh.toFixed(1)}%, 位置=${(pricePosition*100).toFixed(0)}%`);
+  
+  // 🔧 根據總漲幅判斷（這是關鍵改進！）
+  if (totalChangeFromLow > 200) {
+    // 大幅上漲 (>200%) - 很可能是第3浪或更後面
+    if (pullbackFromHigh < 10 && pricePosition > 0.9) {
+      // 接近高點，可能是第3浪頂部或第5浪
+      return rsi > 70 ? 5 : 3;
+    } else if (pullbackFromHigh >= 10 && pullbackFromHigh < 30) {
+      // 有小回調，可能是第4浪
+      return 4;
+    } else if (pullbackFromHigh >= 30) {
+      // 回調較深，可能是 A 浪
+      return 'A';
     } else {
-      return 3; // 預設主升段
+      return 3;  // 主升段
     }
-  } else if (isDownTrend) {
-    // 下降趨勢判斷
-    if (momentum10 < -15 && pricePosition < 0.2) {
-      return 'C'; // 主跌段
-    } else if (momentum5 > 0 && pricePosition > 0.4 && pricePosition < 0.7) {
-      return 'B'; // 反彈
+  } else if (totalChangeFromLow > 100) {
+    // 中等漲幅 (100-200%)
+    if (pricePosition > 0.8) {
+      return 3;  // 仍在主升段
+    } else if (pricePosition > 0.5) {
+      return momentum5 > 0 ? 3 : 4;
     } else {
-      return 'A'; // 下跌開始
+      return isDownTrend ? 'A' : 2;
+    }
+  } else if (totalChangeFromLow > 50) {
+    // 較小漲幅 (50-100%)
+    if (pricePosition > 0.8 && isUpTrend) {
+      return 3;
+    } else if (pricePosition > 0.6) {
+      return momentum5 > 0 ? 1 : 2;
+    } else if (pricePosition > 0.3) {
+      return isUpTrend ? 1 : 2;
+    } else {
+      return isDownTrend ? 'A' : 4;
+    }
+  } else if (totalChangeFromLow > 20) {
+    // 小幅上漲 (20-50%)
+    if (isUpTrend && pricePosition > 0.7) {
+      return 1;
+    } else if (isDownTrend) {
+      return 'A';
+    } else {
+      return momentum5 > 0 ? 1 : 2;
+    }
+  } else if (totalChangeFromStart < -20) {
+    // 下跌中
+    if (pullbackFromHigh > 50) {
+      return 'C';
+    } else if (momentum5 > 0) {
+      return 'B';
+    } else {
+      return 'A';
     }
   } else {
-    // 盤整
-    const lastWave = waves[waves.length - 1];
-    if (lastWave) {
+    // 小幅波動 - 根據波浪歷史判斷
+    if (waves.length > 0) {
+      const lastWave = waves[waves.length - 1];
       const nextWaveMap = {
         1: 2, 2: 3, 3: 4, 4: 5, 5: 'A',
         'A': 'B', 'B': 'C', 'C': 1

@@ -12051,20 +12051,30 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
     // 🔑 將 history 反轉為升序（舊→新）
     const history = [...historyRaw].reverse();
     
-    // 🆕 根據歷史資料長度調整 ZigZag 靈敏度
-    // 資料越多，需要更大的閾值來過濾噪音
+    // 🔧 根據歷史資料長度和價格波動調整 ZigZag 靈敏度
+    // 改用更低的閾值，讓更多轉折點被識別
+    const closes = history.map(h => h.close);
+    const overallHigh = Math.max(...closes);
+    const overallLow = Math.min(...closes);
+    const totalChangePercent = ((overallHigh - overallLow) / overallLow) * 100;
+    
     let zigzagThreshold;
-    if (history.length >= 500) {
-      zigzagThreshold = 8;  // 24個月資料：8%
-    } else if (history.length >= 365) {
-      zigzagThreshold = 7;  // 18個月資料：7%
-    } else if (history.length >= 250) {
-      zigzagThreshold = 6;  // 12個月資料：6%
-    } else if (history.length >= 180) {
-      zigzagThreshold = 5;  // 9個月資料：5%
+    // 🆕 根據總漲跌幅動態調整閾值
+    if (totalChangePercent > 100) {
+      // 大幅波動（>100%）：用較低閾值抓更多波浪
+      zigzagThreshold = 5;
+    } else if (totalChangePercent > 50) {
+      // 中等波動（50-100%）
+      zigzagThreshold = 4;
+    } else if (totalChangePercent > 20) {
+      // 一般波動（20-50%）
+      zigzagThreshold = 3;
     } else {
-      zigzagThreshold = 4;  // 6個月資料：4%
+      // 小幅波動（<20%）
+      zigzagThreshold = 2.5;
     }
+    
+    console.log(`🌊 波浪分析: ${stockId}, 總漲跌: ${totalChangePercent.toFixed(1)}%, ZigZag閾值: ${zigzagThreshold}%`);
     
     // 🌊 使用進階波浪分析模組
     let waveResult;
