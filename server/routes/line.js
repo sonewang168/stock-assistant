@@ -3496,9 +3496,10 @@ async function fetchTWSEHistory(stockId, days) {
   const history = [];
   const now = new Date();
   
-  // 根據需要的天數決定抓取月份數（每月約 20 個交易日）
+  // 🆕 根據需要的天數決定抓取月份數（每月約 20 個交易日）
+  // 支援最多 24 個月（約 480 交易日）
   const monthsNeeded = Math.ceil(days / 18) + 2;
-  const maxMonths = Math.min(monthsNeeded, 12); // 最多抓 12 個月（約 240 交易日）
+  const maxMonths = Math.min(monthsNeeded, 24); // 🆕 增加到最多抓 24 個月
   
   console.log(`TWSE 抓取 ${stockId}，需要 ${days} 天，抓取 ${maxMonths} 個月`);
   
@@ -3558,9 +3559,10 @@ async function fetchTPEXHistory(stockId, days) {
   const history = [];
   const now = new Date();
   
-  // 根據需要的天數決定抓取月份數（每月約 20 個交易日）
+  // 🆕 根據需要的天數決定抓取月份數（每月約 20 個交易日）
+  // 支援最多 24 個月
   const monthsNeeded = Math.ceil(days / 18) + 2;
-  const maxMonths = Math.min(monthsNeeded, 12); // 最多抓 12 個月（約 240 交易日）
+  const maxMonths = Math.min(monthsNeeded, 24); // 🆕 增加到最多抓 24 個月
   
   console.log(`TPEX 抓取 ${stockId}，需要 ${days} 天，抓取 ${maxMonths} 個月`);
   
@@ -12023,7 +12025,12 @@ router.get('/wave/test', (req, res) => {
 router.get('/wave/analyze/:stockId', async (req, res) => {
   try {
     const stockId = req.params.stockId;
-    console.log(`🌊 波浪分析 API 開始: ${stockId}`);
+    // 🆕 取得 period 參數（預設 365 天 = 1年）
+    const period = parseInt(req.query.period) || 365;
+    // 限制範圍：最少 90 天，最多 730 天（2年）
+    const safePeriod = Math.max(90, Math.min(730, period));
+    
+    console.log(`🌊 波浪分析 API 開始: ${stockId}, 期間: ${safePeriod} 天`);
     
     // 取得股票資料
     const stockData = await stockService.getRealtimePrice(stockId);
@@ -12031,29 +12038,96 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
     const currentPrice = parseFloat(stockData?.price) || 0;
     console.log(`📈 ${stockId} 股價: ${currentPrice}, 名稱: ${stockName}`);
     
-    // 取得歷史資料（250天 = 約1年）
-    const historyRaw = await fetchYahooHistory(stockId, 250);
-    console.log(`📊 ${stockId} 歷史資料筆數: ${historyRaw?.length || 0}`);
+    // 🆕 根據 period 取得歷史資料
+    const historyRaw = await fetchYahooHistory(stockId, safePeriod);
+    console.log(`📊 ${stockId} 歷史資料筆數: ${historyRaw?.length || 0} (要求 ${safePeriod} 天)`);
     
     if (!historyRaw || historyRaw.length < 30) {
       return res.json({ 
-        error: `${stockName} 歷史資料不足（僅 ${historyRaw?.length || 0} 筆）`
+        error: `${stockName} 歷史資料不足（僅 ${historyRaw?.length || 0} 筆，需至少 30 筆）`
       });
     }
     
     // 🔑 將 history 反轉為升序（舊→新）
     const history = [...historyRaw].reverse();
     
+    // 🆕 根據歷史資料長度調整 ZigZag 靈敏度
+    // 資料越多，需要更大的閾值來過濾噪音
+    let zigzagThreshold;
+    if (history.length >= 500) {
+      zigzagThreshold = 8;  // 24個月資料：8%
+    } else if (history.length >= 365) {
+      zigzagThreshold = 7;  // 18個月資料：7%
+    } else if (history.length >= 250) {
+      zigzagThreshold = 6;  // 12個月資料：6%
+    } else if (history.length >= 180) {
+      zigzagThreshold = 5;  // 9個月資料：5%
+    } else {
+      zigzagThreshold = 4;  // 6個月資料：4%
+    }
+    
     // 🌊 使用進階波浪分析模組
     let waveResult;
     if (elliottWaveAdvanced) {
-      console.log(`🌊 使用進階波浪分析模組: ${stockId}`);
-      waveResult = await elliottWaveAdvanced.analyzeElliottWaveAdvanced(history, currentPrice);
+      console.log(`🌊 使用進階波浪分析模組: ${stockId}, ZigZag閾值: ${zigzagThreshold}%`);
+      // 傳入自訂閾值
+      const pivots = elliottWaveAdvanced.findAdvancedPivots(history, zigzagThreshold);
+      const waveAnalysis = elliottWaveAdvanced.analyzeWaveStructureAdvanced(pivots, currentPrice, history);
+      const ruleChecks = elliottWaveAdvanced.checkWaveRulesAdvanced(waveAnalysis);
+      const targets = elliottWaveAdvanced.calculateTargetsAdvanced(waveAnalysis, currentPrice, history);
+      
+      // 計算技術指標
+      const closes = history.map(h => h.close);
+      const technicals = {
+        rsi: elliottWaveAdvanced.calculateRSI(closes, 14),
+        macd: elliottWaveAdvanced.calculateMACD(closes),
+        shortMA: elliottWaveAdvanced.calculateSMA(closes, 5),
+        longMA: elliottWaveAdvanced.calculateSMA(closes, 20)
+      };
+      
+      // 檢查背離
+      const recentCloses = closes.slice(-20);
+      const priceTrend = recentCloses[recentCloses.length - 1] > recentCloses[0];
+      technicals.rsiDivergence = (priceTrend && technicals.rsi < 50) || (!priceTrend && technicals.rsi > 50);
+      technicals.macdDivergence = (priceTrend && technicals.macd.histogram < 0) || (!priceTrend && technicals.macd.histogram > 0);
+      
+      const suggestion = elliottWaveAdvanced.generateAdvancedSuggestion(waveAnalysis, targets, technicals);
+      const confidence = elliottWaveAdvanced.calculateAdvancedConfidence(waveAnalysis, ruleChecks, technicals, targets);
+      
+      waveResult = {
+        currentWave: waveAnalysis.currentWave,
+        waves: waveAnalysis.waves,
+        pivots: waveAnalysis.pivots,
+        isUptrend: waveAnalysis.isUptrend,
+        rules: ruleChecks.rules,
+        guidelines: ruleChecks.guidelines,
+        targetUp: targets.targetUp,
+        targetDown: targets.targetDown,
+        stopLoss: targets.stopLoss,
+        fibLevels: targets.fibLevels,
+        riskReward: targets.riskReward,
+        confidence: confidence.score,
+        confidenceLevel: confidence.level,
+        confidenceBreakdown: confidence.breakdown,
+        suggestion: suggestion.summary,
+        action: suggestion.action,
+        details: suggestion.details,
+        psychology: suggestion.psychology,
+        volumePattern: suggestion.volumePattern,
+        technicals: {
+          rsi: Math.round(technicals.rsi * 10) / 10,
+          macd: Math.round(technicals.macd.histogram * 100) / 100,
+          shortMA: Math.round(technicals.shortMA * 100) / 100,
+          longMA: Math.round(technicals.longMA * 100) / 100,
+          rsiDivergence: technicals.rsiDivergence,
+          macdDivergence: technicals.macdDivergence
+        },
+        waveKnowledge: elliottWaveAdvanced.WAVE_KNOWLEDGE?.characteristics?.[waveAnalysis.currentWave] || null
+      };
     } else {
       // 備援：使用內建分析
       console.log(`⚠️ 使用內建波浪分析: ${stockId}`);
-      const sensitivity = history.length < 40 ? 3 : 5;
-      const pivots = findZigZagPivots(history, sensitivity);
+      const pivots = findZigZagPivots(history, zigzagThreshold);
       const waveAnalysis = analyzeWaveStructure(pivots, currentPrice, history);
       const fibTargets = calculateFibonacciTargets(waveAnalysis, currentPrice);
       const ruleChecks = checkWaveRules(waveAnalysis);
@@ -12092,6 +12166,11 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
       changePercent: parseFloat(changePercent.toFixed(2)),
       fromWaveChange: parseFloat(fromWaveChange.toFixed(2)),
       
+      // 🆕 期間資訊
+      period: safePeriod,
+      dataCount: history.length,
+      zigzagThreshold,
+      
       // 波浪分析
       currentWave: waveResult.currentWave,
       waves: waveResult.waves || [],
@@ -12127,8 +12206,8 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
       // 知識庫
       waveKnowledge: waveResult.waveKnowledge || null,
       
-      // 歷史資料（供圖表使用）
-      history: history.slice(-180)
+      // 歷史資料（供圖表使用）- 返回完整資料
+      history: history
     });
   } catch (error) {
     console.error('波浪分析 API 錯誤:', error);

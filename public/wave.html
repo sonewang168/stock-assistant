@@ -373,6 +373,169 @@
       padding: 3px 8px; border-radius: 4px; font-size: 0.7rem;
       background: rgba(88, 166, 255, 0.15); color: #58a6ff;
     }
+    
+    /* 🆕 時間範圍選擇器 */
+    .period-select {
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: 1px solid #30363d;
+      background: #0d1117;
+      color: #E2E8F0;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .period-select:focus { outline: none; border-color: #58a6ff; }
+    .period-select option { background: #161b22; }
+    
+    /* 🆕 期間資訊列 */
+    .period-info-bar {
+      padding: 10px 20px;
+      background: rgba(88, 166, 255, 0.1);
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 0.85rem;
+      color: #8b949e;
+    }
+    .period-info-bar span { color: #58a6ff; font-weight: 600; }
+    
+    /* 🆕 技術指標區塊 */
+    .technicals-section {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .technicals-title {
+      font-size: 0.9rem;
+      color: #c9d1d9;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .technicals-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+    }
+    .tech-item {
+      background: rgba(48, 54, 61, 0.5);
+      padding: 10px 12px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .tech-item .label { font-size: 0.75rem; color: #8b949e; margin-bottom: 4px; }
+    .tech-item .value { font-size: 1.1rem; font-weight: 600; }
+    .tech-item .value.bullish { color: #3fb950; }
+    .tech-item .value.bearish { color: #f85149; }
+    .tech-item .value.neutral { color: #d29922; }
+    
+    /* 🆕 背離警示 */
+    .divergence-alert {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .divergence-badge {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+    .divergence-badge.warning {
+      background: rgba(248, 81, 73, 0.15);
+      color: #f85149;
+      border: 1px solid rgba(248, 81, 73, 0.3);
+    }
+    .divergence-badge.ok {
+      background: rgba(63, 185, 80, 0.15);
+      color: #3fb950;
+      border: 1px solid rgba(63, 185, 80, 0.3);
+    }
+    
+    /* 🆕 指引區塊 */
+    .guidelines-section {
+      margin-top: 16px;
+    }
+    .guideline-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: rgba(48, 54, 61, 0.3);
+      border-radius: 6px;
+      margin-bottom: 6px;
+      font-size: 0.85rem;
+    }
+    .guideline-item .icon { font-size: 1rem; }
+    .guideline-item .text { color: #c9d1d9; flex: 1; }
+    .guideline-item .detail { color: #8b949e; font-size: 0.75rem; }
+    
+    /* 🆕 詳細建議區塊 */
+    .details-section {
+      background: rgba(210, 153, 34, 0.1);
+      border: 1px solid rgba(210, 153, 34, 0.3);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .details-title {
+      font-size: 0.9rem;
+      color: #d29922;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    .details-list {
+      list-style: none;
+    }
+    .details-list li {
+      padding: 6px 0;
+      font-size: 0.85rem;
+      color: #c9d1d9;
+      border-bottom: 1px solid rgba(48, 54, 61, 0.5);
+    }
+    .details-list li:last-child { border-bottom: none; }
+    
+    /* 🆕 心理與量能區塊 */
+    .psychology-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .psychology-card {
+      background: rgba(48, 54, 61, 0.3);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .psychology-card .title {
+      font-size: 0.8rem;
+      color: #8b949e;
+      margin-bottom: 6px;
+    }
+    .psychology-card .content {
+      font-size: 0.9rem;
+      color: #c9d1d9;
+    }
+    
+    /* 🆕 信心分數分解 */
+    .confidence-breakdown {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .confidence-item {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      background: rgba(88, 166, 255, 0.1);
+      color: #58a6ff;
+    }
   </style>
 </head>
 <body>
@@ -382,9 +545,23 @@
       <h1>🌊 <span>艾略特波浪理論分析</span></h1>
       <div class="search-box">
         <input type="text" id="stockInput" placeholder="股票代碼" value="2330" />
+        <select id="periodSelect" class="period-select" title="選擇分析期間">
+          <option value="180">6個月</option>
+          <option value="270">9個月</option>
+          <option value="365" selected>12個月</option>
+          <option value="540">18個月</option>
+          <option value="730">24個月</option>
+        </select>
         <button class="btn btn-primary" onclick="analyzeStock()">🔍 分析波浪</button>
       </div>
     </header>
+    
+    <!-- 🆕 分析期間資訊列 -->
+    <div class="period-info-bar" id="periodInfoBar" style="display: none;">
+      📅 分析期間: <span id="periodText">12個月</span> | 
+      📊 資料筆數: <span id="dataCountText">--</span> | 
+      🎯 ZigZag閾值: <span id="zigzagText">--</span>%
+    </div>
     
     <!-- Tabs -->
     <div class="tabs">
@@ -488,8 +665,68 @@
                     <div class="value" id="targetDown">--</div>
                   </div>
                 </div>
+                <!-- 🆕 停損與風險報酬比 -->
+                <div class="targets-row" style="margin-top: 8px;">
+                  <div class="target-box" style="background: rgba(248, 81, 73, 0.1); border-color: rgba(248, 81, 73, 0.3);">
+                    <div class="label">⛔ 停損價</div>
+                    <div class="value" id="stopLoss" style="color: #f85149;">--</div>
+                  </div>
+                  <div class="target-box" style="background: rgba(88, 166, 255, 0.1); border-color: rgba(88, 166, 255, 0.3);">
+                    <div class="label">📊 風險報酬比</div>
+                    <div class="value" id="riskReward" style="color: #58a6ff;">--</div>
+                  </div>
+                </div>
               </div>
             </div>
+          </div>
+          
+          <!-- 🆕 技術指標區塊 -->
+          <div class="technicals-section" id="technicalsSection" style="display: none;">
+            <div class="technicals-title">📈 技術指標分析</div>
+            <div class="technicals-grid">
+              <div class="tech-item">
+                <div class="label">RSI (14)</div>
+                <div class="value neutral" id="techRSI">--</div>
+              </div>
+              <div class="tech-item">
+                <div class="label">MACD 柱狀</div>
+                <div class="value neutral" id="techMACD">--</div>
+              </div>
+              <div class="tech-item">
+                <div class="label">短期MA (5)</div>
+                <div class="value neutral" id="techShortMA">--</div>
+              </div>
+              <div class="tech-item">
+                <div class="label">長期MA (20)</div>
+                <div class="value neutral" id="techLongMA">--</div>
+              </div>
+            </div>
+            <!-- 背離警示 -->
+            <div class="divergence-alert" id="divergenceAlert"></div>
+          </div>
+          
+          <!-- 🆕 詳細建議區塊 -->
+          <div class="details-section" id="detailsSection" style="display: none;">
+            <div class="details-title">📝 詳細操作建議</div>
+            <ul class="details-list" id="detailsList"></ul>
+          </div>
+          
+          <!-- 🆕 心理與量能 -->
+          <div class="psychology-section" id="psychologySection" style="display: none;">
+            <div class="psychology-card">
+              <div class="title">🧠 市場心理</div>
+              <div class="content" id="psychologyText">--</div>
+            </div>
+            <div class="psychology-card">
+              <div class="title">📊 成交量特徵</div>
+              <div class="content" id="volumePatternText">--</div>
+            </div>
+          </div>
+          
+          <!-- 🆕 指引檢查 -->
+          <div class="guidelines-section" id="guidelinesSection" style="display: none;">
+            <div class="column-header" style="margin-bottom: 12px;">📐 波浪指引檢查</div>
+            <div id="guidelinesContainer"></div>
           </div>
           
           <!-- Bottom Row -->
@@ -660,13 +897,27 @@
       document.getElementById('portfolioTab').classList.toggle('hidden', tab !== 'portfolio');
     }
     
+    // 🆕 時間範圍對應文字
+    const periodLabels = {
+      '180': '6個月',
+      '270': '9個月',
+      '365': '12個月',
+      '540': '18個月',
+      '730': '24個月'
+    };
+    
     async function analyzeStock() {
       const stockId = document.getElementById('stockInput').value.trim();
       if (!stockId) return alert('請輸入股票代碼');
+      
+      // 🆕 取得選擇的時間範圍
+      const period = document.getElementById('periodSelect').value || '365';
+      
       showLoading();
       
       try {
-        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        // 🆕 API 帶上 period 參數
+        const res = await fetch(`/api/line/wave/analyze/${stockId}?period=${period}`);
         
         // 檢查回應類型
         const contentType = res.headers.get('content-type');
@@ -685,6 +936,12 @@
         // 儲存數據供圖表使用
         currentPivots = data.pivots || [];
         currentHistory = data.history || [];
+        
+        // 🆕 顯示期間資訊
+        document.getElementById('periodInfoBar').style.display = 'block';
+        document.getElementById('periodText').textContent = periodLabels[period] || period + '天';
+        document.getElementById('dataCountText').textContent = (data.dataCount || data.history?.length || '--') + ' 筆';
+        document.getElementById('zigzagText').textContent = data.zigzagThreshold || '--';
         
         renderAnalysis(data);
       } catch (e) {
@@ -727,16 +984,116 @@
       // 波浪圓圈
       renderWaveCircles(wave);
       
-      // 其他
+      // 建議與目標
       document.getElementById('suggestionText').textContent = data.suggestion || '請結合其他技術指標綜合判斷。';
       document.getElementById('targetUp').textContent = '$' + (data.targetUp || 0).toFixed(1);
       document.getElementById('targetDown').textContent = '$' + (data.targetDown || 0).toFixed(1);
+      
+      // 🆕 停損與風險報酬比
+      document.getElementById('stopLoss').textContent = '$' + (data.stopLoss || 0).toFixed(1);
+      document.getElementById('riskReward').textContent = data.riskReward ? data.riskReward + ':1' : '--';
+      
+      // 🆕 技術指標
+      renderTechnicals(data.technicals);
+      
+      // 🆕 詳細建議
+      renderDetails(data.details);
+      
+      // 🆕 心理與量能
+      renderPsychology(data.psychology, data.volumePattern);
+      
+      // 🆕 指引檢查
+      renderGuidelines(data.guidelines);
       
       renderRules(data.rules);
       renderWaveHistory(data.waves, data.currentPrice, wave);
       renderFibonacci(data);
       renderRecentData(data.history);
       renderChart(data);
+    }
+    
+    // 🆕 渲染技術指標
+    function renderTechnicals(technicals) {
+      const section = document.getElementById('technicalsSection');
+      if (!technicals || Object.keys(technicals).length === 0) {
+        section.style.display = 'none';
+        return;
+      }
+      section.style.display = 'block';
+      
+      // RSI
+      const rsi = technicals.rsi;
+      const rsiEl = document.getElementById('techRSI');
+      rsiEl.textContent = rsi ? rsi.toFixed(1) : '--';
+      rsiEl.className = 'value ' + (rsi > 70 ? 'bearish' : rsi < 30 ? 'bullish' : 'neutral');
+      
+      // MACD
+      const macd = technicals.macd;
+      const macdEl = document.getElementById('techMACD');
+      macdEl.textContent = macd !== undefined ? macd.toFixed(2) : '--';
+      macdEl.className = 'value ' + (macd > 0 ? 'bullish' : macd < 0 ? 'bearish' : 'neutral');
+      
+      // MA
+      const shortMA = technicals.shortMA;
+      const longMA = technicals.longMA;
+      document.getElementById('techShortMA').textContent = shortMA ? shortMA.toFixed(1) : '--';
+      document.getElementById('techLongMA').textContent = longMA ? longMA.toFixed(1) : '--';
+      
+      // 背離警示
+      const alertEl = document.getElementById('divergenceAlert');
+      let alertHTML = '';
+      if (technicals.rsiDivergence) {
+        alertHTML += '<span class="divergence-badge warning">⚠️ RSI 背離</span>';
+      }
+      if (technicals.macdDivergence) {
+        alertHTML += '<span class="divergence-badge warning">⚠️ MACD 背離</span>';
+      }
+      if (!technicals.rsiDivergence && !technicals.macdDivergence) {
+        alertHTML = '<span class="divergence-badge ok">✅ 無明顯背離</span>';
+      }
+      alertEl.innerHTML = alertHTML;
+    }
+    
+    // 🆕 渲染詳細建議
+    function renderDetails(details) {
+      const section = document.getElementById('detailsSection');
+      const list = document.getElementById('detailsList');
+      if (!details || details.length === 0) {
+        section.style.display = 'none';
+        return;
+      }
+      section.style.display = 'block';
+      list.innerHTML = details.map(d => `<li>${d}</li>`).join('');
+    }
+    
+    // 🆕 渲染心理與量能
+    function renderPsychology(psychology, volumePattern) {
+      const section = document.getElementById('psychologySection');
+      if (!psychology && !volumePattern) {
+        section.style.display = 'none';
+        return;
+      }
+      section.style.display = 'grid';
+      document.getElementById('psychologyText').textContent = psychology || '--';
+      document.getElementById('volumePatternText').textContent = volumePattern || '--';
+    }
+    
+    // 🆕 渲染指引檢查
+    function renderGuidelines(guidelines) {
+      const section = document.getElementById('guidelinesSection');
+      const container = document.getElementById('guidelinesContainer');
+      if (!guidelines || guidelines.length === 0) {
+        section.style.display = 'none';
+        return;
+      }
+      section.style.display = 'block';
+      container.innerHTML = guidelines.map(g => `
+        <div class="guideline-item">
+          <span class="icon">${g.follows ? '✅' : '⚠️'}</span>
+          <span class="text">${g.guideline}</span>
+          <span class="detail">${g.detail || ''}</span>
+        </div>
+      `).join('');
     }
     
     function renderWaveCircles(currentWave) {

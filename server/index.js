@@ -109,6 +109,11 @@ app.get('/api/ping', (req, res) => {
 // ==================== 前端路由（SPA）====================
 
 app.get('*', (req, res) => {
+  // 🔧 排除 API 路徑，不要被 SPA fallback 攔截
+  if (req.path.startsWith('/api/') || req.path.startsWith('/webhook')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  
   // 只處理非檔案請求（SPA fallback）
   if (!req.path.includes('.')) {
     res.sendFile(path.join(__dirname, '../client/index.html'));
