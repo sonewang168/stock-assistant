@@ -1857,28 +1857,34 @@ function aggregateToWeekly(history) {
   let weekData = null;
   
   for (const day of history) {
-    const date = new Date(day.date);
-    const weekStart = new Date(date);
-    weekStart.setDate(date.getDate() - date.getDay());
-    const weekKey = weekStart.toISOString().split('T')[0];
-    
-    if (!weekData || weekData.weekKey !== weekKey) {
-      if (weekData) weekly.push(weekData);
-      weekData = {
-        weekKey,
-        date: day.date,
-        open: day.open,
-        high: day.high,
-        low: day.low,
-        close: day.close,
-        volume: day.volume || 0
-      };
-    } else {
-      weekData.high = Math.max(weekData.high, day.high);
-      weekData.low = Math.min(weekData.low, day.low);
-      weekData.close = day.close;
-      weekData.volume += day.volume || 0;
-      weekData.date = day.date;
+    try {
+      const date = new Date(day.date);
+      if (isNaN(date.getTime())) continue;  // 跳過無效日期
+      
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay());
+      const weekKey = weekStart.toISOString().split('T')[0];
+      
+      if (!weekData || weekData.weekKey !== weekKey) {
+        if (weekData) weekly.push(weekData);
+        weekData = {
+          weekKey,
+          date: day.date,
+          open: day.open,
+          high: day.high,
+          low: day.low,
+          close: day.close,
+          volume: day.volume || 0
+        };
+      } else {
+        weekData.high = Math.max(weekData.high, day.high);
+        weekData.low = Math.min(weekData.low, day.low);
+        weekData.close = day.close;
+        weekData.volume += day.volume || 0;
+        weekData.date = day.date;
+      }
+    } catch (e) {
+      continue;  // 跳過錯誤的資料
     }
   }
   if (weekData) weekly.push(weekData);
