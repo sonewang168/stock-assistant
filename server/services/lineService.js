@@ -200,7 +200,7 @@ class LineService {
       }
     };
 
-    // 🔴 卡片 3：GPT-4o 謹慎派（獨立完整卡片）
+    // 🔴 卡片 3：GPT-5.2 謹慎派（獨立完整卡片）
     const card3 = {
       type: 'bubble',
       size: 'mega',
@@ -282,7 +282,7 @@ class LineService {
     let bearish = '';
     let summary = '';
     let aiSource1 = 'Gemini';
-    let aiSource2 = 'GPT-4o';
+    let aiSource2 = 'GPT-5.2';
 
     try {
       // 解析 AI 來源
@@ -438,7 +438,7 @@ class LineService {
       }
     };
 
-    // 🔴 卡片 3：GPT-4o 謹慎派（獨立完整卡片）
+    // 🔴 卡片 3：GPT-5.2 謹慎派（獨立完整卡片）
     const card3 = {
       type: 'bubble',
       size: 'mega',
@@ -520,7 +520,7 @@ class LineService {
     let bearish = '';
     let strategy = '';
     let aiSource1 = 'Gemini';
-    let aiSource2 = 'GPT-4o';
+    let aiSource2 = 'GPT-5.2';
 
     try {
       // 解析 AI 來源

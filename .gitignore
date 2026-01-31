@@ -32,3 +32,4 @@ build/
 # Audio cache (keep directory)
 client/audio/*.mp3
 !client/audio/.gitkeep
+client-GU605CX-RTX5090/
