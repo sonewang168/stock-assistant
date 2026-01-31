@@ -12237,9 +12237,13 @@
             document.getElementById('oddWaveFinalContent').innerHTML = '<div style="text-align:center;padding:40px;">⏳ 生成總評報告中...</div>';
             
             const stockName = document.getElementById('oddWaveStockName').textContent;
+            const today = new Date();
+            const reportDate = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
+            
             const summaryPrompt = `你是資深波浪理論分析師。請根據以下三個 AI 的分析結果，撰寫一份專業的波浪總評報告。
 
-股票：${stockName} (${currentOddWaveStockCode})
+【報告日期】${reportDate}
+【股票】${stockName} (${currentOddWaveStockCode})
 
 【Claude 分析】評分 ${oddWaveAiResults.claude?.score || '--'} 分，判斷：${oddWaveAiResults.claude?.verdict || '--'}
 ${oddWaveAiResults.claude?.content || '未完成'}
@@ -12252,7 +12256,7 @@ ${oddWaveAiResults.openai?.content || '未完成'}
 
 平均信心度：${avgScore} 分
 
-請撰寫總評報告，包含：
+請撰寫總評報告，報告開頭請標註「報告日期：${reportDate}」，內容包含：
 1. 綜合波浪判斷
 2. 操作建議
 3. 風險提醒
@@ -12809,7 +12813,12 @@ ${portfolioDesc}
             document.getElementById('multiFinalContent').innerHTML = '<div style="text-align:center;padding:40px;">⏳ 生成總評報告中...</div>';
             
             // 建立總評提示詞
+            const today = new Date();
+            const reportDate = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
+            
             let summaryPrompt = `你是資深台股投資分析師。請根據以下三個 AI 的分析結果，撰寫一份 500 字以上的專業總評報告。
+
+【報告日期】${reportDate}
 
 【Claude 分析】評分 ${multiAiResults.claude?.score || '--'} 分
 ${multiAiResults.claude?.content || '未完成'}
@@ -12822,7 +12831,7 @@ ${multiAiResults.openai?.content || '未完成'}
 
 平均分數：${avgScore} 分
 
-請撰寫總評報告，包含：
+請撰寫總評報告，報告開頭請標註「報告日期：${reportDate}」，內容包含：
 1. 綜合評價（整合三方觀點）
 2. 風險評估
 3. 具體操作建議
@@ -13110,7 +13119,12 @@ ${portfolioDesc}
             document.getElementById('oddFinalContent').innerHTML = '<div style="text-align:center;padding:40px;">⏳ 生成總評報告中...</div>';
             
             // 建立總評提示詞
+            const today = new Date();
+            const reportDate = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
+            
             let summaryPrompt = `你是資深台股投資分析師。請根據以下三個 AI 的分析結果，撰寫一份 500 字以上的專業總評報告。
+
+【報告日期】${reportDate}
 
 【Claude 分析】評分 ${oddAiResults.claude?.score || '--'} 分
 ${oddAiResults.claude?.content || '未完成'}
@@ -13123,7 +13137,7 @@ ${oddAiResults.openai?.content || '未完成'}
 
 平均分數：${avgScore} 分
 
-請撰寫總評報告，包含：
+請撰寫總評報告，報告開頭請標註「報告日期：${reportDate}」，內容包含：
 1. 綜合評價（整合三方觀點）
 2. 風險評估
 3. 具體操作建議
@@ -16045,9 +16059,13 @@ ${alertsText.substring(0, 500)}
             document.getElementById('wavePanelFinalContent').innerHTML = '<div style="text-align:center;padding:40px;">⏳ 生成總評報告中...</div>';
             
             const stockName = document.getElementById('waveStockName')?.textContent || currentWaveStockCode;
+            const today = new Date();
+            const reportDate = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
+            
             const summaryPrompt = `你是資深波浪理論分析師。請根據以下三個 AI 的分析結果，撰寫一份專業的波浪總評報告。
 
-股票：${stockName} (${currentWaveStockCode})
+【報告日期】${reportDate}
+【股票】${stockName} (${currentWaveStockCode})
 
 【Claude 分析】評分 ${waveAiResults.claude?.score || '--'} 分，判斷：${waveAiResults.claude?.verdict || '--'}
 ${waveAiResults.claude?.content || '未完成'}
@@ -16060,7 +16078,7 @@ ${waveAiResults.openai?.content || '未完成'}
 
 平均信心度：${avgScore} 分
 
-請撰寫總評報告，包含：
+請撰寫總評報告，報告開頭請標註「報告日期：${reportDate}」，內容包含：
 1. 綜合波浪判斷
 2. 操作建議
 3. 風險提醒
