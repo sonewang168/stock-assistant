@@ -12154,8 +12154,22 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
       const suggestion = elliottWaveAdvanced.generateAdvancedSuggestion(waveAnalysis, targets, technicals);
       const confidence = elliottWaveAdvanced.calculateAdvancedConfidence(waveAnalysis, ruleChecks, technicals, targets);
       
-      // 🆕 方案3：週線驗證結果
-      const enhancedResult = elliottWaveAdvanced.determineWaveWithEnhancedLogic(waveAnalysis.waves, currentPrice, history);
+      // 🆕 方案3：週線驗證結果（添加錯誤保護）
+      let enhancedResult = { wave: waveAnalysis.currentWave, confidence: confidence.score };
+      try {
+        enhancedResult = elliottWaveAdvanced.determineWaveWithEnhancedLogic(waveAnalysis.waves, currentPrice, history);
+        console.log(`✅ 方案1+2+3 判斷成功:`, JSON.stringify(enhancedResult));
+      } catch (enhancedError) {
+        console.error(`⚠️ 方案1+2+3 判斷失敗，使用原始判斷:`, enhancedError.message);
+        enhancedResult = { 
+          wave: waveAnalysis.currentWave, 
+          confidence: confidence.score,
+          reason: '使用原始波浪判斷',
+          majorWaveCount: null,
+          weeklyWaveCount: null,
+          dynamicThreshold: null
+        };
+      }
       
       waveResult = {
         currentWave: enhancedResult.wave,  // 🆕 使用增強版判斷
