@@ -1,7 +1,7 @@
 {
-  "name":  "stock-assistant",
+  "name": "stock-assistant",
   "version": "4.0.0",
-  "description": "?�海秘書 LINE 秘書 - ?�端?�用",
+  "description": "股海秘書 LINE 秘書 - 全端應用",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
