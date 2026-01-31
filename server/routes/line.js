@@ -12261,6 +12261,13 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
       pivots: (waveResult.pivots || []).slice(-20),
       isUptrend: waveResult.isUptrend,
       
+      // 🆕 方案1+2+3 新增欄位
+      waveReason: waveResult.waveReason || null,
+      majorWaveCount: waveResult.majorWaveCount || null,
+      weeklyWaveCount: waveResult.weeklyWaveCount || null,
+      dynamicThreshold: waveResult.dynamicThreshold || null,
+      divergenceInfo: waveResult.divergenceInfo || null,
+      
       // 規則與指引
       rules: waveResult.rules || [],
       guidelines: waveResult.guidelines || [],
