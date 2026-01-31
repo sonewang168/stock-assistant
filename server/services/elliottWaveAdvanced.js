@@ -2031,69 +2031,146 @@ function determineWaveWithEnhancedLogic(waves, currentPrice, history) {
   let wave, confidence, reason;
   
   // ========================================
-  // 核心判斷邏輯
+  // 🆕 核心判斷邏輯 - 優先使用已識別的波浪序列
   // ========================================
   
-  if (majorWaveCount <= 2) {
-    // 只有1-2個主要波浪 → 第1或2浪
+  // 從已識別的波浪序列獲取最後一個波浪編號
+  const identifiedWaveCount = waves?.length || 0;
+  const lastWave = waves?.[waves.length - 1];
+  const lastWaveNum = lastWave?.wave || 0;
+  
+  console.log(`   已識別波浪: ${identifiedWaveCount}個, 最後一浪: ${lastWaveNum}`);
+  
+  // 🔑 優先判斷：根據已識別的波浪序列
+  if (identifiedWaveCount >= 1 && lastWaveNum) {
+    // 根據最後識別的波浪編號來判斷當前位置
+    const lastWaveDirection = lastWave?.direction;
+    const lastWaveEnd = lastWave?.end || currentPrice;
+    const fromLastWave = ((currentPrice - lastWaveEnd) / lastWaveEnd) * 100;
+    
+    if (lastWaveNum === 1 || lastWaveNum === 2) {
+      // 剛完成第1或2浪
+      if (fromLastWave > 5 && lastWaveDirection === 'up') {
+        wave = lastWaveNum === 1 ? 2 : 3;
+        confidence = 75;
+        reason = `完成第${lastWaveNum}浪後上漲${fromLastWave.toFixed(0)}%，進入第${wave}浪`;
+      } else if (fromLastWave < -5) {
+        wave = lastWaveNum + 1;
+        confidence = 70;
+        reason = `第${lastWaveNum}浪後回調，可能第${wave}浪`;
+      } else {
+        wave = lastWaveNum;
+        confidence = 70;
+        reason = `第${lastWaveNum}浪進行中`;
+      }
+    }
+    else if (lastWaveNum === 3) {
+      // 第3浪中或剛完成
+      if (pullbackFromHigh < 10) {
+        // 接近高點
+        if (divergence.hasDivergence && divergence.type === 'bearish') {
+          wave = 3;
+          confidence = 80;
+          reason = `第3浪接近高點，RSI頂背離，可能即將進入第4浪`;
+        } else {
+          wave = 3;
+          confidence = 85;
+          reason = `第3浪主升段，接近高點，無背離信號`;
+        }
+      } else if (pullbackFromHigh >= 10 && pullbackFromHigh < 25) {
+        wave = 4;
+        confidence = 75;
+        reason = `第3浪後回調${pullbackFromHigh.toFixed(0)}%，進入第4浪修正`;
+      } else if (pullbackFromHigh >= 25) {
+        wave = 4;
+        confidence = 70;
+        reason = `深度回調${pullbackFromHigh.toFixed(0)}%，第4浪修正中`;
+      } else {
+        wave = 3;
+        confidence = 80;
+        reason = `第3浪主升段進行中`;
+      }
+    }
+    else if (lastWaveNum === 4) {
+      // 第4浪中或剛完成
+      if (fromLastWave > 10 && currentPrice > lastWaveEnd) {
+        wave = 5;
+        confidence = 75;
+        reason = `第4浪完成後反彈${fromLastWave.toFixed(0)}%，進入第5浪`;
+      } else if (pullbackFromHigh > 20) {
+        wave = 4;
+        confidence = 70;
+        reason = `第4浪修正中，回調${pullbackFromHigh.toFixed(0)}%`;
+      } else {
+        wave = 5;
+        confidence = 70;
+        reason = `第4浪後反彈，可能第5浪初期`;
+      }
+    }
+    else if (lastWaveNum === 5 || lastWaveNum >= 5) {
+      // 已識別到第5浪
+      if (pullbackFromHigh < 10) {
+        wave = 5;
+        confidence = 80;
+        reason = `第5浪進行中，${divergence.type === 'bearish' ? 'RSI頂背離，注意風險' : '接近高點'}`;
+      } else if (pullbackFromHigh >= 15) {
+        wave = 'A';
+        confidence = 70;
+        reason = `第5浪後回調${pullbackFromHigh.toFixed(0)}%，可能進入ABC修正`;
+      } else {
+        wave = 5;
+        confidence = 75;
+        reason = `第5浪末端`;
+      }
+    }
+    else {
+      // 其他情況（如 A、B、C 浪）
+      wave = lastWaveNum;
+      confidence = 65;
+      reason = `當前位於${typeof lastWaveNum === 'string' ? lastWaveNum : '第' + lastWaveNum}浪`;
+    }
+  }
+  // 🔄 備援判斷：沒有已識別波浪時，使用原始邏輯
+  else if (majorWaveCount <= 2) {
     if (pullbackFromHigh > 15) {
       wave = 2;
       confidence = 75;
-      reason = `主要波浪${majorWaveCount}個(閾值${threshold}%)，回調${pullbackFromHigh.toFixed(0)}%，第2浪修正`;
+      reason = `主要轉折${majorWaveCount}個，回調${pullbackFromHigh.toFixed(0)}%，可能第2浪`;
     } else {
       wave = 1;
       confidence = 70;
-      reason = `主要波浪${majorWaveCount}個(閾值${threshold}%)，初升段第1浪`;
+      reason = `主要轉折${majorWaveCount}個，初升段第1浪`;
     }
   }
   else if (majorWaveCount <= 4) {
-    // 3-4個主要波浪 → 大多在第3浪
-    if (divergence.hasDivergence && divergence.type === 'bearish') {
-      // 有頂背離 → 第3浪可能接近尾聲
-      wave = 3;
-      confidence = 75;
-      reason = `大漲${totalChangeFromLow.toFixed(0)}%，RSI頂背離，第3浪可能接近尾聲`;
-    } else if (pullbackFromHigh < 15 && pricePosition > 0.85) {
-      // 接近高點無背離 → 第3浪主升段！
-      wave = 3;
-      confidence = 85;
-      reason = `大漲${totalChangeFromLow.toFixed(0)}%，接近高點，無背離，第3浪主升段`;
-    } else if (pullbackFromHigh >= 15 && pullbackFromHigh < 30) {
+    if (pullbackFromHigh < 15 && pricePosition > 0.85) {
       wave = 3;
       confidence = 80;
-      reason = `大漲後回調${pullbackFromHigh.toFixed(0)}%，第3浪整理中`;
-    } else if (pullbackFromHigh >= 30 && pullbackFromHigh < 50) {
+      reason = `主要轉折${majorWaveCount}個，接近高點，第3浪主升段`;
+    } else if (pullbackFromHigh >= 15 && pullbackFromHigh < 35) {
       wave = 4;
       confidence = 70;
-      reason = `深度回調${pullbackFromHigh.toFixed(0)}%，可能第4浪`;
-    } else if (pullbackFromHigh >= 50) {
-      wave = 'A';
-      confidence = 65;
-      reason = `深度回調${pullbackFromHigh.toFixed(0)}%，可能ABC修正`;
+      reason = `主要轉折${majorWaveCount}個，回調${pullbackFromHigh.toFixed(0)}%，可能第4浪`;
     } else {
       wave = 3;
-      confidence = 80;
-      reason = `大漲${totalChangeFromLow.toFixed(0)}%，第3浪主升段進行中`;
+      confidence = 75;
+      reason = `主要轉折${majorWaveCount}個，第3浪`;
     }
   }
   else {
-    // 5+個主要波浪 → 可能已完成5浪
-    if (divergence.hasDivergence && divergence.type === 'bearish') {
-      wave = 5;
-      confidence = 80;
-      reason = `主要波浪${majorWaveCount}個，RSI頂背離，第5浪末端`;
-    } else if (pullbackFromHigh < 15) {
+    // 5+個主要波浪
+    if (pullbackFromHigh < 15) {
       wave = 5;
       confidence = 75;
-      reason = `主要波浪${majorWaveCount}個，接近高點，第5浪`;
-    } else if (pullbackFromHigh >= 25) {
-      wave = divergence.type === 'bullish' ? 'C' : 'A';
+      reason = `主要轉折${majorWaveCount}個，接近高點，可能第5浪`;
+    } else if (pullbackFromHigh >= 20) {
+      wave = 'A';
       confidence = 70;
-      reason = `主要波浪${majorWaveCount}個，深度回調，ABC修正`;
+      reason = `主要轉折${majorWaveCount}個，深度回調，可能ABC修正`;
     } else {
-      wave = 5;
-      confidence = 70;
-      reason = `主要波浪${majorWaveCount}個，第5浪`;
+      wave = 4;
+      confidence = 65;
+      reason = `主要轉折${majorWaveCount}個，回調中，可能第4浪`;
     }
   }
   
