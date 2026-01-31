@@ -99,6 +99,37 @@
     }
     .current-wave-display .wave-label { font-size: 1.2rem; color: #c9d1d9; }
     
+    /* 🆕 Wave Reason Box (判斷依據) */
+    .wave-reason-box {
+      background: linear-gradient(135deg, rgba(88, 166, 255, 0.1), rgba(35, 134, 54, 0.1));
+      border: 1px solid rgba(88, 166, 255, 0.3);
+      border-radius: 10px; padding: 16px; margin: 16px 0;
+      text-align: center;
+    }
+    .wave-reason-title {
+      font-size: 0.85rem; color: #8b949e; margin-bottom: 8px;
+    }
+    .wave-reason-text {
+      font-size: 0.95rem; color: #c9d1d9; line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .wave-indicators {
+      display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;
+    }
+    .indicator-badge {
+      padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 500;
+      background: rgba(139, 148, 158, 0.2); color: #8b949e;
+    }
+    .indicator-badge.bullish {
+      background: rgba(63, 185, 80, 0.2); color: #3fb950;
+    }
+    .indicator-badge.bearish {
+      background: rgba(248, 81, 73, 0.2); color: #f85149;
+    }
+    .indicator-badge.neutral {
+      background: rgba(210, 153, 34, 0.2); color: #d29922;
+    }
+    
     /* Trend Info */
     .trend-info {
       display: flex; justify-content: center; align-items: center; gap: 16px;
@@ -443,6 +474,16 @@
               <span class="wave-label">浪</span>
             </div>
             
+            <!-- 🆕 Wave Reason (判斷原因) -->
+            <div class="wave-reason-box" id="waveReasonBox" style="display: none;">
+              <div class="wave-reason-title">📊 判斷依據</div>
+              <div class="wave-reason-text" id="waveReasonText">--</div>
+              <div class="wave-indicators">
+                <span class="indicator-badge" id="weeklyWavesBadge" style="display: none;">週線波浪: --</span>
+                <span class="indicator-badge" id="divergenceBadge" style="display: none;">RSI背離: 無</span>
+              </div>
+            </div>
+            
             <!-- Trend Info -->
             <div class="trend-info">
               <span id="trendText">--</span>
@@ -724,6 +765,9 @@
       confEl.style.background = conf >= 70 ? 'rgba(63,185,80,0.2)' : conf >= 40 ? 'rgba(210,153,34,0.2)' : 'rgba(248,81,73,0.2)';
       confEl.style.color = conf >= 70 ? '#3fb950' : conf >= 40 ? '#d29922' : '#f85149';
       
+      // 🆕 波浪判斷原因顯示
+      renderWaveReason(data);
+      
       // 波浪圓圈
       renderWaveCircles(wave);
       
@@ -737,6 +781,49 @@
       renderFibonacci(data);
       renderRecentData(data.history);
       renderChart(data);
+    }
+    
+    // 🆕 渲染波浪判斷原因（方案1+2+3）
+    function renderWaveReason(data) {
+      const box = document.getElementById('waveReasonBox');
+      const textEl = document.getElementById('waveReasonText');
+      const weeklyBadge = document.getElementById('weeklyWavesBadge');
+      const divergenceBadge = document.getElementById('divergenceBadge');
+      
+      // 如果有判斷原因，顯示
+      if (data.waveReason) {
+        box.style.display = 'block';
+        textEl.textContent = data.waveReason;
+        
+        // 週線波浪數
+        if (data.weeklyWaveCount !== undefined) {
+          weeklyBadge.style.display = 'inline-block';
+          weeklyBadge.textContent = `📅 週線波浪: ${data.weeklyWaveCount}浪`;
+          weeklyBadge.className = 'indicator-badge neutral';
+        } else {
+          weeklyBadge.style.display = 'none';
+        }
+        
+        // RSI 背離資訊
+        if (data.divergenceInfo && data.divergenceInfo.hasDivergence) {
+          divergenceBadge.style.display = 'inline-block';
+          const divType = data.divergenceInfo.type;
+          if (divType === 'bearish') {
+            divergenceBadge.textContent = '⚠️ RSI頂背離';
+            divergenceBadge.className = 'indicator-badge bearish';
+          } else if (divType === 'bullish') {
+            divergenceBadge.textContent = '✨ RSI底背離';
+            divergenceBadge.className = 'indicator-badge bullish';
+          }
+        } else {
+          divergenceBadge.style.display = 'inline-block';
+          divergenceBadge.textContent = '✅ 無RSI背離';
+          divergenceBadge.className = 'indicator-badge neutral';
+        }
+      } else {
+        // 沒有 waveReason，使用舊版顯示或隱藏
+        box.style.display = 'none';
+      }
     }
     
     function renderWaveCircles(currentWave) {

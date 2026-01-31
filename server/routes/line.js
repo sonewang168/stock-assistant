@@ -6509,8 +6509,19 @@ function analyzeWaveStructure(pivots, currentPrice, history) {
     organizedPivots = pivots.slice(highIdx);
   }
   
-  // 🔑 正確的波浪編號邏輯
-  let waveCount = 1;
+  // 🔑 正確的波浪編號邏輯（根據實際方向判斷）
+  // 艾略特波浪序列：1(↑) → 2(↓) → 3(↑) → 4(↓) → 5(↑) → A(↓) → B(↑) → C(↓)
+  const waveSequence = [
+    { label: 1, expectedDir: 'up' },
+    { label: 2, expectedDir: 'down' },
+    { label: 3, expectedDir: 'up' },
+    { label: 4, expectedDir: 'down' },
+    { label: 5, expectedDir: 'up' },
+    { label: 'A', expectedDir: 'down' },
+    { label: 'B', expectedDir: 'up' },
+    { label: 'C', expectedDir: 'down' }
+  ];
+  
   let lastP = null;
   
   for (let i = 0; i < organizedPivots.length; i++) {
@@ -6518,56 +6529,40 @@ function analyzeWaveStructure(pivots, currentPrice, history) {
     
     if (lastP) {
       const isRising = pivot.price > lastP.price;
+      const actualDir = isRising ? 'up' : 'down';
       const changePercent = ((pivot.price - lastP.price) / lastP.price * 100);
       
-      // 根據趨勢和方向判斷波浪
+      // 🔧 根據當前波浪數量和方向來決定標籤
+      const seqIndex = waves.length % 8;
+      const expectedSeq = waveSequence[seqIndex];
+      
       let waveName, waveType;
       
-      if (isUptrend) {
-        // 上升趨勢中
-        if (waveCount <= 5) {
-          // 推動浪 1-5
-          if (waveCount % 2 === 1) {
-            // 奇數浪 (1,3,5) 應該是上漲
-            if (isRising) {
-              waveName = waveCount;
-              waveType = '推動';
-              waveCount++;
-            } else {
-              // 如果是下跌，可能是修正浪
-              waveName = waveCount;
-              waveType = '修正';
-              waveCount++;
-            }
-          } else {
-            // 偶數浪 (2,4) 應該是下跌修正
-            waveName = waveCount;
-            waveType = '修正';
-            waveCount++;
-          }
-        } else {
-          // 修正浪 A-B-C
-          const abcNames = ['A', 'B', 'C'];
-          waveName = abcNames[waveCount - 6] || 'C';
-          waveType = waveName === 'B' ? '反彈' : '修正';
-          waveCount++;
-        }
+      // 如果方向符合預期，使用正常序列
+      if (actualDir === expectedSeq.expectedDir) {
+        waveName = expectedSeq.label;
       } else {
-        // 下降趨勢中：直接進入 ABC 修正浪
-        const abcNames = ['A', 'B', 'C', '1', '2', '3', '4', '5'];
-        waveName = abcNames[waveCount - 1] || String(waveCount);
-        if (waveName === 'B' || ['2', '4'].includes(waveName)) {
-          waveType = '反彈';
+        // 方向不符合，跳到下一個符合方向的序列
+        const nextMatchIdx = waveSequence.findIndex((s, idx) => idx > seqIndex && s.expectedDir === actualDir);
+        if (nextMatchIdx !== -1) {
+          waveName = waveSequence[nextMatchIdx].label;
         } else {
-          waveType = '修正';
+          // 找不到匹配的，重新開始
+          waveName = actualDir === 'up' ? 1 : 'A';
         }
-        waveCount++;
+      }
+      
+      // 設定波浪類型
+      if (typeof waveName === 'number') {
+        waveType = [1, 3, 5].includes(waveName) ? '推動' : '修正';
+      } else {
+        waveType = waveName === 'B' ? '反彈' : '修正';
       }
       
       waves.push({
         wave: waveName,
         type: waveType,
-        direction: isRising ? 'up' : 'down',
+        direction: actualDir,
         start: lastP.price,
         end: pivot.price,
         startDate: lastP.date,
@@ -6575,8 +6570,6 @@ function analyzeWaveStructure(pivots, currentPrice, history) {
         change: changePercent.toFixed(1),
         fibRatio: waves.length > 0 ? calculateFibRatio(waves[0], { start: lastP.price, end: pivot.price }) : null
       });
-      
-      if (waveCount > 8) waveCount = 1;
     }
     
     lastP = pivot;
@@ -6603,53 +6596,76 @@ function analyzeWaveStructure(pivots, currentPrice, history) {
 }
 
 /**
- * 🆕 判斷目前位於哪一浪
+ * 🆕 判斷目前位於哪一浪（基於波浪序列）
  */
 function determineCurrentWave(waves, currentPrice, history) {
   if (waves.length === 0) return 1;
   
+  // 🔧 根據已建構的波浪序列來判斷
+  const lastWave = waves[waves.length - 1];
+  const lastWaveNumber = lastWave.wave;
+  const lastWaveEnd = lastWave.end;
+  const priceChange = (currentPrice - lastWaveEnd) / lastWaveEnd;
+  const isAbove = currentPrice > lastWaveEnd;
+  
+  console.log(`[determineCurrentWave] Last wave: ${lastWaveNumber}, end: ${lastWaveEnd}, current: ${currentPrice}, change: ${(priceChange*100).toFixed(2)}%`);
+  
+  // 根據最後一個波浪來判斷當前位置
+  if (typeof lastWaveNumber === 'number') {
+    switch(lastWaveNumber) {
+      case 1: // 第1浪結束（上漲結束）
+        if (priceChange < -0.02) return 2; // 進入第2浪修正
+        if (priceChange > 0.03) return 1;  // 還在第1浪延續
+        return isAbove ? 1 : 2;
+        
+      case 2: // 第2浪結束（下跌結束）
+        if (priceChange > 0.02) return 3;  // 進入第3浪
+        if (priceChange < -0.03) return 2; // 還在第2浪
+        return isAbove ? 3 : 2;
+        
+      case 3: // 第3浪結束（上漲結束，通常最強）
+        if (priceChange < -0.02) return 4; // 進入第4浪修正
+        if (priceChange > 0.03) return 3;  // 還在第3浪
+        return isAbove ? 3 : 4;
+        
+      case 4: // 第4浪結束（下跌結束）
+        if (priceChange > 0.02) return 5;  // 進入第5浪
+        if (priceChange < -0.03) return 4; // 還在第4浪
+        return isAbove ? 5 : 4;
+        
+      case 5: // 第5浪結束（上漲結束）
+        if (priceChange < -0.03) return 'A'; // 開始ABC修正
+        if (priceChange > 0.05) return 1;    // 新循環開始
+        return 5; // 還在第5浪
+    }
+  } else {
+    // ABC 修正浪
+    switch(lastWaveNumber) {
+      case 'A': // A浪結束（下跌結束）
+        if (priceChange > 0.02) return 'B'; // 反彈進入B浪
+        return 'A';
+        
+      case 'B': // B浪結束（反彈結束）
+        if (priceChange > 0.08) return 1;   // 新循環開始
+        if (priceChange < -0.02) return 'C'; // 進入C浪下跌
+        if (priceChange > 0.03) return 1;   // 可能新循環
+        return isAbove ? 'B' : 'C';
+        
+      case 'C': // C浪結束（下跌結束）
+        if (priceChange > 0.03) return 1;   // 新循環開始
+        if (priceChange < -0.02) return 'C'; // 還在C浪
+        return isAbove ? 1 : 'C';
+    }
+  }
+  
+  // 預設：如果波浪序列有問題，使用動能判斷
   const closes = history.map(h => h.close);
   const recentCloses = closes.slice(-20);
-  
-  // 計算近期統計
-  const recentHigh = Math.max(...recentCloses);
-  const recentLow = Math.min(...recentCloses);
-  const recentAvg = recentCloses.reduce((a, b) => a + b, 0) / recentCloses.length;
-  
-  // 計算趨勢
   const shortMA = recentCloses.slice(-5).reduce((a, b) => a + b, 0) / 5;
   const longMA = recentCloses.reduce((a, b) => a + b, 0) / recentCloses.length;
   const isUpTrend = shortMA > longMA;
   
-  // 計算價格位置
-  const pricePosition = (currentPrice - recentLow) / (recentHigh - recentLow);
-  
-  // 計算動能
-  const momentum = (recentCloses[recentCloses.length - 1] - recentCloses[0]) / recentCloses[0] * 100;
-  
-  // 根據多重條件判斷波浪
-  if (isUpTrend) {
-    if (momentum > 10 && pricePosition > 0.8) {
-      return 3; // 強勢上漲，可能在第3浪
-    } else if (momentum > 5 && pricePosition > 0.6) {
-      return 5; // 末升段
-    } else if (pricePosition < 0.4 && momentum < 0) {
-      return 2; // 回調中
-    } else if (pricePosition > 0.5 && momentum > 0) {
-      return 1; // 初升段
-    } else {
-      return 4; // 整理中
-    }
-  } else {
-    // 下跌趨勢
-    if (momentum < -10 && pricePosition < 0.3) {
-      return 'C'; // 主跌段
-    } else if (momentum > 0 && pricePosition > 0.4) {
-      return 'B'; // 反彈
-    } else {
-      return 'A'; // 下跌開始
-    }
-  }
+  return isUpTrend ? (waves.length >= 5 ? 5 : waves.length + 1) : 'A';
 }
 
 /**
@@ -12080,46 +12096,44 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
       });
     }
     
-    // 🔑 將 history 反轉為升序（舊→新）
-    const history = [...historyRaw].reverse();
+    // 🔑 確保 history 為升序（舊→新）
+    // 檢查資料順序，如果第一筆日期 > 最後一筆日期，表示是降序，需要反轉
+    let history = [...historyRaw];
+    if (history.length > 1) {
+      const firstDate = new Date(history[0].date);
+      const lastDate = new Date(history[history.length - 1].date);
+      if (firstDate > lastDate) {
+        console.log(`🔄 ${stockId} 歷史資料反轉（降序→升序）`);
+        history.reverse();
+      } else {
+        console.log(`✅ ${stockId} 歷史資料已是升序`);
+      }
+    }
     
-    // 🔧 根據歷史資料長度和價格波動調整 ZigZag 靈敏度
-    // 改用更低的閾值，讓更多轉折點被識別
+    // 🆕 使用動態 ZigZag 閾值（方案1：根據總漲跌幅計算）
     const closes = history.map(h => h.close);
     const overallHigh = Math.max(...closes);
     const overallLow = Math.min(...closes);
     const totalChangePercent = ((overallHigh - overallLow) / overallLow) * 100;
     
-    let zigzagThreshold;
-    // 🆕 根據總漲跌幅動態調整閾值
-    if (totalChangePercent > 100) {
-      // 大幅波動（>100%）：用較低閾值抓更多波浪
-      zigzagThreshold = 5;
-    } else if (totalChangePercent > 50) {
-      // 中等波動（50-100%）
-      zigzagThreshold = 4;
-    } else if (totalChangePercent > 20) {
-      // 一般波動（20-50%）
-      zigzagThreshold = 3;
-    } else {
-      // 小幅波動（<20%）
-      zigzagThreshold = 2.5;
-    }
+    // 動態閾值由 findAdvancedPivots 內部計算
+    // 這裡只是傳入基礎值，實際閾值會根據漲跌幅動態調整
+    const baseThreshold = 5;
     
-    console.log(`🌊 波浪分析: ${stockId}, 總漲跌: ${totalChangePercent.toFixed(1)}%, ZigZag閾值: ${zigzagThreshold}%`);
+    console.log(`🌊 波浪分析: ${stockId}, 總漲跌: ${totalChangePercent.toFixed(1)}%, 基礎閾值: ${baseThreshold}%`);
     
-    // 🌊 使用進階波浪分析模組
+    // 🌊 使用進階波浪分析模組（整合方案1+2+3）
     let waveResult;
     if (elliottWaveAdvanced) {
-      console.log(`🌊 使用進階波浪分析模組: ${stockId}, ZigZag閾值: ${zigzagThreshold}%`);
-      // 傳入自訂閾值
-      const pivots = elliottWaveAdvanced.findAdvancedPivots(history, zigzagThreshold);
+      console.log(`🌊 使用進階波浪分析模組（方案1+2+3）: ${stockId}`);
+      
+      // 🆕 方案1：動態閾值會在 findAdvancedPivots 內部計算
+      const pivots = elliottWaveAdvanced.findAdvancedPivots(history, baseThreshold);
       const waveAnalysis = elliottWaveAdvanced.analyzeWaveStructureAdvanced(pivots, currentPrice, history);
       const ruleChecks = elliottWaveAdvanced.checkWaveRulesAdvanced(waveAnalysis);
       const targets = elliottWaveAdvanced.calculateTargetsAdvanced(waveAnalysis, currentPrice, history);
       
       // 計算技術指標
-      const closes = history.map(h => h.close);
       const technicals = {
         rsi: elliottWaveAdvanced.calculateRSI(closes, 14),
         macd: elliottWaveAdvanced.calculateMACD(closes),
@@ -12127,14 +12141,21 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
         longMA: elliottWaveAdvanced.calculateSMA(closes, 20)
       };
       
-      // 檢查背離
+      // 🆕 方案2：RSI 背離檢測（由新的 determineWaveWithEnhancedLogic 處理）
+      const divergence = elliottWaveAdvanced.detectRSIDivergence(history, 30);
+      technicals.rsiDivergence = divergence.hasDivergence && divergence.type === 'bearish';
+      technicals.divergenceDetail = divergence.detail || null;
+      
+      // MACD 背離
       const recentCloses = closes.slice(-20);
       const priceTrend = recentCloses[recentCloses.length - 1] > recentCloses[0];
-      technicals.rsiDivergence = (priceTrend && technicals.rsi < 50) || (!priceTrend && technicals.rsi > 50);
       technicals.macdDivergence = (priceTrend && technicals.macd.histogram < 0) || (!priceTrend && technicals.macd.histogram > 0);
       
       const suggestion = elliottWaveAdvanced.generateAdvancedSuggestion(waveAnalysis, targets, technicals);
       const confidence = elliottWaveAdvanced.calculateAdvancedConfidence(waveAnalysis, ruleChecks, technicals, targets);
+      
+      // 🆕 方案3：週線驗證結果
+      const enhancedResult = elliottWaveAdvanced.determineWaveWithEnhancedLogic(waveAnalysis.waves, currentPrice, history);
       
       waveResult = {
         currentWave: waveAnalysis.currentWave,
@@ -12148,7 +12169,7 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
         stopLoss: targets.stopLoss,
         fibLevels: targets.fibLevels,
         riskReward: targets.riskReward,
-        confidence: confidence.score,
+        confidence: enhancedResult.confidence || confidence.score,  // 使用增強版信心度
         confidenceLevel: confidence.level,
         confidenceBreakdown: confidence.breakdown,
         suggestion: suggestion.summary,
@@ -12156,13 +12177,18 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
         details: suggestion.details,
         psychology: suggestion.psychology,
         volumePattern: suggestion.volumePattern,
+        // 🆕 新增：波浪判斷原因
+        waveReason: enhancedResult.reason,
+        weeklyWaveCount: enhancedResult.weeklyWaveCount,
+        divergenceInfo: divergence,
         technicals: {
           rsi: Math.round(technicals.rsi * 10) / 10,
           macd: Math.round(technicals.macd.histogram * 100) / 100,
           shortMA: Math.round(technicals.shortMA * 100) / 100,
           longMA: Math.round(technicals.longMA * 100) / 100,
           rsiDivergence: technicals.rsiDivergence,
-          macdDivergence: technicals.macdDivergence
+          macdDivergence: technicals.macdDivergence,
+          divergenceDetail: technicals.divergenceDetail
         },
         waveKnowledge: elliottWaveAdvanced.WAVE_KNOWLEDGE?.characteristics?.[waveAnalysis.currentWave] || null
       };
