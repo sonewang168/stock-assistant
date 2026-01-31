@@ -4102,6 +4102,7 @@
                             <option value="180">6個月</option>
                             <option value="270">9個月</option>
                             <option value="365" selected>12個月</option>
+                            <option value="540">18個月</option>
                         </select>
                         <button class="wave-close-btn" onclick="closeOddWavePanel()">✕</button>
                     </div>
@@ -4112,12 +4113,22 @@
                         <div>分析中...</div>
                     </div>
                     <div class="wave-result" id="oddWaveResult" style="display: none;">
-                        <div class="wave-chart-container">
+                        <!-- 波浪圖表 -->
+                        <div class="wave-chart-container" style="height: 250px; margin-bottom: 15px;">
                             <canvas id="oddWaveAnalysisChart"></canvas>
                         </div>
+                        <!-- 波浪圓圈 -->
                         <div class="wave-circles-row">
                             <div class="wave-circles" id="oddWaveCircles"></div>
                         </div>
+                        <!-- 波浪圖例 -->
+                        <div class="wave-chart-legend" style="margin: 10px 0;">
+                            <span class="legend-item"><span class="legend-dot" style="background: #3fb950;"></span> 推動浪 (1,3,5)</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: #58a6ff;"></span> 修正浪 (2,4)</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: #f85149;"></span> 下跌浪 (A,C)</span>
+                            <span class="legend-item"><span class="legend-dot" style="background: #d29922;"></span> 反彈浪 (B)</span>
+                        </div>
+                        <!-- 當前波浪資訊 -->
                         <div class="wave-current-info">
                             <div class="wave-info-item">
                                 <div class="wave-info-label">當前波浪</div>
@@ -4129,7 +4140,7 @@
                             </div>
                             <div class="wave-info-item">
                                 <div class="wave-info-label">建議操作</div>
-                                <div class="wave-info-value" id="oddWaveAction">--</div>
+                                <div class="wave-info-value" id="oddWaveAction" style="font-size: 0.85rem;">--</div>
                             </div>
                         </div>
                     </div>
@@ -11641,11 +11652,15 @@
             const result = document.getElementById('oddWaveResult');
             
             document.getElementById('oddWaveStockCode').textContent = code;
-            document.getElementById('oddWaveStockName').textContent = name || code;
+            document.getElementById('oddWaveStockName').textContent = name || getStockChineseName(code, null) || code;
             
             panel.style.display = 'block';
             loading.style.display = 'flex';
+            loading.innerHTML = '<div class="wave-spinner"></div><div>分析中...</div>';
             result.style.display = 'none';
+            
+            // 滾動到面板
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
             
             try {
                 const period = document.getElementById('oddWavePeriodSelect')?.value || 365;
@@ -11657,17 +11672,27 @@
                 loading.style.display = 'none';
                 result.style.display = 'block';
                 
+                // 計算趨勢
+                const wave = data.currentWave;
+                const isUpTrend = [1, 2, 3, 4, 5, '1', '2', '3', '4', '5'].includes(wave);
+                const trendText = isUpTrend ? '📈 上升趨勢' : '📉 下降趨勢';
+                const trendClass = isUpTrend ? 'up' : 'down';
+                
                 // 更新波浪資訊
-                document.getElementById('oddWaveCurrentWave').textContent = data.currentWave || '--';
-                document.getElementById('oddWaveTrend').textContent = data.trend || '--';
-                document.getElementById('oddWaveAction').textContent = data.suggestion || '--';
+                document.getElementById('oddWaveCurrentWave').textContent = `第 ${wave} 浪`;
+                document.getElementById('oddWaveCurrentWave').className = 'wave-info-value ' + trendClass;
+                
+                document.getElementById('oddWaveTrend').textContent = trendText;
+                document.getElementById('oddWaveTrend').className = 'wave-info-value ' + trendClass;
+                
+                document.getElementById('oddWaveAction').textContent = data.suggestion || '請結合其他技術指標綜合判斷';
                 
                 // 繪製波浪圖
                 renderOddWaveChart(data);
-                renderOddWaveCircles(data.waves || []);
+                renderOddWaveCircles(wave, data.waves || []);
                 
             } catch (e) {
-                loading.innerHTML = `<div style="color: var(--accent-down);">❌ 分析失敗: ${e.message}</div>`;
+                loading.innerHTML = `<div style="color: var(--accent-down); text-align: center; padding: 20px;">❌ 分析失敗: ${e.message}</div>`;
             }
         }
 
@@ -11683,7 +11708,7 @@
             }
         }
 
-        // 渲染零股波浪圖
+        // 渲染零股波浪圖（使用 history 欄位）
         function renderOddWaveChart(data) {
             const canvas = document.getElementById('oddWaveAnalysisChart');
             if (!canvas) return;
@@ -11692,35 +11717,98 @@
             
             if (oddWaveChart) {
                 oddWaveChart.destroy();
+                oddWaveChart = null;
             }
             
-            const priceData = data.priceHistory || [];
-            const labels = priceData.map(p => p.date);
-            const prices = priceData.map(p => p.close);
+            // API 回傳的是 history 欄位
+            const history = data.history || data.priceHistory || [];
+            if (history.length === 0) {
+                console.log('零股波浪：無歷史資料');
+                return;
+            }
+            
+            const labels = history.map(h => {
+                if (!h.date) return '';
+                const d = new Date(h.date);
+                return d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
+            });
+            const prices = history.map(h => h.close);
+            
+            // 建立波浪標記點
+            const waves = data.waves || [];
+            const wavePoints = [];
+            const waveLabels = [];
+            
+            waves.forEach(w => {
+                const idx = history.findIndex(h => h.date === w.date);
+                if (idx >= 0) {
+                    wavePoints.push({ x: idx, y: w.price, label: w.label });
+                }
+            });
+            
+            // 波浪顏色
+            const waveColors = {
+                '1': '#3fb950', '3': '#3fb950', '5': '#3fb950',
+                '2': '#58a6ff', '4': '#58a6ff',
+                'A': '#f85149', 'C': '#f85149',
+                'B': '#d29922'
+            };
             
             oddWaveChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
-                    datasets: [{
-                        label: '收盤價',
-                        data: prices,
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        fill: true,
-                        tension: 0.1,
-                        pointRadius: 0
-                    }]
+                    datasets: [
+                        {
+                            label: '收盤價',
+                            data: prices,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.1,
+                            pointRadius: 0,
+                            borderWidth: 2
+                        },
+                        // 波浪標記點
+                        {
+                            label: '波浪',
+                            data: wavePoints.map(p => ({ x: p.x, y: p.y })),
+                            borderColor: 'transparent',
+                            backgroundColor: wavePoints.map(p => waveColors[p.label] || '#fff'),
+                            pointRadius: 8,
+                            pointHoverRadius: 10,
+                            showLine: false,
+                            type: 'scatter'
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.datasetIndex === 1) {
+                                        const wp = wavePoints[context.dataIndex];
+                                        return `波浪 ${wp?.label}: $${context.parsed.y}`;
+                                    }
+                                    return `$${context.parsed.y}`;
+                                }
+                            }
+                        }
+                    },
                     scales: {
-                        x: { display: false },
+                        x: { 
+                            display: true,
+                            ticks: { maxTicksLimit: 8, color: 'rgba(255,255,255,0.5)' },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
                         y: { 
                             position: 'right',
-                            grid: { color: 'rgba(255,255,255,0.1)' }
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            ticks: { color: 'rgba(255,255,255,0.7)' }
                         }
                     }
                 }
@@ -11728,7 +11816,7 @@
         }
 
         // 渲染零股波浪圓圈
-        function renderOddWaveCircles(waves) {
+        function renderOddWaveCircles(currentWave, waves) {
             const container = document.getElementById('oddWaveCircles');
             if (!container) return;
             
@@ -11736,13 +11824,28 @@
             let html = '';
             
             allWaves.forEach(w => {
-                const found = waves.find(wave => wave.label === w);
+                const found = waves.find(wave => String(wave.label) === w);
                 const isActive = found ? 'active' : '';
-                const isCurrent = found?.isCurrent ? 'current' : '';
-                html += `<div class="wave-circle ${isActive} ${isCurrent}">${w}</div>`;
+                const isCurrent = String(currentWave) === w ? 'current' : '';
+                html += `<div class="wave-circle ${isActive} ${isCurrent}" onclick="showOddWaveDesc('${w}')">${w}</div>`;
             });
             
             container.innerHTML = html;
+        }
+        
+        // 顯示波浪說明
+        function showOddWaveDesc(wave) {
+            const waveDescriptions = {
+                '1': '第1浪：趨勢開始，通常突破底部盤整區',
+                '2': '第2浪：回檔修正，通常不會跌破第1浪起點',
+                '3': '第3浪：最強且最長的一波！股票吸引大眾目光',
+                '4': '第4浪：獲利回吐，通常不會跌破第1浪高點',
+                '5': '第5浪：最後衝刺，動能漸弱，需注意反轉',
+                'A': 'A浪：下跌開始，多數人認為只是回檔',
+                'B': 'B浪：反彈修正，製造假象讓人誤以為回升',
+                'C': 'C浪：大幅下跌，確認熊市到來'
+            };
+            showToast(waveDescriptions[wave] || `波浪 ${wave}`);
         }
 
         // 零股 3AI 分析
