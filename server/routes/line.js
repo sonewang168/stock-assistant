@@ -12193,10 +12193,13 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
         volumePattern: suggestion.volumePattern,
         // 🆕 方案1+2+3 新增欄位
         waveReason: enhancedResult.reason,
+        waveSuggestion: enhancedResult.suggestion,  // 🆕 操作建議
         weeklyWaveCount: enhancedResult.weeklyWaveCount,
         majorWaveCount: enhancedResult.majorWaveCount,
         dynamicThreshold: enhancedResult.dynamicThreshold,
         divergenceInfo: divergence,
+        // 🆕 A+B+C 多重視角分析
+        multiViewAnalysis: enhancedResult.multiViewAnalysis || null,
         technicals: {
           rsi: Math.round(technicals.rsi * 10) / 10,
           macd: Math.round(technicals.macd.histogram * 100) / 100,
@@ -12263,10 +12266,12 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
       
       // 🆕 方案1+2+3 新增欄位
       waveReason: waveResult.waveReason || null,
+      waveSuggestion: waveResult.waveSuggestion || null,  // 🆕 操作建議
       majorWaveCount: waveResult.majorWaveCount || null,
       weeklyWaveCount: waveResult.weeklyWaveCount || null,
       dynamicThreshold: waveResult.dynamicThreshold || null,
       divergenceInfo: waveResult.divergenceInfo || null,
+      multiViewAnalysis: waveResult.multiViewAnalysis || null,  // 🆕 A+B+C 多重視角
       
       // 規則與指引
       rules: waveResult.rules || [],

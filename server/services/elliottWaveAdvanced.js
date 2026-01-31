@@ -1980,6 +1980,247 @@ function findMajorPivots(history, threshold) {
 }
 
 /**
+ * 🆕 A+B+C 多重視角分析
+ * 從短線、中線、長線三個角度分析波浪位置
+ */
+function analyzeMultipleTimeframes(history, currentPrice, threshold) {
+  if (!history || history.length < 20) {
+    return {
+      shortTerm: { wave: 1, reason: '數據不足' },
+      midTerm: { wave: 1, reason: '數據不足' },
+      longTerm: { wave: 1, reason: '數據不足' },
+      consensus: 'low'
+    };
+  }
+  
+  // ========================================
+  // 視角A：短線（最近60天或1/4數據）
+  // ========================================
+  const shortLen = Math.min(60, Math.floor(history.length / 4));
+  const shortHistory = history.slice(-shortLen);
+  const shortTerm = analyzeTimeframeWave(shortHistory, currentPrice, threshold * 0.7, '短線');
+  
+  // ========================================
+  // 視角B：中線（最近120天或1/2數據）
+  // ========================================
+  const midLen = Math.min(120, Math.floor(history.length / 2));
+  const midHistory = history.slice(-midLen);
+  const midTerm = analyzeTimeframeWave(midHistory, currentPrice, threshold, '中線');
+  
+  // ========================================
+  // 視角C：長線（全部數據）
+  // ========================================
+  const longTerm = analyzeTimeframeWave(history, currentPrice, threshold * 1.3, '長線');
+  
+  // ========================================
+  // 計算共識
+  // ========================================
+  const waves = [shortTerm.wave, midTerm.wave, longTerm.wave].filter(w => typeof w === 'number');
+  const avgWave = waves.length > 0 ? Math.round(waves.reduce((a, b) => a + b, 0) / waves.length) : 3;
+  
+  // 判斷一致性
+  const maxWave = Math.max(...waves);
+  const minWave = Math.min(...waves);
+  const spread = maxWave - minWave;
+  
+  let consensus;
+  if (spread <= 1) {
+    consensus = 'high'; // 三個視角一致
+  } else if (spread <= 2) {
+    consensus = 'medium'; // 有些分歧
+  } else {
+    consensus = 'low'; // 分歧大
+  }
+  
+  return {
+    shortTerm,
+    midTerm,
+    longTerm,
+    consensus,
+    averageWave: avgWave,
+    spread
+  };
+}
+
+/**
+ * 分析單一時間框架的波浪位置
+ */
+function analyzeTimeframeWave(history, currentPrice, threshold, label) {
+  if (!history || history.length < 10) {
+    return { wave: 1, reason: '數據不足', label };
+  }
+  
+  const closes = history.map(h => h.close);
+  const high = Math.max(...closes);
+  const low = Math.min(...closes);
+  const range = high - low;
+  
+  if (range === 0) {
+    return { wave: 1, reason: '價格無波動', label };
+  }
+  
+  // 找出這個時間框架內的轉折點
+  const pivots = findMajorPivots(history, threshold);
+  const waveCount = Math.max(1, pivots.length - 1);
+  
+  // 計算關鍵指標
+  const pricePosition = (currentPrice - low) / range;
+  const fromLow = ((currentPrice - low) / low) * 100;
+  const fromHigh = ((high - currentPrice) / high) * 100;
+  
+  let wave, reason;
+  
+  // 根據轉折點數量和價格位置判斷
+  if (waveCount <= 1) {
+    if (pricePosition > 0.7) {
+      wave = 1;
+      reason = `${label}初升段，漲${fromLow.toFixed(0)}%`;
+    } else {
+      wave = 1;
+      reason = `${label}築底階段`;
+    }
+  }
+  else if (waveCount === 2) {
+    if (fromHigh > 15) {
+      wave = 2;
+      reason = `${label}回調${fromHigh.toFixed(0)}%，第2浪修正`;
+    } else {
+      wave = 1;
+      reason = `${label}第1浪延續`;
+    }
+  }
+  else if (waveCount <= 4) {
+    if (pricePosition > 0.85 && fromHigh < 10) {
+      wave = 3;
+      reason = `${label}主升段，接近高點`;
+    } else if (fromHigh >= 15 && fromHigh < 30) {
+      wave = 4;
+      reason = `${label}回調${fromHigh.toFixed(0)}%，可能第4浪`;
+    } else if (fromHigh >= 30) {
+      wave = 4;
+      reason = `${label}深度修正中`;
+    } else {
+      wave = 3;
+      reason = `${label}第3浪進行中`;
+    }
+  }
+  else {
+    // waveCount >= 5
+    if (pricePosition > 0.9 && fromHigh < 10) {
+      wave = 5;
+      reason = `${label}多浪完成，可能第5浪末端`;
+    } else if (fromHigh >= 20) {
+      wave = 'A';
+      reason = `${label}可能進入修正`;
+    } else {
+      wave = 5;
+      reason = `${label}第5浪`;
+    }
+  }
+  
+  return { wave, reason, label, waveCount, pricePosition: pricePosition * 100 };
+}
+
+/**
+ * 🆕 綜合三個視角得出最終結論
+ */
+function synthesizeWaveConclusion(multiView, divergence, pricePosition, pullbackFromHigh, totalChange) {
+  const short = multiView.shortTerm.wave;
+  const mid = multiView.midTerm.wave;
+  const long = multiView.longTerm.wave;
+  
+  // 收集數字波浪
+  const numericWaves = [short, mid, long].filter(w => typeof w === 'number');
+  
+  let wave, confidence, reason, suggestion;
+  
+  // ========================================
+  // 情況1：三個視角一致或接近
+  // ========================================
+  if (multiView.consensus === 'high') {
+    wave = multiView.averageWave;
+    confidence = 85;
+    reason = `短中長線一致指向第${wave}浪`;
+    
+    if (wave === 3) {
+      suggestion = '三線共振，主升段持有';
+    } else if (wave === 5) {
+      suggestion = '三線指向末端，謹慎操作';
+    } else if (wave <= 2) {
+      suggestion = '初升段，可考慮布局';
+    } else {
+      suggestion = '修正中，等待機會';
+    }
+  }
+  // ========================================
+  // 情況2：有一定分歧
+  // ========================================
+  else if (multiView.consensus === 'medium') {
+    // 取中位數
+    const sorted = [...numericWaves].sort((a, b) => a - b);
+    wave = sorted[Math.floor(sorted.length / 2)] || 3;
+    confidence = 70;
+    
+    // 判斷是上升途中還是見頂
+    if (short > long) {
+      reason = `短線第${short}浪，長線第${long}浪，短線領先`;
+      suggestion = '短線較強，但注意長線位置';
+    } else if (long > short) {
+      reason = `短線第${short}浪，長線第${long}浪，長線領先`;
+      suggestion = '可能是更大週期的延伸';
+    } else {
+      reason = `視角有分歧，建議第${wave}浪`;
+      suggestion = '分歧中，建議觀望';
+    }
+  }
+  // ========================================
+  // 情況3：分歧很大
+  // ========================================
+  else {
+    wave = multiView.averageWave;
+    confidence = 55;
+    reason = `短(${short})中(${mid})長(${long})分歧大，結構不明確`;
+    suggestion = '波浪結構不清晰，建議觀望或用其他指標輔助';
+  }
+  
+  // ========================================
+  // 用技術指標調整
+  // ========================================
+  
+  // RSI 頂背離 → 提高警覺
+  if (divergence.hasDivergence && divergence.type === 'bearish') {
+    if (wave >= 3) {
+      reason += '，RSI頂背離⚠️';
+      suggestion += '，注意回調風險';
+      confidence = Math.max(60, confidence - 5);
+    }
+  }
+  
+  // RSI 底背離 → 可能反彈
+  if (divergence.hasDivergence && divergence.type === 'bullish') {
+    if (wave === 4 || wave === 'A' || wave === 'C') {
+      reason += '，RSI底背離';
+      suggestion += '，可能即將反彈';
+    }
+  }
+  
+  // 接近高點且是第3浪以上
+  if (pullbackFromHigh < 5 && wave >= 3) {
+    suggestion += '，接近高點宜謹慎';
+  }
+  
+  // 深度回調
+  if (pullbackFromHigh > 25) {
+    if (wave === 3) {
+      wave = 4;
+      reason = `深度回調${pullbackFromHigh.toFixed(0)}%，調整為第4浪`;
+    }
+  }
+  
+  return { wave, confidence, reason, suggestion };
+}
+
+/**
  * 🔑 方案1+2+3 整合判斷函數
  * 
  * 判斷邏輯：
@@ -2021,175 +2262,54 @@ function determineWaveWithEnhancedLogic(waves, currentPrice, history) {
   const weeklyPivots = findWeeklyPivots(history, threshold);
   const weeklyWaveCount = Math.max(1, weeklyPivots.length - 1);
   
-  console.log(`🌊 方案1+2+3 判斷:`);
-  console.log(`   方案1 動態閾值: ${threshold}% (${dynamicResult.reason})`);
-  console.log(`   方案1 主要轉折點: ${majorPivots.length}個, 波浪數: ${majorWaveCount}`);
-  console.log(`   方案2 RSI背離: ${divergence.type || '無'}`);
-  console.log(`   方案3 週線波浪: ${weeklyWaveCount}`);
+  // ========================================
+  // 🆕 A+B+C 多重視角分析
+  // ========================================
+  const multiView = analyzeMultipleTimeframes(history, currentPrice, threshold);
+  
+  console.log(`🌊 A+B+C 多重視角分析:`);
+  console.log(`   視角A（短線）: 第${multiView.shortTerm.wave}浪 - ${multiView.shortTerm.reason}`);
+  console.log(`   視角B（中線）: 第${multiView.midTerm.wave}浪 - ${multiView.midTerm.reason}`);
+  console.log(`   視角C（長線）: 第${multiView.longTerm.wave}浪 - ${multiView.longTerm.reason}`);
+  console.log(`   RSI背離: ${divergence.type || '無'}`);
+  console.log(`   價格位置: ${(pricePosition * 100).toFixed(0)}%`);
   console.log(`   漲幅: ${totalChangeFromLow.toFixed(1)}%, 回撤: ${pullbackFromHigh.toFixed(1)}%`);
   
-  let wave, confidence, reason;
-  
   // ========================================
-  // 🆕 核心判斷邏輯 - 優先使用已識別的波浪序列
+  // 🆕 綜合 A+B+C 視角得出建議
   // ========================================
+  const { wave, confidence, reason, suggestion } = synthesizeWaveConclusion(
+    multiView, divergence, pricePosition, pullbackFromHigh, totalChangeFromLow
+  );
   
-  // 從已識別的波浪序列獲取最後一個波浪編號
-  const identifiedWaveCount = waves?.length || 0;
-  const lastWave = waves?.[waves.length - 1];
-  const lastWaveNum = lastWave?.wave || 0;
+  console.log(`   🎯 綜合建議: 第${wave}浪 (信心${confidence}%) - ${reason}`);
   
-  console.log(`   已識別波浪: ${identifiedWaveCount}個, 最後一浪: ${lastWaveNum}`);
+  // 🔧 週線驗證微調
+  let finalWave = wave;
+  let finalConfidence = confidence;
+  let finalReason = reason;
   
-  // 🔑 優先判斷：根據已識別的波浪序列
-  if (identifiedWaveCount >= 1 && lastWaveNum) {
-    // 根據最後識別的波浪編號來判斷當前位置
-    const lastWaveDirection = lastWave?.direction;
-    const lastWaveEnd = lastWave?.end || currentPrice;
-    const fromLastWave = ((currentPrice - lastWaveEnd) / lastWaveEnd) * 100;
-    
-    if (lastWaveNum === 1 || lastWaveNum === 2) {
-      // 剛完成第1或2浪
-      if (fromLastWave > 5 && lastWaveDirection === 'up') {
-        wave = lastWaveNum === 1 ? 2 : 3;
-        confidence = 75;
-        reason = `完成第${lastWaveNum}浪後上漲${fromLastWave.toFixed(0)}%，進入第${wave}浪`;
-      } else if (fromLastWave < -5) {
-        wave = lastWaveNum + 1;
-        confidence = 70;
-        reason = `第${lastWaveNum}浪後回調，可能第${wave}浪`;
-      } else {
-        wave = lastWaveNum;
-        confidence = 70;
-        reason = `第${lastWaveNum}浪進行中`;
-      }
-    }
-    else if (lastWaveNum === 3) {
-      // 第3浪中或剛完成
-      if (pullbackFromHigh < 10) {
-        // 接近高點
-        if (divergence.hasDivergence && divergence.type === 'bearish') {
-          wave = 3;
-          confidence = 80;
-          reason = `第3浪接近高點，RSI頂背離，可能即將進入第4浪`;
-        } else {
-          wave = 3;
-          confidence = 85;
-          reason = `第3浪主升段，接近高點，無背離信號`;
-        }
-      } else if (pullbackFromHigh >= 10 && pullbackFromHigh < 25) {
-        wave = 4;
-        confidence = 75;
-        reason = `第3浪後回調${pullbackFromHigh.toFixed(0)}%，進入第4浪修正`;
-      } else if (pullbackFromHigh >= 25) {
-        wave = 4;
-        confidence = 70;
-        reason = `深度回調${pullbackFromHigh.toFixed(0)}%，第4浪修正中`;
-      } else {
-        wave = 3;
-        confidence = 80;
-        reason = `第3浪主升段進行中`;
-      }
-    }
-    else if (lastWaveNum === 4) {
-      // 第4浪中或剛完成
-      if (fromLastWave > 10 && currentPrice > lastWaveEnd) {
-        wave = 5;
-        confidence = 75;
-        reason = `第4浪完成後反彈${fromLastWave.toFixed(0)}%，進入第5浪`;
-      } else if (pullbackFromHigh > 20) {
-        wave = 4;
-        confidence = 70;
-        reason = `第4浪修正中，回調${pullbackFromHigh.toFixed(0)}%`;
-      } else {
-        wave = 5;
-        confidence = 70;
-        reason = `第4浪後反彈，可能第5浪初期`;
-      }
-    }
-    else if (lastWaveNum === 5 || lastWaveNum >= 5) {
-      // 已識別到第5浪
-      if (pullbackFromHigh < 10) {
-        wave = 5;
-        confidence = 80;
-        reason = `第5浪進行中，${divergence.type === 'bearish' ? 'RSI頂背離，注意風險' : '接近高點'}`;
-      } else if (pullbackFromHigh >= 15) {
-        wave = 'A';
-        confidence = 70;
-        reason = `第5浪後回調${pullbackFromHigh.toFixed(0)}%，可能進入ABC修正`;
-      } else {
-        wave = 5;
-        confidence = 75;
-        reason = `第5浪末端`;
-      }
-    }
-    else {
-      // 其他情況（如 A、B、C 浪）
-      wave = lastWaveNum;
-      confidence = 65;
-      reason = `當前位於${typeof lastWaveNum === 'string' ? lastWaveNum : '第' + lastWaveNum}浪`;
-    }
-  }
-  // 🔄 備援判斷：沒有已識別波浪時，使用原始邏輯
-  else if (majorWaveCount <= 2) {
-    if (pullbackFromHigh > 15) {
-      wave = 2;
-      confidence = 75;
-      reason = `主要轉折${majorWaveCount}個，回調${pullbackFromHigh.toFixed(0)}%，可能第2浪`;
-    } else {
-      wave = 1;
-      confidence = 70;
-      reason = `主要轉折${majorWaveCount}個，初升段第1浪`;
-    }
-  }
-  else if (majorWaveCount <= 4) {
-    if (pullbackFromHigh < 15 && pricePosition > 0.85) {
-      wave = 3;
-      confidence = 80;
-      reason = `主要轉折${majorWaveCount}個，接近高點，第3浪主升段`;
-    } else if (pullbackFromHigh >= 15 && pullbackFromHigh < 35) {
-      wave = 4;
-      confidence = 70;
-      reason = `主要轉折${majorWaveCount}個，回調${pullbackFromHigh.toFixed(0)}%，可能第4浪`;
-    } else {
-      wave = 3;
-      confidence = 75;
-      reason = `主要轉折${majorWaveCount}個，第3浪`;
-    }
-  }
-  else {
-    // 5+個主要波浪
-    if (pullbackFromHigh < 15) {
-      wave = 5;
-      confidence = 75;
-      reason = `主要轉折${majorWaveCount}個，接近高點，可能第5浪`;
-    } else if (pullbackFromHigh >= 20) {
-      wave = 'A';
-      confidence = 70;
-      reason = `主要轉折${majorWaveCount}個，深度回調，可能ABC修正`;
-    } else {
-      wave = 4;
-      confidence = 65;
-      reason = `主要轉折${majorWaveCount}個，回調中，可能第4浪`;
-    }
-  }
-  
-  // 🔧 方案3：週線驗證
   if (weeklyWaveCount <= 2 && (wave === 5 || wave === 4)) {
-    console.log(`⚠️ 週線驗證下調：週線僅${weeklyWaveCount}浪`);
-    wave = 3;
-    confidence = Math.max(70, confidence - 5);
-    reason += `（週線僅${weeklyWaveCount}浪，下調）`;
+    console.log(`⚠️ 週線驗證提示：週線僅${weeklyWaveCount}浪，建議謹慎`);
+    finalReason += `（週線僅${weeklyWaveCount}浪）`;
   }
   
   return {
-    wave,
-    confidence,
-    reason,
+    wave: finalWave,
+    confidence: finalConfidence,
+    reason: finalReason,
+    suggestion: suggestion || '',
     divergence,
     weeklyWaveCount,
     majorWaveCount,
-    dynamicThreshold: threshold
+    dynamicThreshold: threshold,
+    // 🆕 多重視角詳情
+    multiViewAnalysis: {
+      shortTerm: multiView.shortTerm,
+      midTerm: multiView.midTerm,
+      longTerm: multiView.longTerm,
+      consensus: multiView.consensus
+    }
   };
 }
 
