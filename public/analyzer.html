@@ -6115,7 +6115,9 @@
         const CORS_PROXIES = [
             'https://api.allorigins.win/raw?url=',
             'https://corsproxy.io/?',
-            'https://api.codetabs.com/v1/proxy?quest='
+            'https://api.codetabs.com/v1/proxy?quest=',
+            'https://cors-anywhere.herokuapp.com/',
+            'https://thingproxy.freeboard.io/fetch/'
         ];
         let currentProxyIndex = 0;
 
@@ -6139,6 +6141,26 @@
         }
 
         async function fetchWithProxy(url) {
+            // 🔧 先嘗試直接請求（TWSE 部分 API 支援 CORS）
+            try {
+                console.log('嘗試直接請求...');
+                const response = await fetchWithTimeout(url, 8000);
+                if (response.ok) {
+                    const text = await response.text();
+                    if (text && text.trim()) {
+                        try {
+                            const data = JSON.parse(text);
+                            console.log('✅ 直接請求成功');
+                            return data;
+                        } catch {
+                            return { raw: text };
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log('直接請求失敗，嘗試 Proxy:', e.message);
+            }
+            
             // 嘗試各個代理
             for (let i = 0; i < CORS_PROXIES.length; i++) {
                 const proxyIndex = (currentProxyIndex + i) % CORS_PROXIES.length;
@@ -6690,9 +6712,17 @@
                 // 如果 TWSE 沒資料，嘗試 Yahoo Finance
                 if (stockData.length === 0) {
                     console.log('TWSE API failed, trying Yahoo Finance...');
+                    updateLoadingText('TWSE API 無回應，嘗試 Yahoo Finance...');
                     await fetchYahooFinanceData(stockCode, 'TW');
-                    processStockData(stockCode, stockData.length > 0 ? 1 : 0, '上市');
                 }
+                // 如果還是沒資料，再試一次 TWSE（換 Proxy）
+                if (stockData.length === 0) {
+                    console.log('Yahoo Finance failed, retrying TWSE with different proxy...');
+                    updateLoadingText('Yahoo Finance 無回應，重試 TWSE...');
+                    currentProxyIndex = (currentProxyIndex + 1) % CORS_PROXIES.length;
+                    await fetchTWSEData(stockCode);
+                }
+                processStockData(stockCode, stockData.length > 0 ? 1 : 0, '上市');
             } else {
                 await fetchTPExData(stockCode);
             }
@@ -6955,7 +6985,19 @@
             if (stockData.length === 0) {
                 const startDateDisplay = document.getElementById('startDate').value;
                 const endDateDisplay = document.getElementById('endDate').value;
-                throw new Error(`無法獲取${marketType}股票 ${stockCode} 在 ${startDateDisplay} 至 ${endDateDisplay} 期間的交易資料。\n\n可能原因：\n1. 股票代號不正確\n2. 股票市場選擇錯誤（請確認是上市或上櫃）\n3. 選擇的日期範圍內無交易日\n4. 資料尚未更新（約 18:00 後更新）`);
+                throw new Error(`無法獲取${marketType}股票 ${stockCode} 在 ${startDateDisplay} 至 ${endDateDisplay} 期間的交易資料。
+
+可能原因：
+1. 網路連線問題或 CORS Proxy 暫時不可用
+2. 股票代號不正確
+3. 股票市場選擇錯誤（請確認是上市或上櫃）
+4. TWSE/TPEx 官方 API 暫時無回應
+
+建議解決方式：
+• 請稍後重試（等待 5-10 秒）
+• 確認股票代號正確（如 2330、2408）
+• 嘗試切換上市/上櫃選項
+• 開啟瀏覽器開發者工具（F12）查看 Console 錯誤訊息`);
             }
             
             if (stockData.length < 20) {
