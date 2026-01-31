@@ -11278,44 +11278,123 @@
             
             oddLotStocks.forEach((stock, index) => {
                 const data = stock.data;
-                const name = data?.name || getStockName(stock.code) || stock.code;
-                const price = data?.price || '--';
-                const change = data?.change || 0;
-                const changePercent = data?.changePercent || 0;
-                const prevClose = data?.prevClose || price;
+                const isUp = data && data.change > 0;
+                const isDown = data && data.change < 0;
+                const cardClass = isUp ? 'up' : (isDown ? 'down' : 'flat');
+                const priceClass = isUp ? 'price-up' : (isDown ? 'price-down' : '');
                 
-                const isUp = change > 0;
-                const isDown = change < 0;
-                const colorClass = isUp ? 'up' : (isDown ? 'down' : 'flat');
-                const arrow = isUp ? '▲' : (isDown ? '▼' : '－');
+                const price = data ? parseFloat(data.price).toFixed(2) : '---';
+                const change = data ? `${isUp ? '▲' : (isDown ? '▼' : '－')}${isUp ? '+' : ''}${parseFloat(data.change).toFixed(2)}` : '---';
+                const changePercent = data ? `(${isUp ? '+' : ''}${parseFloat(data.changePercent).toFixed(2)}%)` : '';
+                const prevClose = data ? parseFloat(data.prevClose).toFixed(2) : '---';
+                const open = data && data.open ? parseFloat(data.open).toFixed(2) : '---';
+                const high = data && data.high ? parseFloat(data.high).toFixed(2) : '---';
+                const low = data && data.low ? parseFloat(data.low).toFixed(2) : '---';
+                const volume = data ? formatVolume(data.volume) : '---';
+                const limitUp = data && data.limitUp ? parseFloat(data.limitUp).toFixed(2) : '---';
+                const limitDown = data && data.limitDown ? parseFloat(data.limitDown).toFixed(2) : '---';
+                const updateTime = data ? data.tradeTime : '--:--';
+                const name = (data && data.name) ? data.name : getStockChineseName(stock.code, null);
                 
-                // 計算損益
-                const totalValue = stock.shares * parseFloat(price || 0);
-                const totalCost = stock.shares * stock.costPrice;
-                const profit = stock.costPrice > 0 ? (totalValue - totalCost) : 0;
-                const profitPercent = stock.costPrice > 0 ? ((parseFloat(price || 0) - stock.costPrice) / stock.costPrice * 100) : 0;
-                const profitColor = profit > 0 ? 'var(--accent-up)' : (profit < 0 ? 'var(--accent-down)' : 'var(--text-muted)');
+                // 計算持有損益（零股用股數計算）
+                let profitDisplay = '---';
+                let totalProfitDisplay = '---';
+                let profitClass = '';
+                
+                if (data && stock.costPrice > 0) {
+                    const currentPrice = parseFloat(data.price);
+                    const profit = currentPrice - stock.costPrice;
+                    const profitPercent = (profit / stock.costPrice) * 100;
+                    const totalProfit = profit * stock.shares; // 零股用股數
+                    const isProfit = profit > 0;
+                    const isLoss = profit < 0;
+                    profitClass = isProfit ? 'price-up' : (isLoss ? 'price-down' : '');
+                    const sign = isProfit ? '+' : '';
+                    profitDisplay = `${sign}${profit.toFixed(2)} (${sign}${profitPercent.toFixed(1)}%)`;
+                    totalProfitDisplay = `${sign}${totalProfit.toFixed(0)}`;
+                }
                 
                 html += `
-                    <div class="monitor-card ${colorClass}" data-odd-index="${index}">
-                        <button class="monitor-remove" onclick="removeOddLotStock(${index})" title="移除">✕</button>
-                        <div class="monitor-header">
-                            <span class="monitor-name">${name}</span>
-                            <span class="monitor-code">${stock.code}</span>
+                    <div class="monitor-card ${cardClass}" id="oddMonitorCard${index}">
+                        <div class="monitor-card-header">
+                            <div class="monitor-stock-info">
+                                <span class="monitor-stock-code">${stock.code}</span>
+                                <span class="monitor-stock-name">${name}</span>
+                                <span class="monitor-market-tag ${stock.market === 'tpex' ? 'tpex' : ''}">${stock.market === 'twse' ? '上市' : '上櫃'}</span>
+                                <span style="background: linear-gradient(135deg, #8b5cf6, #ec4899); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; color: white;">零股</span>
+                            </div>
+                            <button class="monitor-remove-btn" onclick="removeOddLotStock(${index})" title="移除">✕</button>
                         </div>
-                        <div class="monitor-price">${price}</div>
-                        <div class="monitor-change ${colorClass}">
-                            ${arrow} ${Math.abs(change).toFixed(2)} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)
+                        <div class="monitor-price-row">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">📊 昨收</div>
+                                    <div style="font-size: 1.2rem; font-weight: 600; color: var(--text-secondary); font-family: 'JetBrains Mono', monospace;">${prevClose}</div>
+                                </div>
+                                <div style="color: var(--text-muted); font-size: 1.2rem;">→</div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">⚡ 即時</div>
+                                    <div class="monitor-current-price ${priceClass}" style="font-size: 1.8rem;">${price}</div>
+                                </div>
+                            </div>
+                            <div class="monitor-price-change ${priceClass}" style="margin-left: auto;">${change} ${changePercent}</div>
                         </div>
-                        <div class="monitor-extra" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
-                            <div>📊 ${stock.shares}股 @ $${stock.costPrice || '--'}</div>
-                            ${stock.costPrice > 0 ? `<div style="color: ${profitColor};">💰 ${profit >= 0 ? '+' : ''}${profit.toFixed(0)} (${profitPercent >= 0 ? '+' : ''}${profitPercent.toFixed(1)}%)</div>` : ''}
+                        <div class="monitor-details">
+                            <div class="monitor-detail-item">
+                                <div>開盤</div>
+                                <div class="monitor-detail-value">${open}</div>
+                            </div>
+                            <div class="monitor-detail-item">
+                                <div>最高</div>
+                                <div class="monitor-detail-value" style="color: var(--accent-up);">${high}</div>
+                            </div>
+                            <div class="monitor-detail-item">
+                                <div>最低</div>
+                                <div class="monitor-detail-value" style="color: var(--accent-down);">${low}</div>
+                            </div>
+                            <div class="monitor-detail-item">
+                                <div>成交量</div>
+                                <div class="monitor-detail-value">${volume}</div>
+                            </div>
                         </div>
-                        <div class="monitor-actions">
-                            <button class="monitor-action-btn" onclick="analyzeOddStock('${stock.code}')" title="K線分析">📈</button>
-                            <button class="monitor-action-btn" onclick="showOddWaveAnalysis('${stock.code}', '${name}')" title="波浪分析">🌊</button>
-                            <button class="monitor-action-btn" onclick="fetchOddLotData(${index})" title="更新">🔄</button>
+                        <div class="monitor-details" style="border-top: none; padding-top: 0;">
+                            <div class="monitor-detail-item">
+                                <div>🎯漲停</div>
+                                <div class="monitor-detail-value" style="color: var(--accent-up);">${limitUp}</div>
+                            </div>
+                            <div class="monitor-detail-item">
+                                <div>⬇️跌停</div>
+                                <div class="monitor-detail-value" style="color: var(--accent-down);">${limitDown}</div>
+                            </div>
                         </div>
+                        <div class="monitor-holding">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">💰</span>
+                            <input type="number" value="${stock.costPrice || ''}" placeholder="成本" step="0.01" 
+                                onchange="updateOddLotCostPrice(${index}, this.value)" style="width: 90px;">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">×</span>
+                            <input type="number" value="${stock.shares || 100}" placeholder="股數" step="1" min="1" style="width: 70px;"
+                                onchange="updateOddLotShares(${index}, this.value)">
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">股</span>
+                            <div class="monitor-profit">
+                                <div class="monitor-profit-item">
+                                    <div class="monitor-profit-label">損益</div>
+                                    <div class="monitor-profit-value ${profitClass}">${profitDisplay}</div>
+                                </div>
+                                <div class="monitor-profit-item">
+                                    <div class="monitor-profit-label">總計</div>
+                                    <div class="monitor-profit-value ${profitClass}">${totalProfitDisplay}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="monitor-card-actions">
+                            <button class="monitor-wave-btn" onclick="showOddWaveAnalysis('${stock.code}', '${name}')" title="艾略特波浪分析">
+                                🌊 波浪分析
+                            </button>
+                            <button class="monitor-wave-btn" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);" onclick="analyzeOddStock('${stock.code}')" title="單股詳細分析">
+                                📊 詳細分析
+                            </button>
+                        </div>
+                        <div class="monitor-update-time">🕐 ${updateTime}</div>
                     </div>
                 `;
             });
@@ -11331,6 +11410,24 @@
             }
             
             grid.innerHTML = html;
+        }
+        
+        // 更新零股成本價
+        function updateOddLotCostPrice(index, value) {
+            if (oddLotStocks[index]) {
+                oddLotStocks[index].costPrice = parseFloat(value) || 0;
+                saveOddLotList();
+                renderOddLotGrid();
+            }
+        }
+        
+        // 更新零股股數
+        function updateOddLotShares(index, value) {
+            if (oddLotStocks[index]) {
+                oddLotStocks[index].shares = parseInt(value) || 1;
+                saveOddLotList();
+                renderOddLotGrid();
+            }
         }
 
         // 抓取單一零股資料
