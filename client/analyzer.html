@@ -4098,6 +4098,8 @@
                 <div class="wave-panel-header">
                     <h4>🌊 波浪分析 - <span id="oddWaveStockName">---</span> (<span id="oddWaveStockCode">---</span>)</h4>
                     <div class="wave-header-controls">
+                        <button class="wave-chart-btn" onclick="resetOddWaveChartZoom()" title="重置縮放">🔄</button>
+                        <button class="wave-chart-btn" onclick="startOddWaveAIAnalysis()" title="3AI 分析" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);">🧠 3AI</button>
                         <select id="oddWavePeriodSelect" onchange="reanalyzeOddWave()" title="選擇分析期間">
                             <option value="180">6個月</option>
                             <option value="270">9個月</option>
@@ -4107,6 +4109,9 @@
                         <button class="wave-close-btn" onclick="closeOddWavePanel()">✕</button>
                     </div>
                 </div>
+                <div class="wave-period-info" id="oddWavePeriodInfo">
+                    📅 分析期間: <span id="oddWavePeriodText">12個月</span> | 📊 資料筆數: <span id="oddWaveDataCount">--</span>
+                </div>
                 <div class="wave-panel-content">
                     <div class="wave-loading" id="oddWaveLoading">
                         <div class="wave-spinner"></div>
@@ -4114,8 +4119,16 @@
                     </div>
                     <div class="wave-result" id="oddWaveResult" style="display: none;">
                         <!-- 波浪圖表 -->
-                        <div class="wave-chart-container" style="height: 250px; margin-bottom: 15px;">
-                            <canvas id="oddWaveAnalysisChart"></canvas>
+                        <div class="wave-chart-container" style="height: 280px; margin-bottom: 15px;">
+                            <div class="wave-chart-header">
+                                <div class="wave-chart-title">📈 價格走勢與波浪標記</div>
+                                <div class="wave-chart-controls">
+                                    <span class="wave-chart-hint">滾輪縮放 | 拖曳平移</span>
+                                </div>
+                            </div>
+                            <div class="wave-chart-wrapper" style="height: 240px;">
+                                <canvas id="oddWaveAnalysisChart"></canvas>
+                            </div>
                         </div>
                         <!-- 波浪圓圈 -->
                         <div class="wave-circles-row">
@@ -4139,10 +4152,32 @@
                                 <div class="wave-info-value" id="oddWaveTrend">--</div>
                             </div>
                             <div class="wave-info-item">
-                                <div class="wave-info-label">建議操作</div>
-                                <div class="wave-info-value" id="oddWaveAction" style="font-size: 0.85rem;">--</div>
+                                <div class="wave-info-label">信心度</div>
+                                <div class="wave-info-value" id="oddWaveConfidence">--</div>
+                            </div>
+                            <div class="wave-info-item">
+                                <div class="wave-info-label">現價</div>
+                                <div class="wave-info-value" id="oddWavePrice">--</div>
                             </div>
                         </div>
+                        <!-- 目標價位 -->
+                        <div class="wave-targets" style="display: flex; gap: 20px; margin-top: 10px; padding: 10px; background: var(--bg-tertiary); border-radius: 8px;">
+                            <div style="flex: 1; text-align: center;">
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">📈 上漲目標</div>
+                                <div style="font-size: 1.1rem; font-weight: 600; color: var(--accent-up);" id="oddWaveTargetUp">--</div>
+                            </div>
+                            <div style="flex: 1; text-align: center;">
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">📉 下跌支撐</div>
+                                <div style="font-size: 1.1rem; font-weight: 600; color: var(--accent-down);" id="oddWaveTargetDown">--</div>
+                            </div>
+                        </div>
+                        <!-- 建議操作 -->
+                        <div class="wave-suggestion" style="margin-top: 15px; padding: 12px; background: var(--bg-card); border-radius: 8px; border-left: 3px solid var(--accent-purple);">
+                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px;">💡 建議操作</div>
+                            <div id="oddWaveAction" style="font-size: 0.9rem; line-height: 1.5;">--</div>
+                        </div>
+                        <!-- 3AI 分析結果區 -->
+                        <div id="oddWaveAIResults" style="display: none; margin-top: 15px;"></div>
                     </div>
                 </div>
             </div>
@@ -11600,21 +11635,39 @@
             const stock = oddLotStocks[index];
             if (!stock) return;
             
-            const card = document.querySelector(`[data-odd-index="${index}"]`);
-            if (card) card.classList.add('updating');
+            const card = document.getElementById(`oddMonitorCard${index}`);
+            
+            // 加入閃爍效果
+            if (card) {
+                card.classList.add('fetching');
+            }
             
             try {
                 const data = await getStockQuote(stock.code, stock.market);
                 oddLotStocks[index].data = data;
+                
+                // 先移除閃爍，再更新顯示
+                if (card) {
+                    card.classList.remove('fetching');
+                    card.classList.add('fetch-done');
+                }
+                
                 renderOddLotGrid();
+                
+                // 延遲移除完成效果
+                const newCard = document.getElementById(`oddMonitorCard${index}`);
+                if (newCard) {
+                    setTimeout(() => newCard.classList.remove('fetch-done'), 500);
+                }
             } catch (e) {
                 console.error(`零股 ${stock.code} 抓取失敗:`, e);
+                if (card) {
+                    card.classList.remove('fetching');
+                }
             }
-            
-            if (card) card.classList.remove('updating');
         }
 
-        // 全部更新（錯開）
+        // 全部更新（錯開，帶閃爍效果）
         async function refreshAllOddLotStaggered() {
             const statusEl = document.getElementById('oddMonitorStatus');
             const statusText = document.getElementById('oddMonitorStatusText');
@@ -11628,9 +11681,34 @@
             
             for (let i = 0; i < oddLotStocks.length; i++) {
                 if (statusText) statusText.textContent = `⏳ 更新 ${i + 1}/${oddLotStocks.length}...`;
-                await fetchOddLotData(i);
+                
+                const card = document.getElementById(`oddMonitorCard${i}`);
+                if (card) card.classList.add('fetching');
+                
+                try {
+                    const stock = oddLotStocks[i];
+                    const data = await getStockQuote(stock.code, stock.market);
+                    oddLotStocks[i].data = data;
+                    
+                    if (card) {
+                        card.classList.remove('fetching');
+                        card.classList.add('fetch-done');
+                    }
+                    
+                    renderOddLotGrid();
+                    
+                    const newCard = document.getElementById(`oddMonitorCard${i}`);
+                    if (newCard) {
+                        await new Promise(r => setTimeout(r, 300));
+                        newCard.classList.remove('fetch-done');
+                    }
+                } catch (e) {
+                    console.error(`零股 ${oddLotStocks[i]?.code} 抓取失敗:`, e);
+                    if (card) card.classList.remove('fetching');
+                }
+                
                 if (i < oddLotStocks.length - 1) {
-                    await new Promise(r => setTimeout(r, 1500));
+                    await new Promise(r => setTimeout(r, 1200));
                 }
             }
             
@@ -11646,28 +11724,47 @@
         }
 
         // 零股波浪分析
+        let currentOddWaveStockCode = null;
+        let currentOddWaveData = null;
+        
+        const oddPeriodLabels = { '180': '6個月', '270': '9個月', '365': '12個月', '540': '18個月' };
+        
         async function showOddWaveAnalysis(code, name) {
             const panel = document.getElementById('oddWaveAnalysisPanel');
             const loading = document.getElementById('oddWaveLoading');
             const result = document.getElementById('oddWaveResult');
             
+            currentOddWaveStockCode = code;
+            
             document.getElementById('oddWaveStockCode').textContent = code;
             document.getElementById('oddWaveStockName').textContent = name || getStockChineseName(code, null) || code;
+            
+            // 更新期間顯示
+            const period = document.getElementById('oddWavePeriodSelect')?.value || '365';
+            document.getElementById('oddWavePeriodText').textContent = oddPeriodLabels[period] || period + '天';
+            document.getElementById('oddWaveDataCount').textContent = '載入中...';
             
             panel.style.display = 'block';
             loading.style.display = 'flex';
             loading.innerHTML = '<div class="wave-spinner"></div><div>分析中...</div>';
             result.style.display = 'none';
             
+            // 隱藏 AI 分析結果
+            document.getElementById('oddWaveAIResults').style.display = 'none';
+            
             // 滾動到面板
             panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
             
             try {
-                const period = document.getElementById('oddWavePeriodSelect')?.value || 365;
                 const response = await fetch(`/api/line/wave/analyze/${code}?period=${period}`);
                 const data = await response.json();
                 
                 if (data.error) throw new Error(data.error);
+                
+                currentOddWaveData = data;
+                
+                // 更新資料筆數
+                document.getElementById('oddWaveDataCount').textContent = (data.history?.length || '--') + ' 筆';
                 
                 loading.style.display = 'none';
                 result.style.display = 'block';
@@ -11685,6 +11782,19 @@
                 document.getElementById('oddWaveTrend').textContent = trendText;
                 document.getElementById('oddWaveTrend').className = 'wave-info-value ' + trendClass;
                 
+                // 信心度
+                const conf = data.confidence || 50;
+                document.getElementById('oddWaveConfidence').textContent = conf + '%';
+                document.getElementById('oddWaveConfidence').style.color = conf >= 70 ? '#3fb950' : conf >= 40 ? '#d29922' : '#f85149';
+                
+                // 現價
+                document.getElementById('oddWavePrice').textContent = '$' + (data.currentPrice || 0).toFixed(2);
+                
+                // 目標價位
+                document.getElementById('oddWaveTargetUp').textContent = '$' + (data.targetUp || 0).toFixed(1);
+                document.getElementById('oddWaveTargetDown').textContent = '$' + (data.targetDown || 0).toFixed(1);
+                
+                // 建議
                 document.getElementById('oddWaveAction').textContent = data.suggestion || '請結合其他技術指標綜合判斷';
                 
                 // 繪製波浪圖
@@ -11705,6 +11815,142 @@
             const name = document.getElementById('oddWaveStockName').textContent;
             if (code && code !== '---') {
                 showOddWaveAnalysis(code, name);
+            }
+        }
+        
+        // 零股波浪 3AI 分析
+        async function startOddWaveAIAnalysis() {
+            if (!currentOddWaveStockCode || !currentOddWaveData) {
+                showToast('⚠️ 請先進行波浪分析');
+                return;
+            }
+            
+            const resultsDiv = document.getElementById('oddWaveAIResults');
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = `
+                <div style="text-align: center; padding: 15px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2)); border-radius: 10px; margin-bottom: 10px;">
+                    <h4 style="margin: 0;">🧠 3AI 波浪分析 - ${document.getElementById('oddWaveStockName').textContent}</h4>
+                </div>
+                <div class="ai-portfolio-results" style="display: grid;">
+                    <div class="ai-portfolio-card claude">
+                        <div class="ai-portfolio-card-header">
+                            <span class="ai-icon">🤖</span>
+                            <span class="ai-name">Claude</span>
+                            <span class="ai-status" id="oddWaveClaudeStatus">分析中...</span>
+                        </div>
+                        <div class="ai-portfolio-content" id="oddWaveClaudeContent">
+                            <div style="text-align: center; padding: 30px;">⏳ AI 分析中...</div>
+                        </div>
+                    </div>
+                    <div class="ai-portfolio-card gemini">
+                        <div class="ai-portfolio-card-header">
+                            <span class="ai-icon">✨</span>
+                            <span class="ai-name">Gemini</span>
+                            <span class="ai-status" id="oddWaveGeminiStatus">分析中...</span>
+                        </div>
+                        <div class="ai-portfolio-content" id="oddWaveGeminiContent">
+                            <div style="text-align: center; padding: 30px;">⏳ AI 分析中...</div>
+                        </div>
+                    </div>
+                    <div class="ai-portfolio-card openai">
+                        <div class="ai-portfolio-card-header">
+                            <span class="ai-icon">🧠</span>
+                            <span class="ai-name">GPT-4</span>
+                            <span class="ai-status" id="oddWaveOpenaiStatus">分析中...</span>
+                        </div>
+                        <div class="ai-portfolio-content" id="oddWaveOpenaiContent">
+                            <div style="text-align: center; padding: 30px;">⏳ AI 分析中...</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const data = currentOddWaveData;
+            const stockName = document.getElementById('oddWaveStockName').textContent;
+            
+            const prompt = `請分析以下股票的艾略特波浪理論：
+
+股票：${stockName} (${currentOddWaveStockCode})
+當前波浪：第 ${data.currentWave} 浪
+現價：$${data.currentPrice}
+目標價：$${data.targetUp} (上) / $${data.targetDown} (下)
+信心度：${data.confidence}%
+趨勢：${[1,2,3,4,5].includes(data.currentWave) ? '上升' : '下降'}
+
+請給出：
+1. 波浪位置分析（目前處於什麼階段）
+2. 短期操作建議（持有/加碼/減碼/觀望）
+3. 風險提醒
+4. 目標價位評估`;
+
+            // 同時呼叫三個 AI
+            analyzeOddWaveWithAI('claude', prompt);
+            analyzeOddWaveWithAI('gemini', prompt);
+            analyzeOddWaveWithAI('openai', prompt);
+        }
+        
+        async function analyzeOddWaveWithAI(aiType, prompt) {
+            const statusEl = document.getElementById(`oddWave${aiType.charAt(0).toUpperCase() + aiType.slice(1)}Status`);
+            const contentEl = document.getElementById(`oddWave${aiType.charAt(0).toUpperCase() + aiType.slice(1)}Content`);
+            
+            try {
+                const apiKey = localStorage.getItem(`portfolio${aiType.charAt(0).toUpperCase() + aiType.slice(1)}Key`);
+                
+                if (!apiKey) {
+                    if (contentEl) contentEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--accent-down);">❌ 請先設定 ${aiType.toUpperCase()} API Key</div>`;
+                    if (statusEl) statusEl.textContent = '未設定';
+                    return;
+                }
+                
+                let response, result;
+                
+                if (aiType === 'claude') {
+                    response = await fetch('https://api.anthropic.com/v1/messages', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-api-key': apiKey,
+                            'anthropic-version': '2023-06-01',
+                            'anthropic-dangerous-direct-browser-access': 'true'
+                        },
+                        body: JSON.stringify({
+                            model: 'claude-sonnet-4-20250514',
+                            max_tokens: 1500,
+                            messages: [{ role: 'user', content: prompt }]
+                        })
+                    });
+                    const data = await response.json();
+                    result = data.content?.[0]?.text || '無回應';
+                } else if (aiType === 'gemini') {
+                    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    });
+                    const data = await response.json();
+                    result = data.candidates?.[0]?.content?.parts?.[0]?.text || '無回應';
+                } else if (aiType === 'openai') {
+                    response = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify({
+                            model: 'gpt-4o-mini',
+                            messages: [{ role: 'user', content: prompt }]
+                        })
+                    });
+                    const data = await response.json();
+                    result = data.choices?.[0]?.message?.content || '無回應';
+                }
+                
+                if (contentEl) contentEl.innerHTML = `<div style="white-space:pre-wrap;padding:15px;font-size:0.9rem;line-height:1.6;">${result}</div>`;
+                if (statusEl) statusEl.textContent = '完成';
+                
+            } catch (e) {
+                if (contentEl) contentEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--accent-down);">❌ 分析失敗: ${e.message}</div>`;
+                if (statusEl) statusEl.textContent = '失敗';
             }
         }
 
@@ -11733,86 +11979,190 @@
                 return d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
             });
             const prices = history.map(h => h.close);
-            
-            // 建立波浪標記點
-            const waves = data.waves || [];
-            const wavePoints = [];
-            const waveLabels = [];
-            
-            waves.forEach(w => {
-                const idx = history.findIndex(h => h.date === w.date);
-                if (idx >= 0) {
-                    wavePoints.push({ x: idx, y: w.price, label: w.label });
-                }
-            });
+            const dates = history.map(h => h.date);
             
             // 波浪顏色
-            const waveColors = {
+            const oddWaveColors = {
                 '1': '#3fb950', '3': '#3fb950', '5': '#3fb950',
                 '2': '#58a6ff', '4': '#58a6ff',
                 'A': '#f85149', 'C': '#f85149',
                 'B': '#d29922'
             };
             
+            // 建立波浪標記 annotations（跟多股一樣的方式）
+            const annotations = {};
+            const waves = data.waves || [];
+            const usedPositions = [];
+            
+            waves.forEach((w, i) => {
+                const waveLabel = String(w.wave || w.label);
+                const color = oddWaveColors[waveLabel] || '#58a6ff';
+                
+                let bestIdx = -1;
+                
+                // 方法1: 使用 endIndex
+                if (w.endIndex !== undefined && w.endIndex >= 0 && w.endIndex < history.length) {
+                    bestIdx = w.endIndex;
+                }
+                // 方法2: 使用 endDate 匹配
+                else if (w.endDate) {
+                    bestIdx = dates.findIndex(d => d === w.endDate);
+                    if (bestIdx < 0) {
+                        const endTime = new Date(w.endDate).getTime();
+                        let minDiff = Infinity;
+                        for (let j = 0; j < dates.length; j++) {
+                            if (dates[j]) {
+                                const diff = Math.abs(new Date(dates[j]).getTime() - endTime);
+                                if (diff < minDiff) {
+                                    minDiff = diff;
+                                    bestIdx = j;
+                                }
+                            }
+                        }
+                    }
+                }
+                // 方法3: 使用價格匹配
+                if (bestIdx < 0 && w.end) {
+                    let bestScore = Infinity;
+                    for (let j = 0; j < prices.length; j++) {
+                        const priceDiff = Math.abs(prices[j] - w.end);
+                        if (priceDiff < bestScore) {
+                            bestScore = priceDiff;
+                            bestIdx = j;
+                        }
+                    }
+                }
+                
+                if (bestIdx >= 0 && bestIdx < prices.length) {
+                    let yAdjust = 0;
+                    const isHigh = w.end > w.start;
+                    const priceRange = Math.max(...prices) - Math.min(...prices);
+                    
+                    for (const pos of usedPositions) {
+                        if (Math.abs(pos.x - bestIdx) < 5 && Math.abs(pos.y - (w.end || prices[bestIdx])) < priceRange * 0.08) {
+                            yAdjust += isHigh ? -30 : 30;
+                        }
+                    }
+                    
+                    usedPositions.push({ x: bestIdx, y: w.end || prices[bestIdx] });
+                    
+                    annotations['wave_' + i] = {
+                        type: 'label',
+                        xValue: bestIdx,
+                        yValue: w.end || prices[bestIdx],
+                        content: waveLabel,
+                        backgroundColor: color,
+                        color: 'white',
+                        font: { size: 14, weight: 'bold' },
+                        padding: { top: 6, bottom: 6, left: 10, right: 10 },
+                        borderRadius: 14,
+                        borderWidth: 2,
+                        borderColor: 'white',
+                        yAdjust: (isHigh ? -25 : 25) + yAdjust
+                    };
+                }
+            });
+            
+            // 現價標記線
+            if (data.currentPrice && prices.length > 0) {
+                annotations['currentPrice'] = {
+                    type: 'line',
+                    yMin: data.currentPrice,
+                    yMax: data.currentPrice,
+                    borderColor: '#58a6ff',
+                    borderWidth: 2,
+                    borderDash: [6, 4],
+                    label: {
+                        display: true,
+                        content: `現價 $${data.currentPrice.toFixed(1)}`,
+                        position: 'end',
+                        backgroundColor: '#58a6ff',
+                        color: 'white',
+                        font: { size: 11, weight: 'bold' },
+                        padding: { top: 4, bottom: 4, left: 8, right: 8 }
+                    }
+                };
+            }
+            
+            // 目標價標記
+            if (data.targetUp && data.targetUp > data.currentPrice) {
+                annotations['targetUp'] = {
+                    type: 'line',
+                    yMin: data.targetUp,
+                    yMax: data.targetUp,
+                    borderColor: '#3fb950',
+                    borderWidth: 1,
+                    borderDash: [4, 4],
+                    label: {
+                        display: true,
+                        content: `目標 $${data.targetUp.toFixed(1)}`,
+                        position: 'start',
+                        backgroundColor: 'rgba(63, 185, 80, 0.8)',
+                        color: 'white',
+                        font: { size: 10 },
+                        padding: { top: 2, bottom: 2, left: 6, right: 6 }
+                    }
+                };
+            }
+            
             oddWaveChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
-                    datasets: [
-                        {
-                            label: '收盤價',
-                            data: prices,
-                            borderColor: '#3b82f6',
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                            fill: true,
-                            tension: 0.1,
-                            pointRadius: 0,
-                            borderWidth: 2
-                        },
-                        // 波浪標記點
-                        {
-                            label: '波浪',
-                            data: wavePoints.map(p => ({ x: p.x, y: p.y })),
-                            borderColor: 'transparent',
-                            backgroundColor: wavePoints.map(p => waveColors[p.label] || '#fff'),
-                            pointRadius: 8,
-                            pointHoverRadius: 10,
-                            showLine: false,
-                            type: 'scatter'
-                        }
-                    ]
+                    datasets: [{
+                        data: prices,
+                        borderColor: '#58a6ff',
+                        backgroundColor: 'rgba(88, 166, 255, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 1,
+                        pointHoverRadius: 6,
+                        borderWidth: 2
+                    }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { 
                         legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    if (context.datasetIndex === 1) {
-                                        const wp = wavePoints[context.dataIndex];
-                                        return `波浪 ${wp?.label}: $${context.parsed.y}`;
-                                    }
-                                    return `$${context.parsed.y}`;
-                                }
+                        annotation: { annotations },
+                        zoom: {
+                            pan: { enabled: true, mode: 'xy' },
+                            zoom: {
+                                wheel: { enabled: true },
+                                pinch: { enabled: true },
+                                mode: 'xy'
                             }
                         }
                     },
                     scales: {
                         x: { 
-                            display: true,
-                            ticks: { maxTicksLimit: 8, color: 'rgba(255,255,255,0.5)' },
-                            grid: { color: 'rgba(255,255,255,0.05)' }
+                            grid: { color: 'rgba(48, 54, 61, 0.5)' },
+                            ticks: { 
+                                color: '#8b949e', 
+                                maxTicksLimit: 12,
+                                maxRotation: 45,
+                                font: { size: 10 }
+                            }
                         },
                         y: { 
-                            position: 'right',
-                            grid: { color: 'rgba(255,255,255,0.1)' },
-                            ticks: { color: 'rgba(255,255,255,0.7)' }
+                            grid: { color: 'rgba(48, 54, 61, 0.5)' },
+                            ticks: { color: '#8b949e', font: { size: 10 } }
                         }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
                     }
                 }
             });
+        }
+        
+        // 重置零股波浪圖縮放
+        function resetOddWaveChartZoom() {
+            if (oddWaveChart) {
+                oddWaveChart.resetZoom();
+            }
         }
 
         // 渲染零股波浪圓圈
