@@ -12195,7 +12195,7 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
     } else {
       // 備援：使用內建分析
       console.log(`⚠️ 使用內建波浪分析: ${stockId}`);
-      const pivots = findZigZagPivots(history, zigzagThreshold);
+      const pivots = findZigZagPivots(history, baseThreshold);
       const waveAnalysis = analyzeWaveStructure(pivots, currentPrice, history);
       const fibTargets = calculateFibonacciTargets(waveAnalysis, currentPrice);
       const ruleChecks = checkWaveRules(waveAnalysis);
@@ -12237,7 +12237,7 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
       // 🆕 期間資訊
       period: safePeriod,
       dataCount: history.length,
-      zigzagThreshold,
+      zigzagThreshold: baseThreshold,
       
       // 波浪分析
       currentWave: waveResult.currentWave,
