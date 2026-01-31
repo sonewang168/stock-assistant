@@ -4034,23 +4034,139 @@
                             <div class="history-label">📊 波浪歷史</div>
                             <div class="wave-history-list" id="waveHistoryList"></div>
                         </div>
-                        
-                        <!-- 🆕 3AI 波浪分析區 -->
-                        <div class="ai-wave-analysis-section" style="margin-top: 20px; padding: 16px; background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 12px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-                                <div style="font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-                                    🤖 3AI 波浪智慧分析
-                                </div>
-                                <button class="ai-wave-analyze-btn" id="aiWaveAnalyzeBtn" onclick="run3AIWaveAnalysisForMonitor()" style="background: linear-gradient(135deg, #8b5cf6, #ec4899); border: none; color: white; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-                                    🚀 啟動 3AI 分析
-                                </button>
-                            </div>
-                            <div id="aiWaveAnalysisResults" style="min-height: 50px;"></div>
-                        </div>
                     </div>
                     <div class="wave-error" id="waveError" style="display: none;">
                         <div class="error-icon">❌</div>
                         <div class="error-text" id="waveErrorText">分析失敗</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🪙 零股即時監控 -->
+        <div class="multi-monitor-section" id="oddLotMonitorSection" style="margin-top: 20px; border-top: 2px solid var(--accent-purple);">
+            <div class="multi-monitor-header">
+                <h3>🪙 零股即時監控 <span style="font-size: 0.8rem; color: var(--text-muted);">(最多8檔)</span>
+                    <span id="oddTradingStatusText" style="font-size: 0.8rem; margin-left: 10px;">🟡 盤後零股</span>
+                </h3>
+                <div class="multi-monitor-controls">
+                    <div class="multi-monitor-input">
+                        <select id="oddMonitorMarket">
+                            <option value="twse">上市</option>
+                            <option value="tpex">上櫃</option>
+                        </select>
+                        <input type="text" id="oddMonitorCode" placeholder="代碼" maxlength="6">
+                        <input type="number" id="oddMonitorShares" placeholder="股數" style="width: 80px;">
+                        <input type="number" id="oddMonitorPrice" placeholder="成本" step="0.01" style="width: 80px;">
+                        <button class="quick-btn" onclick="addOddLotStock()">➕ 新增</button>
+                    </div>
+                    <button class="quick-btn" style="background: var(--accent-blue);" onclick="refreshAllOddLotStaggered()">🔄 全部更新</button>
+                    <button class="quick-btn" style="background: var(--accent-purple);" onclick="startOddLotAIAnalysis()">🧠 3AI 分析</button>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                    💡 零股交易時間：盤中 09:00~13:30（每3分鐘撮合）、盤後 13:40~14:30
+                </div>
+                <div class="monitor-status" id="oddMonitorStatus" style="font-size: 0.8rem; color: var(--text-muted); display: none; margin: 0;">
+                    <span id="oddMonitorStatusText">⏳ 更新中...</span>
+                </div>
+            </div>
+            <div class="multi-monitor-grid" id="oddMonitorGrid">
+                <div class="monitor-add-card" onclick="document.getElementById('oddMonitorCode').focus()">
+                    <div class="add-icon">➕</div>
+                    <div>點擊新增零股監控</div>
+                </div>
+            </div>
+            
+            <!-- 🪙 零股波浪分析面板 -->
+            <div class="wave-analysis-panel" id="oddWaveAnalysisPanel" style="display: none;">
+                <div class="wave-panel-header">
+                    <h4>🌊 波浪分析 - <span id="oddWaveStockName">---</span> (<span id="oddWaveStockCode">---</span>)</h4>
+                    <div class="wave-header-controls">
+                        <select id="oddWavePeriodSelect" onchange="reanalyzeOddWave()" title="選擇分析期間">
+                            <option value="180">6個月</option>
+                            <option value="270">9個月</option>
+                            <option value="365" selected>12個月</option>
+                        </select>
+                        <button class="wave-close-btn" onclick="closeOddWavePanel()">✕</button>
+                    </div>
+                </div>
+                <div class="wave-panel-content">
+                    <div class="wave-loading" id="oddWaveLoading">
+                        <div class="wave-spinner"></div>
+                        <div>分析中...</div>
+                    </div>
+                    <div class="wave-result" id="oddWaveResult" style="display: none;">
+                        <div class="wave-chart-container">
+                            <canvas id="oddWaveAnalysisChart"></canvas>
+                        </div>
+                        <div class="wave-circles-row">
+                            <div class="wave-circles" id="oddWaveCircles"></div>
+                        </div>
+                        <div class="wave-current-info">
+                            <div class="wave-info-item">
+                                <div class="wave-info-label">當前波浪</div>
+                                <div class="wave-info-value" id="oddWaveCurrentWave">--</div>
+                            </div>
+                            <div class="wave-info-item">
+                                <div class="wave-info-label">趨勢判斷</div>
+                                <div class="wave-info-value" id="oddWaveTrend">--</div>
+                            </div>
+                            <div class="wave-info-item">
+                                <div class="wave-info-label">建議操作</div>
+                                <div class="wave-info-value" id="oddWaveAction">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 🪙 零股 3AI 分析結果 -->
+            <div class="ai-portfolio-results" id="oddAiResults" style="display: none; margin-top: 15px;">
+                <div style="text-align: center; padding: 10px; margin-bottom: 10px; background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.2)); border-radius: 10px;">
+                    <h4 style="margin: 0;">🪙 零股投資組合 3AI 分析</h4>
+                </div>
+                <!-- Claude 分析 -->
+                <div class="ai-portfolio-card claude">
+                    <div class="ai-portfolio-card-header">
+                        <span class="ai-icon">🤖</span>
+                        <span class="ai-name">Claude</span>
+                        <span class="ai-status" id="oddClaudeStatus">待命</span>
+                    </div>
+                    <div class="ai-portfolio-content" id="oddClaudeContent">
+                        <div style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
+                            <div style="font-size: 2rem; margin-bottom: 10px;">🤖</div>
+                            <div>點擊「3AI 分析」開始</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Gemini 分析 -->
+                <div class="ai-portfolio-card gemini">
+                    <div class="ai-portfolio-card-header">
+                        <span class="ai-icon">✨</span>
+                        <span class="ai-name">Gemini</span>
+                        <span class="ai-status" id="oddGeminiStatus">待命</span>
+                    </div>
+                    <div class="ai-portfolio-content" id="oddGeminiContent">
+                        <div style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
+                            <div style="font-size: 2rem; margin-bottom: 10px;">✨</div>
+                            <div>點擊「3AI 分析」開始</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- OpenAI 分析 -->
+                <div class="ai-portfolio-card openai">
+                    <div class="ai-portfolio-card-header">
+                        <span class="ai-icon">🧠</span>
+                        <span class="ai-name">GPT-4</span>
+                        <span class="ai-status" id="oddOpenaiStatus">待命</span>
+                    </div>
+                    <div class="ai-portfolio-content" id="oddOpenaiContent">
+                        <div style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
+                            <div style="font-size: 2rem; margin-bottom: 10px;">🧠</div>
+                            <div>點擊「3AI 分析」開始</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -6086,6 +6202,7 @@
             loadETFData(); // 載入ETF報價
             initRealtimeQuickSearch(); // 初始化即時報價快速查詢
             loadMonitorList(); // 載入多股監控清單
+            loadOddLotList(); // 載入零股監控清單
             
             document.getElementById('stockCode').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') quickFetchRealtime(); // 按Enter先查即時報價
@@ -6098,6 +6215,14 @@
             document.getElementById('monitorCode').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') addMonitorStock();
             });
+            
+            // 零股監控輸入事件
+            const oddMonitorCodeEl = document.getElementById('oddMonitorCode');
+            if (oddMonitorCodeEl) {
+                oddMonitorCodeEl.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') addOddLotStock();
+                });
+            }
             
             document.getElementById('startDate').addEventListener('change', updateDateInfo);
             document.getElementById('endDate').addEventListener('change', updateDateInfo);
@@ -11065,6 +11190,405 @@
             showToast('✅ 測試完成！');
         }
 
+        // ===== 零股即時監控功能 =====
+        let oddLotStocks = []; // 零股監控清單 [{code, market, shares, costPrice, data}]
+        const MAX_ODD_LOT = 8;
+        let oddWaveChart = null;
+
+        // 從 localStorage 載入零股監控清單
+        function loadOddLotList() {
+            try {
+                const saved = localStorage.getItem('oddLotMonitorList');
+                if (saved) {
+                    oddLotStocks = JSON.parse(saved);
+                    renderOddLotGrid();
+                }
+            } catch (e) {
+                console.error('載入零股監控清單失敗:', e);
+            }
+        }
+
+        // 儲存零股監控清單
+        function saveOddLotList() {
+            try {
+                localStorage.setItem('oddLotMonitorList', JSON.stringify(oddLotStocks));
+            } catch (e) {
+                console.error('儲存零股監控清單失敗:', e);
+            }
+        }
+
+        // 新增零股監控
+        function addOddLotStock() {
+            const code = document.getElementById('oddMonitorCode').value.trim().toUpperCase();
+            const market = document.getElementById('oddMonitorMarket').value;
+            const shares = parseInt(document.getElementById('oddMonitorShares')?.value) || 0;
+            const costPrice = parseFloat(document.getElementById('oddMonitorPrice')?.value) || 0;
+            
+            if (!code || !/^\d{4,6}$/.test(code)) {
+                showToast('⚠️ 請輸入正確的股票代碼');
+                return;
+            }
+            
+            if (oddLotStocks.length >= MAX_ODD_LOT) {
+                showToast(`⚠️ 最多只能監控 ${MAX_ODD_LOT} 檔零股`);
+                return;
+            }
+            
+            if (oddLotStocks.find(s => s.code === code)) {
+                showToast('⚠️ 此股票已在零股監控清單中');
+                return;
+            }
+            
+            oddLotStocks.push({ 
+                code, 
+                market, 
+                shares: shares || 100,
+                costPrice: costPrice || 0,
+                data: null 
+            });
+            saveOddLotList();
+            renderOddLotGrid();
+            
+            // 立即抓取資料
+            fetchOddLotData(oddLotStocks.length - 1);
+            
+            // 清空輸入
+            document.getElementById('oddMonitorCode').value = '';
+            document.getElementById('oddMonitorShares').value = '';
+            document.getElementById('oddMonitorPrice').value = '';
+            
+            showToast(`✅ 已新增 ${code} 到零股監控`);
+        }
+
+        // 移除零股監控
+        function removeOddLotStock(index) {
+            const stock = oddLotStocks[index];
+            oddLotStocks.splice(index, 1);
+            saveOddLotList();
+            renderOddLotGrid();
+            showToast(`🗑️ 已移除 ${stock?.code || '股票'}`);
+        }
+
+        // 渲染零股監控格子
+        function renderOddLotGrid() {
+            const grid = document.getElementById('oddMonitorGrid');
+            if (!grid) return;
+            
+            let html = '';
+            
+            oddLotStocks.forEach((stock, index) => {
+                const data = stock.data;
+                const name = data?.name || getStockName(stock.code) || stock.code;
+                const price = data?.price || '--';
+                const change = data?.change || 0;
+                const changePercent = data?.changePercent || 0;
+                const prevClose = data?.prevClose || price;
+                
+                const isUp = change > 0;
+                const isDown = change < 0;
+                const colorClass = isUp ? 'up' : (isDown ? 'down' : 'flat');
+                const arrow = isUp ? '▲' : (isDown ? '▼' : '－');
+                
+                // 計算損益
+                const totalValue = stock.shares * parseFloat(price || 0);
+                const totalCost = stock.shares * stock.costPrice;
+                const profit = stock.costPrice > 0 ? (totalValue - totalCost) : 0;
+                const profitPercent = stock.costPrice > 0 ? ((parseFloat(price || 0) - stock.costPrice) / stock.costPrice * 100) : 0;
+                const profitColor = profit > 0 ? 'var(--accent-up)' : (profit < 0 ? 'var(--accent-down)' : 'var(--text-muted)');
+                
+                html += `
+                    <div class="monitor-card ${colorClass}" data-odd-index="${index}">
+                        <button class="monitor-remove" onclick="removeOddLotStock(${index})" title="移除">✕</button>
+                        <div class="monitor-header">
+                            <span class="monitor-name">${name}</span>
+                            <span class="monitor-code">${stock.code}</span>
+                        </div>
+                        <div class="monitor-price">${price}</div>
+                        <div class="monitor-change ${colorClass}">
+                            ${arrow} ${Math.abs(change).toFixed(2)} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)
+                        </div>
+                        <div class="monitor-extra" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;">
+                            <div>📊 ${stock.shares}股 @ $${stock.costPrice || '--'}</div>
+                            ${stock.costPrice > 0 ? `<div style="color: ${profitColor};">💰 ${profit >= 0 ? '+' : ''}${profit.toFixed(0)} (${profitPercent >= 0 ? '+' : ''}${profitPercent.toFixed(1)}%)</div>` : ''}
+                        </div>
+                        <div class="monitor-actions">
+                            <button class="monitor-action-btn" onclick="analyzeOddStock('${stock.code}')" title="K線分析">📈</button>
+                            <button class="monitor-action-btn" onclick="showOddWaveAnalysis('${stock.code}', '${name}')" title="波浪分析">🌊</button>
+                            <button class="monitor-action-btn" onclick="fetchOddLotData(${index})" title="更新">🔄</button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            // 新增卡片（如果未滿）
+            if (oddLotStocks.length < MAX_ODD_LOT) {
+                html += `
+                    <div class="monitor-add-card" onclick="document.getElementById('oddMonitorCode').focus()">
+                        <div class="add-icon">➕</div>
+                        <div>新增零股</div>
+                    </div>
+                `;
+            }
+            
+            grid.innerHTML = html;
+        }
+
+        // 抓取單一零股資料
+        async function fetchOddLotData(index) {
+            const stock = oddLotStocks[index];
+            if (!stock) return;
+            
+            const card = document.querySelector(`[data-odd-index="${index}"]`);
+            if (card) card.classList.add('updating');
+            
+            try {
+                const data = await getStockQuote(stock.code, stock.market);
+                oddLotStocks[index].data = data;
+                renderOddLotGrid();
+            } catch (e) {
+                console.error(`零股 ${stock.code} 抓取失敗:`, e);
+            }
+            
+            if (card) card.classList.remove('updating');
+        }
+
+        // 全部更新（錯開）
+        async function refreshAllOddLotStaggered() {
+            const statusEl = document.getElementById('oddMonitorStatus');
+            const statusText = document.getElementById('oddMonitorStatusText');
+            
+            if (oddLotStocks.length === 0) {
+                showToast('⚠️ 請先新增零股監控');
+                return;
+            }
+            
+            if (statusEl) statusEl.style.display = 'block';
+            
+            for (let i = 0; i < oddLotStocks.length; i++) {
+                if (statusText) statusText.textContent = `⏳ 更新 ${i + 1}/${oddLotStocks.length}...`;
+                await fetchOddLotData(i);
+                if (i < oddLotStocks.length - 1) {
+                    await new Promise(r => setTimeout(r, 1500));
+                }
+            }
+            
+            if (statusEl) statusEl.style.display = 'none';
+            showToast('✅ 零股報價已更新');
+        }
+
+        // 零股 K 線分析
+        function analyzeOddStock(code) {
+            document.getElementById('stockInput').value = code;
+            analyzeStock();
+            showToast(`📈 分析 ${code}`);
+        }
+
+        // 零股波浪分析
+        async function showOddWaveAnalysis(code, name) {
+            const panel = document.getElementById('oddWaveAnalysisPanel');
+            const loading = document.getElementById('oddWaveLoading');
+            const result = document.getElementById('oddWaveResult');
+            
+            document.getElementById('oddWaveStockCode').textContent = code;
+            document.getElementById('oddWaveStockName').textContent = name || code;
+            
+            panel.style.display = 'block';
+            loading.style.display = 'flex';
+            result.style.display = 'none';
+            
+            try {
+                const period = document.getElementById('oddWavePeriodSelect')?.value || 365;
+                const response = await fetch(`/api/line/wave/analyze/${code}?period=${period}`);
+                const data = await response.json();
+                
+                if (data.error) throw new Error(data.error);
+                
+                loading.style.display = 'none';
+                result.style.display = 'block';
+                
+                // 更新波浪資訊
+                document.getElementById('oddWaveCurrentWave').textContent = data.currentWave || '--';
+                document.getElementById('oddWaveTrend').textContent = data.trend || '--';
+                document.getElementById('oddWaveAction').textContent = data.suggestion || '--';
+                
+                // 繪製波浪圖
+                renderOddWaveChart(data);
+                renderOddWaveCircles(data.waves || []);
+                
+            } catch (e) {
+                loading.innerHTML = `<div style="color: var(--accent-down);">❌ 分析失敗: ${e.message}</div>`;
+            }
+        }
+
+        function closeOddWavePanel() {
+            document.getElementById('oddWaveAnalysisPanel').style.display = 'none';
+        }
+
+        function reanalyzeOddWave() {
+            const code = document.getElementById('oddWaveStockCode').textContent;
+            const name = document.getElementById('oddWaveStockName').textContent;
+            if (code && code !== '---') {
+                showOddWaveAnalysis(code, name);
+            }
+        }
+
+        // 渲染零股波浪圖
+        function renderOddWaveChart(data) {
+            const canvas = document.getElementById('oddWaveAnalysisChart');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            
+            if (oddWaveChart) {
+                oddWaveChart.destroy();
+            }
+            
+            const priceData = data.priceHistory || [];
+            const labels = priceData.map(p => p.date);
+            const prices = priceData.map(p => p.close);
+            
+            oddWaveChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '收盤價',
+                        data: prices,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.1,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false },
+                        y: { 
+                            position: 'right',
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 渲染零股波浪圓圈
+        function renderOddWaveCircles(waves) {
+            const container = document.getElementById('oddWaveCircles');
+            if (!container) return;
+            
+            const allWaves = ['1', '2', '3', '4', '5', 'A', 'B', 'C'];
+            let html = '';
+            
+            allWaves.forEach(w => {
+                const found = waves.find(wave => wave.label === w);
+                const isActive = found ? 'active' : '';
+                const isCurrent = found?.isCurrent ? 'current' : '';
+                html += `<div class="wave-circle ${isActive} ${isCurrent}">${w}</div>`;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        // 零股 3AI 分析
+        async function startOddLotAIAnalysis() {
+            if (oddLotStocks.length === 0) {
+                showToast('⚠️ 請先新增零股監控');
+                return;
+            }
+            
+            // 顯示結果區域
+            document.getElementById('oddAiResults').style.display = 'grid';
+            
+            // 建立投資組合描述
+            let portfolioDesc = '零股投資組合：\n';
+            oddLotStocks.forEach(s => {
+                const price = s.data?.price || '--';
+                const name = s.data?.name || getStockName(s.code) || s.code;
+                portfolioDesc += `- ${name}(${s.code}): ${s.shares}股, 成本$${s.costPrice}, 現價$${price}\n`;
+            });
+            
+            const prompt = `請分析以下零股投資組合，給出投資建議：\n\n${portfolioDesc}\n\n請從風險分散、產業配置、成長潛力等角度分析，並給出具體操作建議（加碼/持有/減碼）。`;
+            
+            // 同時呼叫三個 AI
+            analyzeWithOddAI('claude', prompt);
+            analyzeWithOddAI('gemini', prompt);
+            analyzeWithOddAI('openai', prompt);
+        }
+
+        async function analyzeWithOddAI(aiType, prompt) {
+            const statusEl = document.getElementById(`odd${aiType.charAt(0).toUpperCase() + aiType.slice(1)}Status`);
+            const contentEl = document.getElementById(`odd${aiType.charAt(0).toUpperCase() + aiType.slice(1)}Content`);
+            
+            if (statusEl) statusEl.textContent = '分析中...';
+            if (contentEl) contentEl.innerHTML = '<div style="text-align:center;padding:40px;">⏳ AI 分析中...</div>';
+            
+            try {
+                // 使用現有的 API Key
+                const apiKey = localStorage.getItem(`portfolio${aiType.charAt(0).toUpperCase() + aiType.slice(1)}Key`);
+                
+                if (!apiKey) {
+                    if (contentEl) contentEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--accent-down);">❌ 請先設定 ${aiType.toUpperCase()} API Key</div>`;
+                    if (statusEl) statusEl.textContent = '未設定';
+                    return;
+                }
+                
+                let response;
+                if (aiType === 'claude') {
+                    response = await fetch('https://api.anthropic.com/v1/messages', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-api-key': apiKey,
+                            'anthropic-version': '2023-06-01',
+                            'anthropic-dangerous-direct-browser-access': 'true'
+                        },
+                        body: JSON.stringify({
+                            model: 'claude-sonnet-4-20250514',
+                            max_tokens: 2000,
+                            messages: [{ role: 'user', content: prompt }]
+                        })
+                    });
+                    const data = await response.json();
+                    if (contentEl) contentEl.innerHTML = `<div style="white-space:pre-wrap;padding:15px;">${data.content?.[0]?.text || '無回應'}</div>`;
+                } else if (aiType === 'gemini') {
+                    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: prompt }] }]
+                        })
+                    });
+                    const data = await response.json();
+                    if (contentEl) contentEl.innerHTML = `<div style="white-space:pre-wrap;padding:15px;">${data.candidates?.[0]?.content?.parts?.[0]?.text || '無回應'}</div>`;
+                } else if (aiType === 'openai') {
+                    response = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify({
+                            model: 'gpt-4o-mini',
+                            messages: [{ role: 'user', content: prompt }]
+                        })
+                    });
+                    const data = await response.json();
+                    if (contentEl) contentEl.innerHTML = `<div style="white-space:pre-wrap;padding:15px;">${data.choices?.[0]?.message?.content || '無回應'}</div>`;
+                }
+                
+                if (statusEl) statusEl.textContent = '完成';
+                
+            } catch (e) {
+                if (contentEl) contentEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--accent-down);">❌ 分析失敗: ${e.message}</div>`;
+                if (statusEl) statusEl.textContent = '失敗';
+            }
+        }
+
         // ===== 類股熱力圖（使用真實 API）=====
         async function loadHeatmapData() {
             const grid = document.getElementById('heatmapGrid');
@@ -15414,13 +15938,6 @@ ${analysisContext}
         
         // 渲染波浪分析結果
         function renderWaveAnalysis(data) {
-            // 🆕 儲存數據供 3AI 分析使用
-            currentMonitorWaveData = data;
-            
-            // 🆕 清空 3AI 分析結果
-            const aiResultsDiv = document.getElementById('aiWaveAnalysisResults');
-            if (aiResultsDiv) aiResultsDiv.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem;">點擊上方按鈕啟動 3AI 智慧分析</div>';
-            
             // 🆕 先渲染圖表
             renderWaveChart(data);
             
@@ -15484,8 +16001,6 @@ ${analysisContext}
             const annotations = {};
             const waves = data.waves || [];
             const usedPositions = []; // 記錄已使用的位置，避免重疊
-            const priceRange = Math.max(...prices) - Math.min(...prices);  // 🔧 預先計算
-            const wavePositions = [];  // 🆕 儲存波浪位置，用於繪製連接線
             
             // 為每個波浪找到對應的價格位置並標記
             waves.forEach((w, i) => {
@@ -15517,32 +16032,14 @@ ${analysisContext}
                         }
                     }
                 }
-                // 方法3: 使用價格+時間範圍匹配（備援，加入時間限制更精準）
+                // 方法3: 使用價格匹配（備援）
                 if (bestIdx < 0) {
                     let bestScore = Infinity;
-                    const waveNum = parseInt(waveLabel) || (waveLabel === 'A' ? 6 : waveLabel === 'B' ? 7 : 8);
-                    // 估算波浪大約出現的時間範圍
-                    const expectedRange = Math.floor(history.length * (waveNum / 10));
-                    const searchStart = Math.max(0, expectedRange - Math.floor(history.length * 0.3));
-                    const searchEnd = Math.min(history.length, expectedRange + Math.floor(history.length * 0.3));
-                    
-                    for (let j = searchStart; j < searchEnd; j++) {
+                    for (let j = 0; j < prices.length; j++) {
                         const priceDiff = Math.abs(prices[j] - w.end);
-                        const timePenalty = Math.abs(j - expectedRange) * 0.1;
-                        const score = priceDiff + timePenalty;
-                        if (score < bestScore) {
-                            bestScore = score;
+                        if (priceDiff < bestScore) {
+                            bestScore = priceDiff;
                             bestIdx = j;
-                        }
-                    }
-                    // 如果範圍內找不到，擴大搜索
-                    if (bestIdx < 0) {
-                        for (let j = 0; j < prices.length; j++) {
-                            const priceDiff = Math.abs(prices[j] - w.end);
-                            if (priceDiff < bestScore) {
-                                bestScore = priceDiff;
-                                bestIdx = j;
-                            }
                         }
                     }
                 }
@@ -15551,6 +16048,7 @@ ${analysisContext}
                 if (bestIdx >= 0 && bestIdx < prices.length) {
                     let yAdjust = 0;
                     const isHigh = w.end > w.start;
+                    const priceRange = Math.max(...prices) - Math.min(...prices);
                     
                     // 檢查是否與已有標記重疊
                     for (const pos of usedPositions) {
@@ -15560,7 +16058,6 @@ ${analysisContext}
                     }
                     
                     usedPositions.push({ x: bestIdx, y: w.end });
-                    wavePositions.push({ idx: bestIdx, price: w.end, wave: waveLabel, color });  // 🆕 記錄位置
                     
                     annotations['wave_' + i] = {
                         type: 'label',
@@ -15578,22 +16075,6 @@ ${analysisContext}
                     };
                 }
             });
-            
-            // 🆕 繪製波浪連接線（虛線）
-            for (let i = 1; i < wavePositions.length; i++) {
-                const prev = wavePositions[i - 1];
-                const curr = wavePositions[i];
-                annotations['waveLine_' + i] = {
-                    type: 'line',
-                    xMin: prev.idx,
-                    xMax: curr.idx,
-                    yMin: prev.price,
-                    yMax: curr.price,
-                    borderColor: 'rgba(88, 166, 255, 0.4)',
-                    borderWidth: 1,
-                    borderDash: [4, 4]
-                };
-            }
             
             // 加上現價標記線
             if (data.currentPrice && prices.length > 0) {
@@ -15794,155 +16275,6 @@ ${analysisContext}
             startAnalysis();
             // 滾動到分析區域
             document.querySelector('.analysis-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-        
-        // ==================== 3AI 波浪分析 for 監控股票 ====================
-        
-        // 儲存當前監控股票的波浪數據
-        let currentMonitorWaveData = null;
-        
-        // 解析 AI 波浪回應
-        function parseMonitorWaveResponse(response) {
-            let wave = null;
-            let score = 50;
-            let analysis = '';
-            
-            const waveMatch = response.match(/【波浪判斷】\s*第?\s*([1-5ABC])\s*浪/i);
-            if (waveMatch) {
-                wave = waveMatch[1].toUpperCase();
-                if (/[1-5]/.test(wave)) wave = parseInt(wave);
-            }
-            
-            const scoreMatch = response.match(/【信心分數】\s*(\d+)/);
-            if (scoreMatch) {
-                score = Math.min(100, Math.max(0, parseInt(scoreMatch[1])));
-            }
-            
-            const analysisMatch = response.match(/【分析說明】\s*([\s\S]*?)(?=【|$)/);
-            if (analysisMatch) {
-                analysis = analysisMatch[1].trim().slice(0, 200);
-            }
-            
-            return { wave, score, analysis };
-        }
-        
-        // 執行 3AI 波浪分析（監控版）
-        async function run3AIWaveAnalysisForMonitor() {
-            if (!currentMonitorWaveData) {
-                showToast('⚠️ 請先分析波浪後再使用 3AI 分析');
-                return;
-            }
-            
-            const keys = JSON.parse(localStorage.getItem('ai_voting_api_keys') || '{}');
-            const activeAIs = [];
-            if (keys.claude) activeAIs.push({ name: 'Claude', key: keys.claude, icon: '🟣', call: callClaudeAPI });
-            if (keys.gemini) activeAIs.push({ name: 'Gemini', key: keys.gemini, icon: '🔵', call: callGeminiAPI });
-            if (keys.openai) activeAIs.push({ name: 'OpenAI', key: keys.openai, icon: '🟢', call: callOpenAIAPI });
-            
-            if (activeAIs.length === 0) {
-                showToast('⚠️ 請先在上方設定至少一個 AI 的 API 金鑰');
-                return;
-            }
-            
-            const btn = document.getElementById('aiWaveAnalyzeBtn');
-            btn.disabled = true;
-            btn.textContent = '⏳ 分析中...';
-            
-            const resultsDiv = document.getElementById('aiWaveAnalysisResults');
-            resultsDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-muted);"><div class="wave-spinner" style="margin: 0 auto 10px;"></div>3AI 正在分析波浪結構...</div>';
-            
-            const data = currentMonitorWaveData;
-            const prompt = `你是艾略特波浪理論專家。請分析以下股票數據，判斷目前處於第幾浪。
-
-【股票資訊】
-股票: ${data.stockName || data.stockId} (${data.stockId})
-現價: ${data.currentPrice}
-漲跌: ${data.changePercent?.toFixed(2) || 0}%
-
-【歷史波浪】
-${(data.waves || []).map(w => `第${w.wave}浪: ${w.start} → ${w.end} (${w.change}%)`).join('\n')}
-
-【技術分析系統判斷】
-系統判斷: 第${data.currentWave}浪
-信心度: ${data.confidence}%
-
-請根據以上數據，獨立判斷目前處於第幾浪，並給出你的信心分數。
-
-⚠️ 嚴格依照以下格式回覆：
-【波浪判斷】第 X 浪
-【信心分數】XX（0-100）
-【分析說明】簡述你的判斷理由（100字內）`;
-
-            const promises = activeAIs.map(async (ai) => {
-                try {
-                    const response = await ai.call(prompt, ai.key);
-                    const parsed = parseMonitorWaveResponse(response);
-                    return { ...ai, ...parsed, success: true };
-                } catch (e) {
-                    return { ...ai, success: false, error: e.message };
-                }
-            });
-            
-            const aiResults = await Promise.all(promises);
-            
-            const validResults = aiResults.filter(r => r.success && r.wave !== null);
-            let avgScore = 0;
-            let finalWave = data.currentWave;
-            let closestAI = null;
-            
-            if (validResults.length > 0) {
-                avgScore = validResults.reduce((sum, r) => sum + r.score, 0) / validResults.length;
-                
-                let minDiff = Infinity;
-                for (const r of validResults) {
-                    const diff = Math.abs(r.score - avgScore);
-                    if (diff < minDiff) {
-                        minDiff = diff;
-                        closestAI = r;
-                    }
-                }
-                
-                if (closestAI) finalWave = closestAI.wave;
-            }
-            
-            // 渲染結果
-            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px;">';
-            
-            for (const r of aiResults) {
-                const isWinner = closestAI && r.name === closestAI.name;
-                const waveColor = waveColors[String(r.wave)] || '#58a6ff';
-                
-                html += `
-                    <div style="background: ${isWinner ? 'rgba(245, 158, 11, 0.1)' : 'var(--bg-secondary)'}; border: 2px solid ${isWinner ? '#f59e0b' : 'var(--border-color)'}; border-radius: 10px; padding: 12px; text-align: center;">
-                        <div style="font-weight: 600; margin-bottom: 8px;">${r.icon} ${r.name} ${isWinner ? '👑' : ''}</div>
-                        ${r.success ? `
-                            <div style="font-size: 1.8rem; font-weight: 900; color: ${waveColor};">第 ${r.wave} 浪</div>
-                            <div style="font-size: 0.8rem; color: var(--text-muted);">信心: ${r.score}/100</div>
-                        ` : `
-                            <div style="color: var(--accent-down); font-size: 0.85rem;">❌ 分析失敗</div>
-                        `}
-                    </div>
-                `;
-            }
-            
-            html += '</div>';
-            
-            if (validResults.length > 0) {
-                const verdictColor = waveColors[String(finalWave)] || '#f59e0b';
-                html += `
-                    <div style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(236, 72, 153, 0.1)); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 10px; padding: 16px; text-align: center;">
-                        <div style="font-size: 0.85rem; color: var(--text-muted);">🏆 3AI 波浪裁決</div>
-                        <div style="font-size: 2.5rem; font-weight: 900; color: ${verdictColor}; margin: 8px 0;">第 ${finalWave} 浪</div>
-                        <div style="font-size: 0.85rem; color: var(--text-secondary);">${closestAI?.analysis || ''}</div>
-                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">平均信心: ${avgScore.toFixed(1)} | 裁決: ${closestAI?.name || '-'}</div>
-                    </div>
-                `;
-            }
-            
-            resultsDiv.innerHTML = html;
-            
-            btn.disabled = false;
-            btn.textContent = '🚀 啟動 3AI 分析';
         }
     </script>
 

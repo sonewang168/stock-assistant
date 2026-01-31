@@ -3441,7 +3441,18 @@ async function fetchYahooHistory(stockId, days = 30) {
   // 🔑 增加抓取天數以確保足夠交易日（約 70% 是交易日）
   const fetchDays = Math.ceil(days * 1.5);
   
-  // 方法 1: 台灣證交所 API（上市股票）
+  // 🆕 方法 1: Yahoo Finance 優先（較不易被限流）
+  try {
+    history = await fetchYahooFinanceHistory(stockId, fetchDays);
+    if (history.length >= Math.min(days * 0.6, 15)) {
+      console.log(`Yahoo API 成功取得 ${stockId} 歷史資料: ${history.length} 筆`);
+      return history;
+    }
+  } catch (e) {
+    console.log(`Yahoo API 失敗 ${stockId}: ${e.message}`);
+  }
+  
+  // 方法 2: 台灣證交所 API（上市股票）
   try {
     history = await fetchTWSEHistory(stockId, fetchDays);
     if (history.length >= Math.min(days * 0.8, 20)) {
@@ -3452,7 +3463,7 @@ async function fetchYahooHistory(stockId, days = 30) {
     console.log(`TWSE API 失敗 ${stockId}: ${e.message}`);
   }
   
-  // 方法 2: 櫃買中心 API（上櫃股票）
+  // 方法 3: 櫃買中心 API（上櫃股票）
   try {
     history = await fetchTPEXHistory(stockId, fetchDays);
     if (history.length >= Math.min(days * 0.8, 20)) {
@@ -3463,21 +3474,10 @@ async function fetchYahooHistory(stockId, days = 30) {
     console.log(`TPEX API 失敗 ${stockId}: ${e.message}`);
   }
   
-  // 方法 3: Yahoo Finance 備援（抓取更多天數）
-  try {
-    history = await fetchYahooFinanceHistory(stockId, fetchDays);
-    if (history.length >= 5) {
-      console.log(`Yahoo API 成功取得 ${stockId} 歷史資料: ${history.length} 筆`);
-      return history;
-    }
-  } catch (e) {
-    console.log(`Yahoo API 失敗 ${stockId}: ${e.message}`);
-  }
-  
-  // 方法 4: 如果都失敗，再嘗試一次 Yahoo Finance（延長時間範圍）
+  // 方法 4: 如果前面都失敗，再嘗試一次 Yahoo Finance（延長時間範圍）
   if (history.length < 5) {
     try {
-      history = await fetchYahooFinanceHistory(stockId, days * 2);
+      history = await fetchYahooFinanceHistory(stockId, days * 3);
       if (history.length > 0) {
         console.log(`Yahoo API (延長) 取得 ${stockId}: ${history.length} 筆`);
       }
@@ -3486,6 +3486,7 @@ async function fetchYahooHistory(stockId, days = 30) {
     }
   }
   
+  console.log(`📊 ${stockId} 歷史資料筆數: ${history.length} (要求 ${days} 天)`);
   return history;
 }
 
@@ -3632,40 +3633,57 @@ async function fetchYahooFinanceHistory(stockId, days) {
   const endDate = Math.floor(Date.now() / 1000);
   const startDate = endDate - (days * 2 * 24 * 60 * 60); // 多抓一些
   
-  // 先嘗試上市 .TW
-  let url = `https://query1.finance.yahoo.com/v8/finance/chart/${stockId}.TW?period1=${startDate}&period2=${endDate}&interval=1d`;
-  
   const yahooHeaders = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'application/json',
     'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8'
   };
   
-  try {
-    let response = await axios.get(url, {
-      timeout: 15000,
-      headers: yahooHeaders
-    });
+  // 嘗試的代碼後綴順序
+  const suffixes = ['.TW', '.TWO', ''];
+  
+  for (const suffix of suffixes) {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${stockId}${suffix}?period1=${startDate}&period2=${endDate}&interval=1d`;
     
-    let result = response.data?.chart?.result?.[0];
-    
-    // 如果失敗，嘗試上櫃 .TWO
-    if (!result?.timestamp) {
-      url = `https://query1.finance.yahoo.com/v8/finance/chart/${stockId}.TWO?period1=${startDate}&period2=${endDate}&interval=1d`;
-      response = await axios.get(url, {
+    try {
+      const response = await axios.get(url, {
         timeout: 15000,
         headers: yahooHeaders
       });
-      result = response.data?.chart?.result?.[0];
+      
+      const result = response.data?.chart?.result?.[0];
+      
+      if (result?.timestamp && result.timestamp.length > 0) {
+        console.log(`Yahoo Finance 成功: ${stockId}${suffix}, ${result.timestamp.length} 筆`);
+        return parseYahooData(result);
+      }
+    } catch (e) {
+      // 繼續嘗試下一個
     }
-    
-    if (result?.timestamp) {
-      return parseYahooData(result);
-    }
-  } catch (e) {
-    console.error('Yahoo Finance 錯誤:', e.message);
   }
   
+  // 嘗試備援端點 query2
+  for (const suffix of ['.TW', '.TWO']) {
+    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${stockId}${suffix}?period1=${startDate}&period2=${endDate}&interval=1d`;
+    
+    try {
+      const response = await axios.get(url, {
+        timeout: 15000,
+        headers: yahooHeaders
+      });
+      
+      const result = response.data?.chart?.result?.[0];
+      
+      if (result?.timestamp && result.timestamp.length > 0) {
+        console.log(`Yahoo Finance (備援) 成功: ${stockId}${suffix}, ${result.timestamp.length} 筆`);
+        return parseYahooData(result);
+      }
+    } catch (e) {
+      // 繼續嘗試下一個
+    }
+  }
+  
+  console.log(`Yahoo Finance 無法取得 ${stockId} 資料`);
   return [];
 }
 
