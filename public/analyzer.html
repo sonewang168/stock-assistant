@@ -4061,12 +4061,26 @@
                         <button class="quick-btn" onclick="addOddLotStock()">➕ 新增</button>
                     </div>
                     <button class="quick-btn" style="background: var(--accent-blue);" onclick="refreshAllOddLotStaggered()">🔄 全部更新</button>
-                    <button class="quick-btn" style="background: var(--accent-purple);" onclick="startOddLotAIAnalysis()">🧠 3AI 分析</button>
+                    <select id="oddMonitorInterval" onchange="updateOddMonitorInterval()" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;">
+                        <option value="30">30秒</option>
+                        <option value="60" selected>60秒</option>
+                        <option value="90">90秒</option>
+                        <option value="180">3分鐘</option>
+                    </select>
+                    <label style="display: flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--text-secondary);" title="手動開啟自動更新">
+                        <input type="checkbox" id="oddAutoRefresh" onchange="toggleOddAutoRefresh()">
+                        自動更新
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--accent-purple); background: var(--bg-secondary); padding: 5px 10px; border-radius: 6px; cursor: pointer;" title="零股交易時間自動啟動">
+                        <input type="checkbox" id="oddSmartAuto" onchange="toggleOddSmartAutoMode()">
+                        🧠 智能模式
+                    </label>
+                    <button class="quick-btn" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);" onclick="startOddLotAIAnalysis()">🧠 3AI 分析</button>
                 </div>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
                 <div style="font-size: 0.85rem; color: var(--text-muted);">
-                    💡 零股交易時間：盤中 09:00~13:30（每3分鐘撮合）、盤後 13:40~14:30
+                    💡 零股交易：盤中 09:00~13:30（每3分鐘撮合）| 盤後 13:40~14:30
                 </div>
                 <div class="monitor-status" id="oddMonitorStatus" style="font-size: 0.8rem; color: var(--text-muted); display: none; margin: 0;">
                     <span id="oddMonitorStatusText">⏳ 更新中...</span>
@@ -6203,6 +6217,8 @@
             initRealtimeQuickSearch(); // 初始化即時報價快速查詢
             loadMonitorList(); // 載入多股監控清單
             loadOddLotList(); // 載入零股監控清單
+            updateOddTradingStatus(); // 初始化零股交易狀態
+            setInterval(updateOddTradingStatus, 60000); // 每分鐘更新零股交易狀態
             
             document.getElementById('stockCode').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') quickFetchRealtime(); // 按Enter先查即時報價
@@ -11194,6 +11210,144 @@
         let oddLotStocks = []; // 零股監控清單 [{code, market, shares, costPrice, data}]
         const MAX_ODD_LOT = 8;
         let oddWaveChart = null;
+        let oddMonitorInterval = null; // 零股自動更新定時器
+        let oddMonitorIntervalSeconds = 60; // 預設60秒
+        let oddTradingTimeChecker = null; // 零股交易時間檢查器
+
+        // 檢查是否為零股交易時間 (盤中 09:00~13:30 或 盤後 13:40~14:30)
+        function isOddLotTradingTime() {
+            if (isMarketHoliday()) return false;
+            
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const timeValue = hours * 60 + minutes;
+            
+            // 盤中零股 09:00 ~ 13:30
+            const intraday = timeValue >= 9 * 60 && timeValue <= 13 * 60 + 30;
+            // 盤後零股 13:40 ~ 14:30
+            const afterHours = timeValue >= 13 * 60 + 40 && timeValue <= 14 * 60 + 30;
+            
+            return intraday || afterHours;
+        }
+
+        // 取得零股交易狀態文字
+        function getOddTradingStatusText() {
+            if (isMarketHoliday()) {
+                return `🔴 休市`;
+            }
+            
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const timeValue = hours * 60 + minutes;
+            
+            if (timeValue < 9 * 60) {
+                return '🟡 盤前';
+            } else if (timeValue >= 9 * 60 && timeValue <= 13 * 60 + 30) {
+                return '🟢 盤中零股';
+            } else if (timeValue > 13 * 60 + 30 && timeValue < 13 * 60 + 40) {
+                return '🟡 等待盤後';
+            } else if (timeValue >= 13 * 60 + 40 && timeValue <= 14 * 60 + 30) {
+                return '🟣 盤後零股';
+            } else {
+                return '🔴 已收盤';
+            }
+        }
+
+        // 更新零股交易狀態顯示
+        function updateOddTradingStatus() {
+            const statusEl = document.getElementById('oddTradingStatusText');
+            if (statusEl) {
+                statusEl.textContent = getOddTradingStatusText();
+            }
+        }
+
+        // 更新零股監控間隔
+        function updateOddMonitorInterval() {
+            const select = document.getElementById('oddMonitorInterval');
+            oddMonitorIntervalSeconds = parseInt(select?.value) || 60;
+            
+            // 如果正在自動更新，重啟定時器
+            if (oddMonitorInterval) {
+                stopOddAutoRefresh();
+                startOddAutoRefresh();
+            }
+        }
+
+        // 開啟零股自動更新
+        function startOddAutoRefresh() {
+            if (oddMonitorInterval) return;
+            
+            refreshAllOddLotStaggered();
+            oddMonitorInterval = setInterval(refreshAllOddLotStaggered, oddMonitorIntervalSeconds * 1000);
+            console.log(`[零股監控] 自動更新已啟動，間隔 ${oddMonitorIntervalSeconds} 秒`);
+        }
+
+        // 停止零股自動更新
+        function stopOddAutoRefresh() {
+            if (oddMonitorInterval) {
+                clearInterval(oddMonitorInterval);
+                oddMonitorInterval = null;
+                console.log('[零股監控] 自動更新已停止');
+            }
+        }
+
+        // 切換零股自動更新
+        function toggleOddAutoRefresh() {
+            const checkbox = document.getElementById('oddAutoRefresh');
+            if (checkbox?.checked) {
+                startOddAutoRefresh();
+                showToast('🟢 零股自動更新已開啟');
+            } else {
+                stopOddAutoRefresh();
+                showToast('🔴 零股自動更新已停止');
+            }
+        }
+
+        // 零股智能模式
+        function toggleOddSmartAutoMode() {
+            const smartCheckbox = document.getElementById('oddSmartAuto');
+            
+            if (smartCheckbox?.checked) {
+                // 啟動智能模式檢查器
+                checkAndAutoStartOddMonitor();
+                oddTradingTimeChecker = setInterval(checkAndAutoStartOddMonitor, 60000); // 每分鐘檢查
+                showToast('🧠 零股智能模式已開啟');
+            } else {
+                // 停止智能模式
+                if (oddTradingTimeChecker) {
+                    clearInterval(oddTradingTimeChecker);
+                    oddTradingTimeChecker = null;
+                }
+                showToast('🔴 零股智能模式已關閉');
+            }
+        }
+
+        // 自動啟動/停止零股監控（根據交易時間）
+        function checkAndAutoStartOddMonitor() {
+            const autoCheckbox = document.getElementById('oddAutoRefresh');
+            const smartCheckbox = document.getElementById('oddSmartAuto');
+            
+            if (!smartCheckbox?.checked) return;
+            
+            const isTradingNow = isOddLotTradingTime();
+            const isRunning = oddMonitorInterval !== null;
+            
+            updateOddTradingStatus();
+            
+            if (isTradingNow && !isRunning && oddLotStocks.length > 0) {
+                console.log('[零股智能] 進入交易時間，自動啟動');
+                if (autoCheckbox) autoCheckbox.checked = true;
+                startOddAutoRefresh();
+                showToast('🟢 零股交易時間，自動啟動監控');
+            } else if (!isTradingNow && isRunning) {
+                console.log('[零股智能] 離開交易時間，自動停止');
+                if (autoCheckbox) autoCheckbox.checked = false;
+                stopOddAutoRefresh();
+                showToast('🔴 零股非交易時間，自動停止監控');
+            }
+        }
 
         // 從 localStorage 載入零股監控清單
         function loadOddLotList() {
