@@ -11966,11 +11966,21 @@
                 oddWaveChart = null;
             }
             
-            // API 回傳的是 history 欄位
-            const history = data.history || data.priceHistory || [];
+            // API 回傳的 history 已經是升序（舊→新）
+            let history = data.history || data.priceHistory || [];
             if (history.length === 0) {
                 console.log('零股波浪：無歷史資料');
                 return;
+            }
+            
+            // 🔧 檢查資料順序，如果是降序就反轉
+            if (history.length > 1) {
+                const firstDate = new Date(history[0].date);
+                const lastDate = new Date(history[history.length - 1].date);
+                if (firstDate > lastDate) {
+                    console.log('零股波浪：反轉歷史資料（降序→升序）');
+                    history = [...history].reverse();
+                }
             }
             
             const labels = history.map(h => {
@@ -11981,6 +11991,8 @@
             const prices = history.map(h => h.close);
             const dates = history.map(h => h.date);
             
+            console.log(`零股波浪圖表: ${history.length} 筆資料, 日期範圍 ${labels[0]} ~ ${labels[labels.length-1]}`);
+            
             // 波浪顏色
             const oddWaveColors = {
                 '1': '#3fb950', '3': '#3fb950', '5': '#3fb950',
@@ -11989,25 +12001,30 @@
                 'B': '#d29922'
             };
             
-            // 建立波浪標記 annotations（跟多股一樣的方式）
+            // 建立波浪標記 annotations
             const annotations = {};
             const waves = data.waves || [];
             const usedPositions = [];
             
+            console.log(`零股波浪標記: ${waves.length} 個波浪`);
+            
             waves.forEach((w, i) => {
-                const waveLabel = String(w.wave || w.label);
+                // 🔧 使用正確的欄位名：wave (不是 label)
+                const waveLabel = String(w.wave);
                 const color = oddWaveColors[waveLabel] || '#58a6ff';
                 
                 let bestIdx = -1;
                 
-                // 方法1: 使用 endIndex
+                // 方法1: 使用 endIndex（最準確）
                 if (w.endIndex !== undefined && w.endIndex >= 0 && w.endIndex < history.length) {
                     bestIdx = w.endIndex;
+                    console.log(`波浪 ${waveLabel}: 使用 endIndex=${bestIdx}`);
                 }
                 // 方法2: 使用 endDate 匹配
                 else if (w.endDate) {
                     bestIdx = dates.findIndex(d => d === w.endDate);
                     if (bestIdx < 0) {
+                        // 找最接近的日期
                         const endTime = new Date(w.endDate).getTime();
                         let minDiff = Infinity;
                         for (let j = 0; j < dates.length; j++) {
@@ -12020,8 +12037,9 @@
                             }
                         }
                     }
+                    console.log(`波浪 ${waveLabel}: 使用 endDate=${w.endDate}, 索引=${bestIdx}`);
                 }
-                // 方法3: 使用價格匹配
+                // 方法3: 使用價格匹配（備援）
                 if (bestIdx < 0 && w.end) {
                     let bestScore = Infinity;
                     for (let j = 0; j < prices.length; j++) {
@@ -12031,25 +12049,29 @@
                             bestIdx = j;
                         }
                     }
+                    console.log(`波浪 ${waveLabel}: 使用價格匹配, 索引=${bestIdx}`);
                 }
                 
                 if (bestIdx >= 0 && bestIdx < prices.length) {
-                    let yAdjust = 0;
-                    const isHigh = w.end > w.start;
                     const priceRange = Math.max(...prices) - Math.min(...prices);
+                    const yValue = w.end || prices[bestIdx];
+                    
+                    // 計算 Y 軸偏移，避免重疊
+                    let yAdjust = 0;
+                    const isHigh = w.direction === 'up' || (w.end > w.start);
                     
                     for (const pos of usedPositions) {
-                        if (Math.abs(pos.x - bestIdx) < 5 && Math.abs(pos.y - (w.end || prices[bestIdx])) < priceRange * 0.08) {
-                            yAdjust += isHigh ? -30 : 30;
+                        if (Math.abs(pos.x - bestIdx) < 10) {
+                            yAdjust += isHigh ? -35 : 35;
                         }
                     }
                     
-                    usedPositions.push({ x: bestIdx, y: w.end || prices[bestIdx] });
+                    usedPositions.push({ x: bestIdx, y: yValue });
                     
                     annotations['wave_' + i] = {
                         type: 'label',
                         xValue: bestIdx,
-                        yValue: w.end || prices[bestIdx],
+                        yValue: yValue,
                         content: waveLabel,
                         backgroundColor: color,
                         color: 'white',
@@ -12060,6 +12082,8 @@
                         borderColor: 'white',
                         yAdjust: (isHigh ? -25 : 25) + yAdjust
                     };
+                    
+                    console.log(`✅ 波浪 ${waveLabel} 標記於索引 ${bestIdx}, 價格 ${yValue}`);
                 }
             });
             
@@ -12104,6 +12128,8 @@
                     }
                 };
             }
+            
+            console.log(`零股波浪圖表: 共 ${Object.keys(annotations).length} 個標記`);
             
             oddWaveChart = new Chart(ctx, {
                 type: 'line',
@@ -12173,8 +12199,11 @@
             const allWaves = ['1', '2', '3', '4', '5', 'A', 'B', 'C'];
             let html = '';
             
+            console.log(`零股波浪圓圈: 當前波浪=${currentWave}, 波浪數=${waves.length}`);
+            
             allWaves.forEach(w => {
-                const found = waves.find(wave => String(wave.label) === w);
+                // 🔧 使用正確的欄位名：wave (不是 label)
+                const found = waves.find(wave => String(wave.wave) === w);
                 const isActive = found ? 'active' : '';
                 const isCurrent = String(currentWave) === w ? 'current' : '';
                 html += `<div class="wave-circle ${isActive} ${isCurrent}" onclick="showOddWaveDesc('${w}')">${w}</div>`;
@@ -16689,8 +16718,18 @@ ${analysisContext}
                 waveAnalysisChart = null;
             }
             
-            const history = data.history || [];
+            let history = data.history || [];
             if (history.length === 0) return;
+            
+            // 🔧 檢查資料順序，如果是降序就反轉（確保舊→新）
+            if (history.length > 1) {
+                const firstDate = new Date(history[0].date);
+                const lastDate = new Date(history[history.length - 1].date);
+                if (firstDate > lastDate) {
+                    console.log('多股波浪：反轉歷史資料（降序→升序）');
+                    history = [...history].reverse();
+                }
+            }
             
             // 準備資料（history 已經是升序：舊→新）
             const labels = history.map(h => {
@@ -16701,10 +16740,14 @@ ${analysisContext}
             const prices = history.map(h => h.close);
             const dates = history.map(h => h.date);
             
+            console.log(`多股波浪圖表: ${history.length} 筆資料, 日期範圍 ${labels[0]} ~ ${labels[labels.length-1]}`);
+            
             // 建立波浪標記 annotations
             const annotations = {};
             const waves = data.waves || [];
             const usedPositions = []; // 記錄已使用的位置，避免重疊
+            
+            console.log(`多股波浪標記: ${waves.length} 個波浪`);
             
             // 為每個波浪找到對應的價格位置並標記
             waves.forEach((w, i) => {
