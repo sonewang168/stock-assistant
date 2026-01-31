@@ -130,6 +130,38 @@
       background: rgba(210, 153, 34, 0.2); color: #d29922;
     }
     
+    /* 🆕 Multi-View Analysis (A+B+C 多重視角) */
+    .multi-view-container {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+      margin-top: 12px; padding-top: 12px;
+      border-top: 1px dashed rgba(139, 148, 158, 0.3);
+    }
+    .view-card {
+      background: rgba(22, 27, 34, 0.6);
+      border-radius: 8px; padding: 10px; text-align: center;
+      border: 1px solid rgba(48, 54, 61, 0.5);
+    }
+    .view-card.consensus-high { border-color: rgba(63, 185, 80, 0.4); }
+    .view-card.consensus-medium { border-color: rgba(210, 153, 34, 0.4); }
+    .view-card.consensus-low { border-color: rgba(248, 81, 73, 0.4); }
+    .view-label {
+      font-size: 0.7rem; color: #8b949e; margin-bottom: 4px;
+    }
+    .view-wave {
+      font-size: 1.3rem; font-weight: bold; color: #58a6ff;
+    }
+    .view-reason {
+      font-size: 0.65rem; color: #6e7681; margin-top: 4px;
+      line-height: 1.3; max-height: 2.6em; overflow: hidden;
+    }
+    .consensus-badge {
+      display: inline-block; padding: 4px 10px; border-radius: 12px;
+      font-size: 0.75rem; font-weight: 500; margin-top: 10px;
+    }
+    .consensus-badge.high { background: rgba(63, 185, 80, 0.2); color: #3fb950; }
+    .consensus-badge.medium { background: rgba(210, 153, 34, 0.2); color: #d29922; }
+    .consensus-badge.low { background: rgba(248, 81, 73, 0.2); color: #f85149; }
+    
     /* Trend Info */
     .trend-info {
       display: flex; justify-content: center; align-items: center; gap: 16px;
@@ -316,6 +348,10 @@
       .header { flex-direction: column; gap: 12px; }
       .stock-header, .stock-item { grid-template-columns: 1fr 1fr; }
       .summary-grid { grid-template-columns: repeat(2, 1fr); }
+      /* 🆕 多重視角響應式 */
+      .multi-view-container { grid-template-columns: 1fr; gap: 8px; }
+      .view-card { padding: 8px; }
+      .view-wave { font-size: 1.1rem; }
     }
     
     .hidden { display: none !important; }
@@ -481,6 +517,28 @@
               <div class="wave-indicators">
                 <span class="indicator-badge" id="weeklyWavesBadge" style="display: none;">週線波浪: --</span>
                 <span class="indicator-badge" id="divergenceBadge" style="display: none;">RSI背離: 無</span>
+              </div>
+              
+              <!-- 🆕 A+B+C 多重視角 -->
+              <div class="multi-view-container" id="multiViewContainer" style="display: none;">
+                <div class="view-card" id="shortTermView">
+                  <div class="view-label">📍 短線視角</div>
+                  <div class="view-wave" id="shortTermWave">--</div>
+                  <div class="view-reason" id="shortTermReason">--</div>
+                </div>
+                <div class="view-card" id="midTermView">
+                  <div class="view-label">📍 中線視角</div>
+                  <div class="view-wave" id="midTermWave">--</div>
+                  <div class="view-reason" id="midTermReason">--</div>
+                </div>
+                <div class="view-card" id="longTermView">
+                  <div class="view-label">📍 長線視角</div>
+                  <div class="view-wave" id="longTermWave">--</div>
+                  <div class="view-reason" id="longTermReason">--</div>
+                </div>
+              </div>
+              <div id="consensusBadgeContainer" style="display: none;">
+                <span class="consensus-badge" id="consensusBadge">共識度: --</span>
               </div>
             </div>
             
@@ -783,7 +841,7 @@
       renderChart(data);
     }
     
-    // 🆕 渲染波浪判斷原因（方案1+2+3）
+    // 🆕 渲染波浪判斷原因（方案1+2+3 + A+B+C多重視角）
     function renderWaveReason(data) {
       const box = document.getElementById('waveReasonBox');
       const textEl = document.getElementById('waveReasonText');
@@ -820,10 +878,62 @@
           divergenceBadge.textContent = '✅ 無RSI背離';
           divergenceBadge.className = 'indicator-badge neutral';
         }
+        
+        // 🆕 A+B+C 多重視角分析
+        renderMultiViewAnalysis(data.multiViewAnalysis);
+        
       } else {
         // 沒有 waveReason，使用舊版顯示或隱藏
         box.style.display = 'none';
       }
+    }
+    
+    // 🆕 渲染 A+B+C 多重視角分析
+    function renderMultiViewAnalysis(multiView) {
+      const container = document.getElementById('multiViewContainer');
+      const consensusContainer = document.getElementById('consensusBadgeContainer');
+      
+      if (!multiView || !multiView.shortTerm) {
+        container.style.display = 'none';
+        consensusContainer.style.display = 'none';
+        return;
+      }
+      
+      container.style.display = 'grid';
+      consensusContainer.style.display = 'block';
+      
+      // 短線視角
+      document.getElementById('shortTermWave').textContent = `第${multiView.shortTerm.wave}浪`;
+      document.getElementById('shortTermReason').textContent = multiView.shortTerm.reason || '--';
+      
+      // 中線視角
+      document.getElementById('midTermWave').textContent = `第${multiView.midTerm.wave}浪`;
+      document.getElementById('midTermReason').textContent = multiView.midTerm.reason || '--';
+      
+      // 長線視角
+      document.getElementById('longTermWave').textContent = `第${multiView.longTerm.wave}浪`;
+      document.getElementById('longTermReason').textContent = multiView.longTerm.reason || '--';
+      
+      // 共識度
+      const consensusBadge = document.getElementById('consensusBadge');
+      const consensus = multiView.consensus || 'low';
+      
+      if (consensus === 'high') {
+        consensusBadge.textContent = '✅ 三線一致';
+        consensusBadge.className = 'consensus-badge high';
+      } else if (consensus === 'medium') {
+        consensusBadge.textContent = '⚠️ 有分歧';
+        consensusBadge.className = 'consensus-badge medium';
+      } else {
+        consensusBadge.textContent = '❓ 分歧大';
+        consensusBadge.className = 'consensus-badge low';
+      }
+      
+      // 根據共識度設置卡片樣式
+      ['shortTermView', 'midTermView', 'longTermView'].forEach(id => {
+        const card = document.getElementById(id);
+        card.className = `view-card consensus-${consensus}`;
+      });
     }
     
     function renderWaveCircles(currentWave) {
@@ -1529,3 +1639,6 @@
   </div>
 </body>
 </html>
+Add-Content -Path "public\wave.html" -Value "<!-- v2.0 multiview update -->"<!-- v2.1 multiview cards -->
+
+<!-- force deploy v3 -->

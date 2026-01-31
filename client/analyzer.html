@@ -2980,6 +2980,99 @@
             line-height: 1.6;
         }
         
+        /* 🆕 多重視角分析 CSS */
+        .wave-multiview-container {
+            background: linear-gradient(135deg, rgba(88,166,255,0.08) 0%, rgba(35,134,54,0.08) 100%);
+            border: 1px solid rgba(88,166,255,0.25);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .multiview-title {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .multiview-reason {
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+        .multiview-badges {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .multiview-badge {
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            background: rgba(139, 148, 158, 0.2);
+            color: var(--text-muted);
+        }
+        .multiview-badge.bullish { background: rgba(63, 185, 80, 0.2); color: #3fb950; }
+        .multiview-badge.bearish { background: rgba(248, 81, 73, 0.2); color: #f85149; }
+        .multiview-badge.neutral { background: rgba(210, 153, 34, 0.2); color: #d29922; }
+        .multiview-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed rgba(139, 148, 158, 0.3);
+        }
+        .multiview-card {
+            background: rgba(22, 27, 34, 0.6);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid rgba(48, 54, 61, 0.5);
+        }
+        .multiview-card.consensus-high { border-color: rgba(63, 185, 80, 0.4); }
+        .multiview-card.consensus-medium { border-color: rgba(210, 153, 34, 0.4); }
+        .multiview-card.consensus-low { border-color: rgba(248, 81, 73, 0.4); }
+        .multiview-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+        .multiview-wave {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--accent-blue);
+        }
+        .multiview-desc {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            line-height: 1.3;
+            max-height: 2.6em;
+            overflow: hidden;
+        }
+        .multiview-consensus {
+            margin-top: 10px;
+        }
+        .consensus-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .consensus-badge.high { background: rgba(63, 185, 80, 0.2); color: #3fb950; }
+        .consensus-badge.medium { background: rgba(210, 153, 34, 0.2); color: #d29922; }
+        .consensus-badge.low { background: rgba(248, 81, 73, 0.2); color: #f85149; }
+        
+        @media (max-width: 768px) {
+            .multiview-grid { grid-template-columns: 1fr; gap: 8px; }
+            .multiview-card { padding: 8px; }
+            .multiview-wave { font-size: 1rem; }
+        }
+        
         /* 波浪歷史 */
         .wave-history {
             background: var(--bg-secondary);
@@ -4101,6 +4194,36 @@
                             </div>
                         </div>
                         
+                        <!-- 🆕 A+B+C 多重視角分析 -->
+                        <div class="wave-multiview-container" id="waveMultiViewContainer" style="display: none;">
+                            <div class="multiview-title">📊 A+B+C 多重視角分析</div>
+                            <div class="multiview-reason" id="waveReasonText">--</div>
+                            <div class="multiview-badges">
+                                <span class="multiview-badge" id="waveWeeklyBadge" style="display: none;">週線: --</span>
+                                <span class="multiview-badge" id="waveDivergenceBadge" style="display: none;">RSI: --</span>
+                            </div>
+                            <div class="multiview-grid" id="waveMultiViewGrid">
+                                <div class="multiview-card" id="waveShortView">
+                                    <div class="multiview-label">📍 短線</div>
+                                    <div class="multiview-wave" id="waveShortWave">--</div>
+                                    <div class="multiview-desc" id="waveShortReason">--</div>
+                                </div>
+                                <div class="multiview-card" id="waveMidView">
+                                    <div class="multiview-label">📍 中線</div>
+                                    <div class="multiview-wave" id="waveMidWave">--</div>
+                                    <div class="multiview-desc" id="waveMidReason">--</div>
+                                </div>
+                                <div class="multiview-card" id="waveLongView">
+                                    <div class="multiview-label">📍 長線</div>
+                                    <div class="multiview-wave" id="waveLongWave">--</div>
+                                    <div class="multiview-desc" id="waveLongReason">--</div>
+                                </div>
+                            </div>
+                            <div class="multiview-consensus" id="waveConsensusContainer">
+                                <span class="consensus-badge" id="waveConsensusBadge">共識度: --</span>
+                            </div>
+                        </div>
+                        
                         <!-- 目標價位 -->
                         <div class="wave-targets">
                             <div class="wave-target up">
@@ -4255,6 +4378,36 @@
                             <div class="wave-info-item">
                                 <div class="wave-info-label">現價</div>
                                 <div class="wave-info-value" id="oddWavePrice">--</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 🆕 零股 A+B+C 多重視角分析 -->
+                        <div class="wave-multiview-container" id="oddWaveMultiViewContainer" style="display: none; margin-top: 15px;">
+                            <div class="multiview-title">📊 A+B+C 多重視角分析</div>
+                            <div class="multiview-reason" id="oddWaveReasonText">--</div>
+                            <div class="multiview-badges">
+                                <span class="multiview-badge" id="oddWaveWeeklyBadge" style="display: none;">週線: --</span>
+                                <span class="multiview-badge" id="oddWaveDivergenceBadge" style="display: none;">RSI: --</span>
+                            </div>
+                            <div class="multiview-grid" id="oddWaveMultiViewGrid" style="display: none;">
+                                <div class="multiview-card" id="oddWaveShortView">
+                                    <div class="multiview-label">📍 短線</div>
+                                    <div class="multiview-wave" id="oddWaveShortWave">--</div>
+                                    <div class="multiview-desc" id="oddWaveShortReason">--</div>
+                                </div>
+                                <div class="multiview-card" id="oddWaveMidView">
+                                    <div class="multiview-label">📍 中線</div>
+                                    <div class="multiview-wave" id="oddWaveMidWave">--</div>
+                                    <div class="multiview-desc" id="oddWaveMidReason">--</div>
+                                </div>
+                                <div class="multiview-card" id="oddWaveLongView">
+                                    <div class="multiview-label">📍 長線</div>
+                                    <div class="multiview-wave" id="oddWaveLongWave">--</div>
+                                    <div class="multiview-desc" id="oddWaveLongReason">--</div>
+                                </div>
+                            </div>
+                            <div class="multiview-consensus" id="oddWaveConsensusContainer" style="display: none;">
+                                <span class="consensus-badge" id="oddWaveConsensusBadge">共識度: --</span>
                             </div>
                         </div>
                         <!-- 目標價位 -->
@@ -11983,6 +12136,9 @@
                 renderOddWaveChart(data);
                 renderOddWaveCircles(wave);  // 只傳當前波浪
                 
+                // 🆕 渲染 A+B+C 多重視角
+                renderOddWaveMultiView(data);
+                
             } catch (e) {
                 loading.innerHTML = `<div style="color: var(--accent-down); text-align: center; padding: 20px;">❌ 分析失敗: ${e.message}</div>`;
             }
@@ -12625,6 +12781,88 @@ ${oddWaveAiResults.openai?.content || '未完成'}
                 'C': 'C浪：大幅下跌，確認熊市到來'
             };
             showToast(waveDescriptions[wave] || `波浪 ${wave}`);
+        }
+        
+        // 🆕 渲染零股 A+B+C 多重視角分析
+        function renderOddWaveMultiView(data) {
+            const container = document.getElementById('oddWaveMultiViewContainer');
+            if (!container) return;
+            
+            // 顯示判斷依據
+            if (data.waveReason) {
+                container.style.display = 'block';
+                document.getElementById('oddWaveReasonText').textContent = data.waveReason;
+                
+                // 週線波浪數
+                const weeklyBadge = document.getElementById('oddWaveWeeklyBadge');
+                if (data.weeklyWaveCount !== undefined && weeklyBadge) {
+                    weeklyBadge.style.display = 'inline-block';
+                    weeklyBadge.textContent = `📅 週線: ${data.weeklyWaveCount}浪`;
+                }
+                
+                // RSI 背離
+                const divBadge = document.getElementById('oddWaveDivergenceBadge');
+                if (divBadge) {
+                    if (data.divergenceInfo && data.divergenceInfo.hasDivergence) {
+                        divBadge.style.display = 'inline-block';
+                        if (data.divergenceInfo.type === 'bearish') {
+                            divBadge.textContent = '⚠️ RSI頂背離';
+                            divBadge.className = 'multiview-badge bearish';
+                        } else {
+                            divBadge.textContent = '✨ RSI底背離';
+                            divBadge.className = 'multiview-badge bullish';
+                        }
+                    } else {
+                        divBadge.style.display = 'inline-block';
+                        divBadge.textContent = '✅ 無背離';
+                        divBadge.className = 'multiview-badge neutral';
+                    }
+                }
+                
+                // 🆕 多重視角詳情
+                const multiView = data.multiViewAnalysis;
+                const multiViewGrid = document.getElementById('oddWaveMultiViewGrid');
+                const consensusContainer = document.getElementById('oddWaveConsensusContainer');
+                
+                if (multiView && multiView.shortTerm && multiViewGrid) {
+                    multiViewGrid.style.display = 'grid';
+                    
+                    // 短線
+                    document.getElementById('oddWaveShortWave').textContent = `第${multiView.shortTerm.wave}浪`;
+                    document.getElementById('oddWaveShortReason').textContent = multiView.shortTerm.reason || '--';
+                    
+                    // 中線
+                    document.getElementById('oddWaveMidWave').textContent = `第${multiView.midTerm.wave}浪`;
+                    document.getElementById('oddWaveMidReason').textContent = multiView.midTerm.reason || '--';
+                    
+                    // 長線
+                    document.getElementById('oddWaveLongWave').textContent = `第${multiView.longTerm.wave}浪`;
+                    document.getElementById('oddWaveLongReason').textContent = multiView.longTerm.reason || '--';
+                    
+                    // 共識度
+                    if (consensusContainer) {
+                        consensusContainer.style.display = 'block';
+                        const badge = document.getElementById('oddWaveConsensusBadge');
+                        const consensus = multiView.consensus || 'low';
+                        
+                        if (consensus === 'high') {
+                            badge.textContent = '✅ 三線一致';
+                            badge.className = 'consensus-badge high';
+                        } else if (consensus === 'medium') {
+                            badge.textContent = '⚠️ 有分歧';
+                            badge.className = 'consensus-badge medium';
+                        } else {
+                            badge.textContent = '❓ 分歧大';
+                            badge.className = 'consensus-badge low';
+                        }
+                    }
+                } else if (multiViewGrid) {
+                    multiViewGrid.style.display = 'none';
+                    if (consensusContainer) consensusContainer.style.display = 'none';
+                }
+            } else {
+                container.style.display = 'none';
+            }
         }
 
         // ===== 多股 3AI 分析 =====
@@ -13790,27 +14028,111 @@ ${oddAiResults.openai?.content || '未完成'}
             startAnalysis();
         }
 
-        // ===== 波浪理論分析 =====
-        function analyzeElliottWave() {
+        // ===== 波浪理論分析（使用後端 API 統一結果）=====
+        async function analyzeElliottWave() {
             console.log('analyzeElliottWave called, stockData length:', stockData.length);
             
-            if (stockData.length < 30) {
-                document.getElementById('elliottAnalysis').innerHTML = '<p style="color: var(--accent-yellow);">⚠️ 請載入至少 30 筆交易日資料以進行波浪分析。</p>';
-                document.getElementById('currentWavePosition').textContent = '數據不足';
-                document.getElementById('currentWaveDesc').textContent = '請選擇更長的分析期間';
-                document.getElementById('wavePrediction').innerHTML = '<p style="color: var(--text-secondary);">需要更多數據才能進行波浪預測。</p>';
+            if (!currentStockCode) {
+                document.getElementById('elliottAnalysis').innerHTML = '<p style="color: var(--accent-yellow);">⚠️ 請先載入股票數據。</p>';
+                document.getElementById('currentWavePosition').textContent = '未載入';
+                document.getElementById('currentWaveDesc').textContent = '請在上方輸入股票代號';
                 return;
             }
             
+            // 顯示載入中
+            document.getElementById('currentWavePosition').textContent = '分析中...';
+            document.getElementById('currentWaveDesc').textContent = '正在調用後端 API 分析...';
+            document.getElementById('elliottAnalysis').innerHTML = '<p style="color: var(--text-muted);">⏳ 正在進行波浪分析...</p>';
+            
             try {
-                const waveAnalysis = detectElliottWaves(stockData);
-                console.log('Wave analysis result:', waveAnalysis);
+                // 🔧 使用後端 API 獲取波浪分析（與多股監控相同）
+                const period = 365; // 使用 12 個月作為預設
+                const res = await fetch(`/api/line/wave/analyze/${currentStockCode}?period=${period}`);
+                
+                if (!res.ok) {
+                    throw new Error(`HTTP 錯誤: ${res.status}`);
+                }
+                
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                
+                console.log('Backend wave analysis result:', data);
+                
+                // 轉換後端數據為前端格式
+                const waveAnalysis = {
+                    currentWave: data.currentWave,
+                    trend: data.isUptrend ? '上升趨勢' : '下降趨勢',
+                    currentPrice: data.currentPrice,
+                    waves: data.waves || [],
+                    rules: data.rules || [],
+                    fibLevels: data.fibLevels || [],
+                    priceChangePercent: data.fromWaveChange,
+                    lastWaveEnd: data.waves?.length > 0 ? data.waves[data.waves.length - 1].end : null,
+                    targetUp: data.targetUp,
+                    targetDown: data.targetDown,
+                    confidence: data.confidence,
+                    suggestion: data.suggestion
+                };
+                
+                console.log('Converted wave analysis:', waveAnalysis);
                 renderElliottWaveDisplay(waveAnalysis);
                 setTimeout(() => { drawElliottChart(waveAnalysis); }, 100);
-                calculateFibonacciLevels(waveAnalysis);
+                calculateFibonacciLevelsFromAPI(data);
+                
             } catch (error) {
                 console.error('Elliott Wave analysis error:', error);
-                document.getElementById('elliottAnalysis').innerHTML = `<p style="color: var(--accent-yellow);">⚠️ 波浪分析發生錯誤: ${error.message}</p>`;
+                
+                // 如果後端 API 失敗，退回使用本地計算
+                console.log('Falling back to local calculation...');
+                if (stockData.length >= 30) {
+                    try {
+                        const waveAnalysis = detectElliottWaves(stockData);
+                        console.log('Local wave analysis result:', waveAnalysis);
+                        renderElliottWaveDisplay(waveAnalysis);
+                        setTimeout(() => { drawElliottChart(waveAnalysis); }, 100);
+                        calculateFibonacciLevels(waveAnalysis);
+                    } catch (localError) {
+                        document.getElementById('elliottAnalysis').innerHTML = `<p style="color: var(--accent-yellow);">⚠️ 波浪分析發生錯誤: ${localError.message}</p>`;
+                    }
+                } else {
+                    document.getElementById('elliottAnalysis').innerHTML = `<p style="color: var(--accent-yellow);">⚠️ API 錯誤: ${error.message}</p>`;
+                    document.getElementById('currentWavePosition').textContent = '分析失敗';
+                    document.getElementById('currentWaveDesc').textContent = '請稍後重試';
+                }
+            }
+        }
+        
+        // 從 API 數據計算費波納契位置
+        function calculateFibonacciLevelsFromAPI(data) {
+            const fibEl = document.getElementById('fibonacciLevel');
+            if (data.fibLevels && data.fibLevels.length > 0) {
+                // 找出當前價格在哪個區間
+                const currentPrice = data.currentPrice;
+                const levels = data.fibLevels.sort((a, b) => a.price - b.price);
+                
+                let lowerLevel = null;
+                let upperLevel = null;
+                
+                for (let i = 0; i < levels.length; i++) {
+                    if (levels[i].price <= currentPrice) {
+                        lowerLevel = levels[i];
+                    }
+                    if (levels[i].price >= currentPrice && !upperLevel) {
+                        upperLevel = levels[i];
+                    }
+                }
+                
+                if (lowerLevel && upperLevel) {
+                    fibEl.textContent = `${lowerLevel.level} - ${upperLevel.level}`;
+                } else if (lowerLevel) {
+                    fibEl.textContent = `> ${lowerLevel.level}`;
+                } else if (upperLevel) {
+                    fibEl.textContent = `< ${upperLevel.level}`;
+                } else {
+                    fibEl.textContent = `${data.confidence}%`;
+                }
+            } else {
+                fibEl.textContent = `${data.confidence || 50}%`;
             }
         }
         
@@ -17823,6 +18145,91 @@ ${analysisContext}
             
             // 波浪歷史
             renderWaveHistory(data.waves, data.currentPrice, wave);
+            
+            // 🆕 渲染 A+B+C 多重視角分析
+            renderWaveMultiView(data);
+        }
+        
+        // 🆕 渲染 A+B+C 多重視角分析
+        function renderWaveMultiView(data) {
+            const container = document.getElementById('waveMultiViewContainer');
+            if (!container) return;
+            
+            // 顯示判斷依據
+            if (data.waveReason) {
+                container.style.display = 'block';
+                document.getElementById('waveReasonText').textContent = data.waveReason;
+                
+                // 週線波浪數
+                const weeklyBadge = document.getElementById('waveWeeklyBadge');
+                if (data.weeklyWaveCount !== undefined && weeklyBadge) {
+                    weeklyBadge.style.display = 'inline-block';
+                    weeklyBadge.textContent = `📅 週線: ${data.weeklyWaveCount}浪`;
+                }
+                
+                // RSI 背離
+                const divBadge = document.getElementById('waveDivergenceBadge');
+                if (divBadge) {
+                    if (data.divergenceInfo && data.divergenceInfo.hasDivergence) {
+                        divBadge.style.display = 'inline-block';
+                        if (data.divergenceInfo.type === 'bearish') {
+                            divBadge.textContent = '⚠️ RSI頂背離';
+                            divBadge.className = 'multiview-badge bearish';
+                        } else {
+                            divBadge.textContent = '✨ RSI底背離';
+                            divBadge.className = 'multiview-badge bullish';
+                        }
+                    } else {
+                        divBadge.style.display = 'inline-block';
+                        divBadge.textContent = '✅ 無背離';
+                        divBadge.className = 'multiview-badge neutral';
+                    }
+                }
+                
+                // 🆕 多重視角詳情
+                const multiView = data.multiViewAnalysis;
+                const multiViewGrid = document.getElementById('waveMultiViewGrid');
+                const consensusContainer = document.getElementById('waveConsensusContainer');
+                
+                if (multiView && multiView.shortTerm && multiViewGrid) {
+                    multiViewGrid.style.display = 'grid';
+                    
+                    // 短線
+                    document.getElementById('waveShortWave').textContent = `第${multiView.shortTerm.wave}浪`;
+                    document.getElementById('waveShortReason').textContent = multiView.shortTerm.reason || '--';
+                    
+                    // 中線
+                    document.getElementById('waveMidWave').textContent = `第${multiView.midTerm.wave}浪`;
+                    document.getElementById('waveMidReason').textContent = multiView.midTerm.reason || '--';
+                    
+                    // 長線
+                    document.getElementById('waveLongWave').textContent = `第${multiView.longTerm.wave}浪`;
+                    document.getElementById('waveLongReason').textContent = multiView.longTerm.reason || '--';
+                    
+                    // 共識度
+                    if (consensusContainer) {
+                        consensusContainer.style.display = 'block';
+                        const badge = document.getElementById('waveConsensusBadge');
+                        const consensus = multiView.consensus || 'low';
+                        
+                        if (consensus === 'high') {
+                            badge.textContent = '✅ 三線一致';
+                            badge.className = 'consensus-badge high';
+                        } else if (consensus === 'medium') {
+                            badge.textContent = '⚠️ 有分歧';
+                            badge.className = 'consensus-badge medium';
+                        } else {
+                            badge.textContent = '❓ 分歧大';
+                            badge.className = 'consensus-badge low';
+                        }
+                    }
+                } else if (multiViewGrid) {
+                    multiViewGrid.style.display = 'none';
+                    if (consensusContainer) consensusContainer.style.display = 'none';
+                }
+            } else {
+                container.style.display = 'none';
+            }
         }
         
         // 🆕 渲染波浪圖表（含波浪標記）
@@ -18160,3 +18567,4 @@ ${analysisContext}
     </div>
 </body>
 </html>
+<!-- v2.1 multiview cards -->
