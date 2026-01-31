@@ -3906,9 +3906,8 @@
                         <button class="quick-btn" onclick="addMonitorStock()">➕ 新增</button>
                     </div>
                     <button class="quick-btn" style="background: var(--accent-blue);" onclick="refreshAllMonitorStaggered()">🔄 全部更新</button>
-                    <button class="quick-btn" style="background: var(--accent-purple);" onclick="testNeonEffect()" title="測試霓虹閃爍效果">✨ 測試效果</button>
-                    <button class="quick-btn" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6);" onclick="testOpeningPopup()" title="測試開盤倒數彈窗">🔔 開盤</button>
-                    <button class="quick-btn" style="background: linear-gradient(135deg, #ef4444, #f59e0b);" onclick="testClosingPopup()" title="測試收盤彈窗">🔕 收盤</button>
+                    <button class="quick-btn" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);" onclick="startMultiStockAIAnalysis()">🧠 3AI 分析</button>
+                    <button class="quick-btn" style="background: var(--accent-purple);" onclick="togglePortfolioApiSettings()">⚙️ API</button>
                     <select id="monitorInterval" onchange="updateMonitorInterval()" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;">
                         <option value="15">15秒</option>
                         <option value="30" selected>30秒</option>
@@ -3936,6 +3935,98 @@
                 <div class="monitor-add-card" onclick="document.getElementById('monitorCode').focus()">
                     <div class="add-icon">➕</div>
                     <div>點擊新增監控股票</div>
+                </div>
+            </div>
+            
+            <!-- 📊 多股 3AI 分析結果 -->
+            <div class="ai-portfolio-results" id="multiAiResults" style="display: none; margin-top: 15px;">
+                <div style="text-align: center; padding: 10px; margin-bottom: 10px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2)); border-radius: 10px;">
+                    <h4 style="margin: 0;">📊 多股投資組合 3AI 分析</h4>
+                </div>
+                <!-- Claude 分析 -->
+                <div class="ai-portfolio-card claude">
+                    <div class="ai-portfolio-card-header">
+                        <span class="ai-icon">🤖</span>
+                        <span class="ai-name">Claude</span>
+                        <span class="ai-status" id="multiClaudeStatus">待命</span>
+                        <span class="ai-score" id="multiClaudeScore" style="margin-left: auto; font-weight: 700; font-size: 1.1rem; color: var(--accent-up);">--分</span>
+                    </div>
+                    <div class="ai-portfolio-content" id="multiClaudeContent">
+                        <div style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
+                            <div style="font-size: 2rem; margin-bottom: 10px;">🤖</div>
+                            <div>點擊「3AI 分析」開始</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Gemini 分析 -->
+                <div class="ai-portfolio-card gemini">
+                    <div class="ai-portfolio-card-header">
+                        <span class="ai-icon">✨</span>
+                        <span class="ai-name">Gemini</span>
+                        <span class="ai-status" id="multiGeminiStatus">待命</span>
+                        <span class="ai-score" id="multiGeminiScore" style="margin-left: auto; font-weight: 700; font-size: 1.1rem; color: var(--accent-up);">--分</span>
+                    </div>
+                    <div class="ai-portfolio-content" id="multiGeminiContent">
+                        <div style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
+                            <div style="font-size: 2rem; margin-bottom: 10px;">✨</div>
+                            <div>點擊「3AI 分析」開始</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- OpenAI 分析 -->
+                <div class="ai-portfolio-card openai">
+                    <div class="ai-portfolio-card-header">
+                        <span class="ai-icon">🧠</span>
+                        <span class="ai-name">GPT-4</span>
+                        <span class="ai-status" id="multiOpenaiStatus">待命</span>
+                        <span class="ai-score" id="multiOpenaiScore" style="margin-left: auto; font-weight: 700; font-size: 1.1rem; color: var(--accent-up);">--分</span>
+                    </div>
+                    <div class="ai-portfolio-content" id="multiOpenaiContent">
+                        <div style="text-align: center; color: var(--text-muted); padding: 40px 20px;">
+                            <div style="font-size: 2rem; margin-bottom: 10px;">🧠</div>
+                            <div>點擊「3AI 分析」開始</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 🗳️ 多股評比統計 -->
+                <div class="ai-vote-stats" id="multiVoteStats" style="display: none; margin-top: 15px;">
+                    <div class="ai-vote-title">📊 3AI 評比結果</div>
+                    <div class="ai-vote-grid">
+                        <div class="ai-vote-item buy">
+                            <div class="vote-icon">📈</div>
+                            <div class="vote-label">看漲</div>
+                            <div class="vote-count" id="multiVoteUp">0</div>
+                        </div>
+                        <div class="ai-vote-item hold">
+                            <div class="vote-icon">↔️</div>
+                            <div class="vote-label">持有</div>
+                            <div class="vote-count" id="multiVoteHold">0</div>
+                        </div>
+                        <div class="ai-vote-item sell">
+                            <div class="vote-icon">📉</div>
+                            <div class="vote-label">看跌</div>
+                            <div class="vote-count" id="multiVoteDown">0</div>
+                        </div>
+                    </div>
+                    <div class="ai-vote-avg" id="multiVoteAvg" style="margin-top: 15px; text-align: center; font-size: 1.2rem; font-weight: 700;">
+                        📊 平均分數：--
+                    </div>
+                    <div class="ai-vote-conclusion" id="multiVoteConclusion">
+                        等待分析結果...
+                    </div>
+                </div>
+                
+                <!-- 🏆 多股總評區塊 -->
+                <div class="ai-vote-summary" id="multiFinalSummary" style="display: none; margin-top: 20px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15));">
+                    <h4 id="multiFinalTitle" style="font-size: 1.3rem; margin-bottom: 20px;">
+                        🏆【總評】等待分析完成...
+                    </h4>
+                    <div id="multiFinalContent" style="font-size: 0.95rem; line-height: 1.9; color: var(--text-secondary); white-space: pre-wrap; max-height: 500px; overflow-y: auto; padding: 15px; background: var(--bg-card); border-radius: 12px;">
+                        <div style="text-align: center; color: var(--text-muted); padding: 40px;">
+                            分析完成後，將由最接近平均分的 AI 撰寫 500 字以上的專業總評報告
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -12269,6 +12360,306 @@
             showToast(waveDescriptions[wave] || `波浪 ${wave}`);
         }
 
+        // ===== 多股 3AI 分析 =====
+        let multiAiResults = { claude: null, gemini: null, openai: null };
+        let multiAiCompleted = 0;
+        
+        async function startMultiStockAIAnalysis() {
+            if (monitorStocks.length === 0) {
+                showToast('⚠️ 請先新增監控股票');
+                return;
+            }
+            
+            // 重置狀態
+            multiAiResults = { claude: null, gemini: null, openai: null };
+            multiAiCompleted = 0;
+            
+            // 隱藏之前的總評
+            document.getElementById('multiVoteStats').style.display = 'none';
+            document.getElementById('multiFinalSummary').style.display = 'none';
+            
+            // 重置分數顯示
+            ['Claude', 'Gemini', 'Openai'].forEach(ai => {
+                const scoreEl = document.getElementById(`multi${ai}Score`);
+                if (scoreEl) scoreEl.textContent = '--分';
+            });
+            
+            // 顯示結果區域
+            document.getElementById('multiAiResults').style.display = 'grid';
+            
+            // 建立投資組合描述
+            let portfolioDesc = '多股投資組合（整張）：\n';
+            let totalCost = 0;
+            let totalValue = 0;
+            
+            monitorStocks.forEach(s => {
+                const price = parseFloat(s.data?.price) || 0;
+                const name = s.data?.name || getStockName(s.code) || s.code;
+                const shares = s.shares || 1;
+                const holdPrice = s.holdPrice || price;
+                const cost = holdPrice * shares * 1000;
+                const value = price * shares * 1000;
+                totalCost += cost;
+                totalValue += value;
+                const profit = value - cost;
+                portfolioDesc += `- ${name}(${s.code}): ${shares}張, 成本$${holdPrice}, 現價$${price}, 損益$${profit.toFixed(0)}\n`;
+            });
+            
+            const profitPercent = totalCost > 0 ? ((totalValue - totalCost) / totalCost * 100).toFixed(2) : 0;
+            portfolioDesc += `\n總成本: $${(totalCost/10000).toFixed(1)}萬, 總市值: $${(totalValue/10000).toFixed(1)}萬, 報酬率: ${profitPercent}%`;
+            
+            const prompt = `你是專業的台股投資分析師。請分析以下投資組合：
+
+${portfolioDesc}
+
+請依照以下格式回覆：
+1. 【評分】給這個投資組合打分（0-100分）
+2. 【建議】看漲/持有/看跌
+3. 【分析】從風險分散、產業配置、成長潛力等角度分析
+4. 【操作建議】具體操作建議（加碼/持有/減碼哪些股票）
+
+請在回覆開頭明確標註：
+評分：XX分
+建議：看漲/持有/看跌`;
+            
+            // 同時呼叫三個 AI
+            analyzeWithMultiAI('claude', prompt);
+            analyzeWithMultiAI('gemini', prompt);
+            analyzeWithMultiAI('openai', prompt);
+        }
+
+        async function analyzeWithMultiAI(aiType, prompt) {
+            const statusEl = document.getElementById(`multi${aiType.charAt(0).toUpperCase() + aiType.slice(1)}Status`);
+            const contentEl = document.getElementById(`multi${aiType.charAt(0).toUpperCase() + aiType.slice(1)}Content`);
+            const scoreEl = document.getElementById(`multi${aiType.charAt(0).toUpperCase() + aiType.slice(1)}Score`);
+            
+            if (statusEl) statusEl.textContent = '分析中...';
+            if (contentEl) contentEl.innerHTML = '<div style="text-align:center;padding:40px;">⏳ AI 分析中...</div>';
+            
+            try {
+                const apiKey = localStorage.getItem(`portfolio${aiType.charAt(0).toUpperCase() + aiType.slice(1)}Key`);
+                
+                if (!apiKey) {
+                    if (contentEl) contentEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--accent-down);">❌ 請先設定 ${aiType.toUpperCase()} API Key<br><br><button class="quick-btn" onclick="togglePortfolioApiSettings()">⚙️ 設定 API Key</button></div>`;
+                    if (statusEl) statusEl.textContent = '未設定';
+                    multiAiCompleted++;
+                    checkMultiAiComplete();
+                    return;
+                }
+                
+                let response, result;
+                if (aiType === 'claude') {
+                    response = await fetch('https://api.anthropic.com/v1/messages', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-api-key': apiKey,
+                            'anthropic-version': '2023-06-01',
+                            'anthropic-dangerous-direct-browser-access': 'true'
+                        },
+                        body: JSON.stringify({
+                            model: 'claude-sonnet-4-20250514',
+                            max_tokens: 2000,
+                            messages: [{ role: 'user', content: prompt }]
+                        })
+                    });
+                    const data = await response.json();
+                    result = data.content?.[0]?.text || '無回應';
+                } else if (aiType === 'gemini') {
+                    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    });
+                    const data = await response.json();
+                    result = data.candidates?.[0]?.content?.parts?.[0]?.text || '無回應';
+                } else if (aiType === 'openai') {
+                    response = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify({
+                            model: 'gpt-4o-mini',
+                            messages: [{ role: 'user', content: prompt }]
+                        })
+                    });
+                    const data = await response.json();
+                    result = data.choices?.[0]?.message?.content || '無回應';
+                }
+                
+                // 解析分數和建議
+                const scoreMatch = result.match(/評分[：:]\s*(\d+)/);
+                const score = scoreMatch ? parseInt(scoreMatch[1]) : 50;
+                
+                const adviceMatch = result.match(/建議[：:]\s*(看漲|持有|看跌|加碼|減碼)/);
+                let advice = adviceMatch ? adviceMatch[1] : '持有';
+                if (advice === '加碼') advice = '看漲';
+                if (advice === '減碼') advice = '看跌';
+                
+                // 儲存結果
+                multiAiResults[aiType] = { score, advice, content: result };
+                
+                // 更新顯示
+                if (contentEl) contentEl.innerHTML = `<div style="white-space:pre-wrap;padding:15px;font-size:0.9rem;line-height:1.6;">${result}</div>`;
+                if (statusEl) statusEl.textContent = '完成';
+                if (scoreEl) {
+                    scoreEl.textContent = `${score}分`;
+                    scoreEl.style.color = score >= 70 ? 'var(--accent-up)' : score >= 40 ? 'var(--accent-warning)' : 'var(--accent-down)';
+                }
+                
+            } catch (e) {
+                if (contentEl) contentEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--accent-down);">❌ 分析失敗: ${e.message}</div>`;
+                if (statusEl) statusEl.textContent = '失敗';
+            }
+            
+            multiAiCompleted++;
+            checkMultiAiComplete();
+        }
+        
+        // 檢查多股 3AI 是否全部完成
+        function checkMultiAiComplete() {
+            if (multiAiCompleted < 3) return;
+            
+            // 統計評比結果
+            const votes = { up: 0, hold: 0, down: 0 };
+            const scores = [];
+            
+            Object.values(multiAiResults).forEach(r => {
+                if (r) {
+                    scores.push(r.score);
+                    if (r.advice === '看漲') votes.up++;
+                    else if (r.advice === '看跌') votes.down++;
+                    else votes.hold++;
+                }
+            });
+            
+            // 顯示評比統計
+            document.getElementById('multiVoteStats').style.display = 'block';
+            document.getElementById('multiVoteUp').textContent = votes.up;
+            document.getElementById('multiVoteHold').textContent = votes.hold;
+            document.getElementById('multiVoteDown').textContent = votes.down;
+            
+            // 計算平均分
+            const avgScore = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : 0;
+            document.getElementById('multiVoteAvg').innerHTML = `📊 平均分數：<span style="color: ${avgScore >= 70 ? 'var(--accent-up)' : avgScore >= 40 ? 'var(--accent-warning)' : 'var(--accent-down)'}; font-size: 1.5rem;">${avgScore}</span> 分`;
+            
+            // 結論
+            let conclusion = '';
+            if (votes.up > votes.hold && votes.up > votes.down) {
+                conclusion = '🟢 多數 AI 看漲，建議可以考慮加碼';
+            } else if (votes.down > votes.up && votes.down > votes.hold) {
+                conclusion = '🔴 多數 AI 看跌，建議謹慎減碼';
+            } else {
+                conclusion = '🟡 AI 意見分歧，建議持有觀望';
+            }
+            document.getElementById('multiVoteConclusion').textContent = conclusion;
+            
+            // 找出最接近平均分的 AI 來撰寫總評
+            if (scores.length > 0) {
+                generateMultiFinalSummary(avgScore);
+            }
+        }
+        
+        // 多股總評生成
+        async function generateMultiFinalSummary(avgScore) {
+            // 找出最接近平均分的 AI
+            let closestAI = 'claude';
+            let minDiff = Infinity;
+            
+            Object.entries(multiAiResults).forEach(([ai, r]) => {
+                if (r && r.score) {
+                    const diff = Math.abs(r.score - avgScore);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestAI = ai;
+                    }
+                }
+            });
+            
+            const aiNames = { claude: 'Claude', gemini: 'Gemini', openai: 'GPT-4' };
+            const aiColors = { claude: '#d68946', gemini: '#4285f4', openai: '#10a37f' };
+            
+            // 顯示總評區塊
+            document.getElementById('multiFinalSummary').style.display = 'block';
+            document.getElementById('multiFinalTitle').innerHTML = `🏆【總評】由 <span style="color: ${aiColors[closestAI]};">${aiNames[closestAI]}</span> 撰寫中...`;
+            document.getElementById('multiFinalContent').innerHTML = '<div style="text-align:center;padding:40px;">⏳ 生成總評報告中...</div>';
+            
+            // 建立總評提示詞
+            let summaryPrompt = `你是資深台股投資分析師。請根據以下三個 AI 的分析結果，撰寫一份 500 字以上的專業總評報告。
+
+【Claude 分析】評分 ${multiAiResults.claude?.score || '--'} 分
+${multiAiResults.claude?.content || '未完成'}
+
+【Gemini 分析】評分 ${multiAiResults.gemini?.score || '--'} 分
+${multiAiResults.gemini?.content || '未完成'}
+
+【GPT-4 分析】評分 ${multiAiResults.openai?.score || '--'} 分
+${multiAiResults.openai?.content || '未完成'}
+
+平均分數：${avgScore} 分
+
+請撰寫總評報告，包含：
+1. 綜合評價（整合三方觀點）
+2. 風險評估
+3. 具體操作建議
+4. 注意事項`;
+
+            try {
+                const apiKey = localStorage.getItem(`portfolio${closestAI.charAt(0).toUpperCase() + closestAI.slice(1)}Key`);
+                let result = '';
+                
+                if (closestAI === 'claude') {
+                    const response = await fetch('https://api.anthropic.com/v1/messages', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-api-key': apiKey,
+                            'anthropic-version': '2023-06-01',
+                            'anthropic-dangerous-direct-browser-access': 'true'
+                        },
+                        body: JSON.stringify({
+                            model: 'claude-sonnet-4-20250514',
+                            max_tokens: 3000,
+                            messages: [{ role: 'user', content: summaryPrompt }]
+                        })
+                    });
+                    const data = await response.json();
+                    result = data.content?.[0]?.text || '生成失敗';
+                } else if (closestAI === 'gemini') {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: summaryPrompt }] }] })
+                    });
+                    const data = await response.json();
+                    result = data.candidates?.[0]?.content?.parts?.[0]?.text || '生成失敗';
+                } else {
+                    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify({
+                            model: 'gpt-4o-mini',
+                            messages: [{ role: 'user', content: summaryPrompt }]
+                        })
+                    });
+                    const data = await response.json();
+                    result = data.choices?.[0]?.message?.content || '生成失敗';
+                }
+                
+                document.getElementById('multiFinalTitle').innerHTML = `🏆【總評】由 <span style="color: ${aiColors[closestAI]}; font-weight: 700;">${aiNames[closestAI]}</span> 勝出撰寫`;
+                document.getElementById('multiFinalContent').textContent = result;
+                showToast(`✅ ${aiNames[closestAI]} 完成總評撰寫！`);
+                
+            } catch (e) {
+                document.getElementById('multiFinalContent').innerHTML = `<div style="color:var(--accent-down);">❌ 總評生成失敗: ${e.message}</div>`;
+            }
+        }
+
         // 零股 3AI 分析
         let oddAiResults = { claude: null, gemini: null, openai: null };
         let oddAiCompleted = 0;
@@ -15231,12 +15622,13 @@ ${wavePrediction.substring(0, 200)}
 【後續走勢預測】
 （請預測可能的波浪發展和目標價位，約100字）`;
 
-                const claudeKey = document.getElementById('claudeApiKey')?.value?.trim();
-                const geminiKey = document.getElementById('geminiApiKey')?.value?.trim();
-                const openaiKey = document.getElementById('openaiApiKey')?.value?.trim();
+                // 🔧 改用 localStorage 讀取 API Key（跟零股波浪一致）
+                const claudeKey = localStorage.getItem('portfolioClaudeKey');
+                const geminiKey = localStorage.getItem('portfolioGeminiKey');
+                const openaiKey = localStorage.getItem('portfolioOpenaiKey');
 
                 if (!claudeKey && !geminiKey && !openaiKey) {
-                    alert('請先在「AI 三方票決」分頁設定 API 金鑰');
+                    alert('請先設定 API Key（點擊 ⚙️ API 按鈕）');
                     btn.innerHTML = '🚀 啟動 AI 三方解析波浪理論';
                     btn.disabled = false;
                     return;
