@@ -12031,7 +12031,8 @@
             const contentEl = document.getElementById(`oddWave${aiType.charAt(0).toUpperCase() + aiType.slice(1)}Content`);
             
             try {
-                const apiKey = localStorage.getItem(`portfolio${aiType.charAt(0).toUpperCase() + aiType.slice(1)}Key`);
+                // 🔧 修正 key 名稱（底線格式）
+                const apiKey = localStorage.getItem(`portfolio_${aiType}_api_key`);
                 
                 if (!apiKey) {
                     if (contentEl) contentEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--accent-down);">❌ 請先設定 ${aiType.toUpperCase()} API Key</div>`;
@@ -12437,7 +12438,8 @@ ${portfolioDesc}
             if (contentEl) contentEl.innerHTML = '<div style="text-align:center;padding:40px;">⏳ AI 分析中...</div>';
             
             try {
-                const apiKey = localStorage.getItem(`portfolio${aiType.charAt(0).toUpperCase() + aiType.slice(1)}Key`);
+                // 🔧 修正 key 名稱（底線格式）
+                const apiKey = localStorage.getItem(`portfolio_${aiType}_api_key`);
                 
                 if (!apiKey) {
                     if (contentEl) contentEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--accent-down);">❌ 請先設定 ${aiType.toUpperCase()} API Key<br><br><button class="quick-btn" onclick="togglePortfolioApiSettings()">⚙️ 設定 API Key</button></div>`;
@@ -12607,7 +12609,8 @@ ${multiAiResults.openai?.content || '未完成'}
 4. 注意事項`;
 
             try {
-                const apiKey = localStorage.getItem(`portfolio${closestAI.charAt(0).toUpperCase() + closestAI.slice(1)}Key`);
+                // 🔧 修正 key 名稱（底線格式）
+                const apiKey = localStorage.getItem(`portfolio_${closestAI}_api_key`);
                 let result = '';
                 
                 if (closestAI === 'claude') {
@@ -12734,8 +12737,8 @@ ${portfolioDesc}
             if (contentEl) contentEl.innerHTML = '<div style="text-align:center;padding:40px;">⏳ AI 分析中...</div>';
             
             try {
-                // 使用現有的 API Key
-                const apiKey = localStorage.getItem(`portfolio${aiType.charAt(0).toUpperCase() + aiType.slice(1)}Key`);
+                // 🔧 修正 key 名稱（底線格式）
+                const apiKey = localStorage.getItem(`portfolio_${aiType}_api_key`);
                 
                 if (!apiKey) {
                     if (contentEl) contentEl.innerHTML = `<div style="text-align:center;padding:40px;color:var(--accent-down);">❌ 請先設定 ${aiType.toUpperCase()} API Key<br><br><button class="quick-btn" onclick="togglePortfolioApiSettings()">⚙️ 設定 API Key</button></div>`;
@@ -12907,7 +12910,8 @@ ${oddAiResults.openai?.content || '未完成'}
 4. 注意事項`;
 
             try {
-                const apiKey = localStorage.getItem(`portfolio${closestAI.charAt(0).toUpperCase() + closestAI.slice(1)}Key`);
+                // 🔧 修正 key 名稱（底線格式）
+                const apiKey = localStorage.getItem(`portfolio_${closestAI}_api_key`);
                 let result = '';
                 
                 if (closestAI === 'claude') {
@@ -15590,10 +15594,10 @@ ${alertsText.substring(0, 500)}
 【後續走勢預測】
 （請預測可能的波浪發展和目標價位，約100字）`;
 
-                // 🔧 使用 localStorage 讀取 API Key
-                const claudeKey = localStorage.getItem('portfolioClaudeKey');
-                const geminiKey = localStorage.getItem('portfolioGeminiKey');
-                const openaiKey = localStorage.getItem('portfolioOpenaiKey');
+                // 🔧 使用正確的 localStorage key 名稱
+                const claudeKey = localStorage.getItem('portfolio_claude_api_key');
+                const geminiKey = localStorage.getItem('portfolio_gemini_api_key');
+                const openaiKey = localStorage.getItem('portfolio_openai_api_key');
 
                 if (!claudeKey && !geminiKey && !openaiKey) {
                     showToast('⚠️ 請先設定 API Key（點擊 ⚙️ API 按鈕）');
