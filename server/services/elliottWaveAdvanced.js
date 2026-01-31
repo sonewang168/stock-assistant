@@ -407,444 +407,6 @@ function calculateATR(history, period = 14) {
 }
 
 // ========================================
-// 🆕 波浪分析優化函數（方案 1+2+3）
-// ========================================
-
-/**
- * 🔧 方案1：動態 ZigZag 閾值計算
- * 根據總漲跌幅決定適合的閾值
- */
-function calculateDynamicZigZagThreshold(history) {
-  const closes = history.map(h => h.close);
-  const overallHigh = Math.max(...closes);
-  const overallLow = Math.min(...closes);
-  const totalChangePercent = ((overallHigh - overallLow) / overallLow) * 100;
-  
-  let threshold;
-  let reason;
-  
-  if (totalChangePercent > 200) {
-    // 大漲股（如南亞科 365%）：用 12% 過濾小波動
-    threshold = 12;
-    reason = `大漲股(${totalChangePercent.toFixed(0)}%)`;
-  } else if (totalChangePercent > 100) {
-    // 中漲股：用 10%
-    threshold = 10;
-    reason = `中漲股(${totalChangePercent.toFixed(0)}%)`;
-  } else if (totalChangePercent > 30) {
-    // 一般股：用 8%
-    threshold = 8;
-    reason = `一般股(${totalChangePercent.toFixed(0)}%)`;
-  } else {
-    // 小波動股：用 5%
-    threshold = 5;
-    reason = `小波動股(${totalChangePercent.toFixed(0)}%)`;
-  }
-  
-  console.log(`📐 動態閾值: ${threshold}% (${reason})`);
-  
-  return {
-    threshold,
-    totalChangePercent,
-    reason
-  };
-}
-
-/**
- * 🔧 方案2：RSI 背離檢測
- * 檢測價格與 RSI 的背離現象
- */
-function detectRSIDivergence(history, lookback = 30) {
-  if (history.length < lookback + 14) {
-    return { hasDivergence: false, type: null, confidence: 0 };
-  }
-  
-  const closes = history.map(h => h.close);
-  const recentCloses = closes.slice(-lookback);
-  
-  // 計算每天的 RSI
-  const rsiValues = [];
-  for (let i = 14; i <= closes.length; i++) {
-    const rsi = calculateRSI(closes.slice(0, i), 14);
-    rsiValues.push(rsi);
-  }
-  const recentRSI = rsiValues.slice(-lookback);
-  
-  // 找價格高點
-  let priceHighIdx = 0;
-  let priceHigh = recentCloses[0];
-  for (let i = 1; i < recentCloses.length; i++) {
-    if (recentCloses[i] > priceHigh) {
-      priceHigh = recentCloses[i];
-      priceHighIdx = i;
-    }
-  }
-  
-  // 找價格低點
-  let priceLowIdx = 0;
-  let priceLow = recentCloses[0];
-  for (let i = 1; i < recentCloses.length; i++) {
-    if (recentCloses[i] < priceLow) {
-      priceLow = recentCloses[i];
-      priceLowIdx = i;
-    }
-  }
-  
-  // 找 RSI 高點
-  let rsiHighIdx = 0;
-  let rsiHigh = recentRSI[0] || 50;
-  for (let i = 1; i < recentRSI.length; i++) {
-    if (recentRSI[i] > rsiHigh) {
-      rsiHigh = recentRSI[i];
-      rsiHighIdx = i;
-    }
-  }
-  
-  // 找 RSI 低點
-  let rsiLowIdx = 0;
-  let rsiLow = recentRSI[0] || 50;
-  for (let i = 1; i < recentRSI.length; i++) {
-    if (recentRSI[i] < rsiLow) {
-      rsiLow = recentRSI[i];
-      rsiLowIdx = i;
-    }
-  }
-  
-  const currentPrice = recentCloses[recentCloses.length - 1];
-  const currentRSI = recentRSI[recentRSI.length - 1] || 50;
-  
-  // 頂背離：價格創新高，但 RSI 未創新高
-  const isNearPriceHigh = currentPrice >= priceHigh * 0.98;
-  const rsiNotAtHigh = currentRSI < rsiHigh * 0.95;
-  const bearishDivergence = isNearPriceHigh && rsiNotAtHigh && priceHighIdx > lookback * 0.5;
-  
-  // 底背離：價格創新低，但 RSI 未創新低
-  const isNearPriceLow = currentPrice <= priceLow * 1.02;
-  const rsiNotAtLow = currentRSI > rsiLow * 1.05;
-  const bullishDivergence = isNearPriceLow && rsiNotAtLow && priceLowIdx > lookback * 0.5;
-  
-  let result = { hasDivergence: false, type: null, confidence: 0 };
-  
-  if (bearishDivergence) {
-    result = {
-      hasDivergence: true,
-      type: 'bearish',  // 頂背離（看跌）
-      confidence: Math.min(90, 50 + (rsiHigh - currentRSI)),
-      detail: `價格接近高點 ${priceHigh.toFixed(2)}，但 RSI(${currentRSI.toFixed(0)}) < 前高RSI(${rsiHigh.toFixed(0)})`
-    };
-  } else if (bullishDivergence) {
-    result = {
-      hasDivergence: true,
-      type: 'bullish',  // 底背離（看漲）
-      confidence: Math.min(90, 50 + (currentRSI - rsiLow)),
-      detail: `價格接近低點 ${priceLow.toFixed(2)}，但 RSI(${currentRSI.toFixed(0)}) > 前低RSI(${rsiLow.toFixed(0)})`
-    };
-  }
-  
-  console.log(`📊 RSI背離檢測: ${result.hasDivergence ? result.type + '背離' : '無背離'}`);
-  
-  return result;
-}
-
-/**
- * 🔧 方案3：週線數據聚合
- * 將日線數據聚合為週線
- */
-function aggregateToWeekly(history) {
-  if (history.length < 5) return history;
-  
-  const weeklyData = [];
-  let weekStart = null;
-  let weekHigh = 0;
-  let weekLow = Infinity;
-  let weekOpen = 0;
-  let weekClose = 0;
-  let weekVolume = 0;
-  
-  for (let i = 0; i < history.length; i++) {
-    const day = history[i];
-    const date = new Date(day.date);
-    const dayOfWeek = date.getDay(); // 0=週日, 1=週一, ..., 6=週六
-    
-    if (weekStart === null || dayOfWeek === 1) {
-      // 新的一週開始（週一）或第一筆數據
-      if (weekStart !== null) {
-        // 儲存上一週數據
-        weeklyData.push({
-          date: weekStart,
-          open: weekOpen,
-          high: weekHigh,
-          low: weekLow,
-          close: weekClose,
-          volume: weekVolume
-        });
-      }
-      
-      // 開始新一週
-      weekStart = day.date;
-      weekOpen = day.open || day.close;
-      weekHigh = day.high || day.close;
-      weekLow = day.low || day.close;
-      weekClose = day.close;
-      weekVolume = day.volume || 0;
-    } else {
-      // 同一週內，更新數據
-      weekHigh = Math.max(weekHigh, day.high || day.close);
-      weekLow = Math.min(weekLow, day.low || day.close);
-      weekClose = day.close;
-      weekVolume += day.volume || 0;
-    }
-  }
-  
-  // 儲存最後一週
-  if (weekStart !== null) {
-    weeklyData.push({
-      date: weekStart,
-      open: weekOpen,
-      high: weekHigh,
-      low: weekLow,
-      close: weekClose,
-      volume: weekVolume
-    });
-  }
-  
-  console.log(`📅 週線聚合: ${history.length} 日線 → ${weeklyData.length} 週線`);
-  
-  return weeklyData;
-}
-
-/**
- * 🔧 使用週線級別識別主要轉折點
- */
-function findWeeklyPivots(history, threshold = 10) {
-  const weeklyData = aggregateToWeekly(history);
-  return findAdvancedPivotsCore(weeklyData, threshold);
-}
-
-/**
- * 🆕 核心轉折點識別（供日線和週線共用）
- */
-function findAdvancedPivotsCore(data, threshold) {
-  const pivots = [];
-  if (data.length < 3) return pivots;
-  
-  const closes = data.map(h => h.close);
-  
-  let trend = null;
-  let lastPivotPrice = closes[0];
-  let lastPivotIdx = 0;
-  
-  // 加入起點
-  pivots.push({
-    type: 'start',
-    price: closes[0],
-    date: data[0].date,
-    index: 0
-  });
-  
-  for (let i = 1; i < data.length; i++) {
-    const price = closes[i];
-    const changeFromPivot = ((price - lastPivotPrice) / lastPivotPrice) * 100;
-    
-    if (trend === null) {
-      // 初始化趨勢
-      if (changeFromPivot >= threshold) {
-        trend = 'up';
-        pivots[pivots.length - 1].type = 'low';
-      } else if (changeFromPivot <= -threshold) {
-        trend = 'down';
-        pivots[pivots.length - 1].type = 'high';
-      }
-    } else if (trend === 'up') {
-      if (price > lastPivotPrice) {
-        // 繼續上漲，更新臨時高點
-        lastPivotPrice = price;
-        lastPivotIdx = i;
-      } else if (changeFromPivot <= -threshold) {
-        // 轉向下跌，確認高點
-        pivots.push({
-          type: 'high',
-          price: lastPivotPrice,
-          date: data[lastPivotIdx].date,
-          index: lastPivotIdx
-        });
-        trend = 'down';
-        lastPivotPrice = price;
-        lastPivotIdx = i;
-      }
-    } else if (trend === 'down') {
-      if (price < lastPivotPrice) {
-        // 繼續下跌，更新臨時低點
-        lastPivotPrice = price;
-        lastPivotIdx = i;
-      } else if (changeFromPivot >= threshold) {
-        // 轉向上漲，確認低點
-        pivots.push({
-          type: 'low',
-          price: lastPivotPrice,
-          date: data[lastPivotIdx].date,
-          index: lastPivotIdx
-        });
-        trend = 'up';
-        lastPivotPrice = price;
-        lastPivotIdx = i;
-      }
-    }
-  }
-  
-  // 加入終點
-  const lastClose = closes[closes.length - 1];
-  const lastPivot = pivots[pivots.length - 1];
-  if (lastPivot && Math.abs((lastClose - lastPivot.price) / lastPivot.price * 100) > threshold * 0.5) {
-    pivots.push({
-      type: trend === 'up' ? 'high' : 'low',
-      price: lastClose,
-      date: data[data.length - 1].date,
-      index: data.length - 1
-    });
-  }
-  
-  return pivots;
-}
-
-/**
- * 🆕 綜合波浪判斷（整合方案1+2+3）
- */
-function determineWaveWithEnhancedLogic(waves, currentPrice, history) {
-  if (!history || history.length === 0) return { wave: 1, confidence: 50, reason: '數據不足' };
-  
-  const closes = history.map(h => h.close);
-  const overallHigh = Math.max(...closes);
-  const overallLow = Math.min(...closes);
-  const startPrice = closes[0];
-  
-  // 計算關鍵指標
-  const totalChangeFromLow = ((currentPrice - overallLow) / overallLow) * 100;
-  const totalChangeFromStart = ((currentPrice - startPrice) / startPrice) * 100;
-  const pullbackFromHigh = ((overallHigh - currentPrice) / overallHigh) * 100;
-  const pricePosition = (currentPrice - overallLow) / (overallHigh - overallLow);
-  
-  // RSI 背離檢測
-  const divergence = detectRSIDivergence(history, 30);
-  
-  // 週線級別分析
-  const weeklyPivots = findWeeklyPivots(history, 10);
-  const weeklyWaveCount = Math.max(1, weeklyPivots.length - 1);
-  
-  console.log(`🌊 綜合判斷: 從低點漲=${totalChangeFromLow.toFixed(1)}%, 回撤=${pullbackFromHigh.toFixed(1)}%, 週線波浪數=${weeklyWaveCount}, RSI背離=${divergence.type || '無'}`);
-  
-  let wave, confidence, reason;
-  
-  // 🔑 方案2：根據漲幅特徵判斷
-  if (totalChangeFromLow > 200) {
-    // 大漲 > 200%
-    if (divergence.hasDivergence && divergence.type === 'bearish') {
-      // 有頂背離 → 可能是第 5 浪末端
-      wave = 5;
-      confidence = 75;
-      reason = `大漲${totalChangeFromLow.toFixed(0)}%且有RSI頂背離，可能第5浪末端`;
-    } else if (pullbackFromHigh < 10 && pricePosition > 0.9) {
-      // 接近高點且無背離 → 第 3 浪延伸中
-      wave = 3;
-      confidence = 85;
-      reason = `大漲${totalChangeFromLow.toFixed(0)}%，接近高點，無背離，第3浪延伸中`;
-    } else if (pullbackFromHigh >= 10 && pullbackFromHigh < 25) {
-      // 小回調 10-25% → 可能是第 3 浪整理
-      wave = 3;
-      confidence = 80;
-      reason = `大漲後回調${pullbackFromHigh.toFixed(0)}%，第3浪整理中`;
-    } else if (pullbackFromHigh >= 25 && pullbackFromHigh < 40) {
-      // 中等回調 25-40% → 可能是第 4 浪
-      wave = 4;
-      confidence = 70;
-      reason = `大漲後回調${pullbackFromHigh.toFixed(0)}%，可能進入第4浪`;
-    } else if (pullbackFromHigh >= 40) {
-      // 深度回調 > 40% → 可能進入 ABC 修正
-      wave = 'A';
-      confidence = 65;
-      reason = `大漲後深度回調${pullbackFromHigh.toFixed(0)}%，可能進入ABC修正`;
-    } else {
-      wave = 3;
-      confidence = 80;
-      reason = `大漲${totalChangeFromLow.toFixed(0)}%，主升段進行中`;
-    }
-  } else if (totalChangeFromLow > 100) {
-    // 中等漲幅 100-200%
-    if (divergence.hasDivergence && divergence.type === 'bearish') {
-      wave = 5;
-      confidence = 70;
-      reason = `中等漲幅${totalChangeFromLow.toFixed(0)}%且有RSI頂背離`;
-    } else if (pricePosition > 0.8) {
-      wave = 3;
-      confidence = 75;
-      reason = `中等漲幅${totalChangeFromLow.toFixed(0)}%，價格在高位，第3浪`;
-    } else if (pricePosition > 0.5) {
-      wave = pullbackFromHigh > 15 ? 4 : 3;
-      confidence = 70;
-      reason = `中等漲幅，價格在中位，回調${pullbackFromHigh.toFixed(0)}%`;
-    } else {
-      wave = 2;
-      confidence = 65;
-      reason = `中等漲幅但價格在低位，可能回調中`;
-    }
-  } else if (totalChangeFromLow > 30) {
-    // 小漲幅 30-100%
-    if (pricePosition > 0.8) {
-      wave = weeklyWaveCount >= 3 ? 3 : 1;
-      confidence = 70;
-      reason = `小漲幅${totalChangeFromLow.toFixed(0)}%，價格在高位`;
-    } else if (pricePosition > 0.4) {
-      wave = 1;
-      confidence = 65;
-      reason = `小漲幅，可能在第1浪`;
-    } else {
-      wave = 2;
-      confidence = 60;
-      reason = `小漲幅但價格在低位，可能回調中`;
-    }
-  } else if (totalChangeFromStart < -20) {
-    // 下跌中
-    if (pullbackFromHigh > 50) {
-      wave = 'C';
-      confidence = 70;
-      reason = `深度下跌${pullbackFromHigh.toFixed(0)}%，可能在C浪`;
-    } else if (divergence.hasDivergence && divergence.type === 'bullish') {
-      wave = 'C';
-      confidence = 75;
-      reason = `下跌中有底背離，C浪可能接近尾聲`;
-    } else {
-      wave = 'A';
-      confidence = 65;
-      reason = `下跌中，可能在A浪`;
-    }
-  } else {
-    // 小幅波動
-    if (waves && waves.length > 0) {
-      const lastWave = waves[waves.length - 1];
-      const nextWaveMap = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 'A', 'A': 'B', 'B': 'C', 'C': 1 };
-      wave = nextWaveMap[lastWave.wave] || 1;
-      confidence = 55;
-      reason = `小幅波動，依序列判斷`;
-    } else {
-      wave = 1;
-      confidence = 50;
-      reason = `小幅波動，預設第1浪`;
-    }
-  }
-  
-  // 🔧 方案3：用週線驗證
-  if (weeklyWaveCount <= 2 && wave > 3 && typeof wave === 'number') {
-    // 週線只有 1-2 個波浪，但判斷為 4、5 浪 → 可能過度解讀
-    console.log(`⚠️ 週線驗證：週線僅 ${weeklyWaveCount} 浪，下調波浪判斷`);
-    wave = Math.min(wave, 3);
-    confidence = Math.max(50, confidence - 10);
-    reason += `（週線驗證下調）`;
-  }
-  
-  return { wave, confidence, reason, divergence, weeklyWaveCount };
-}
-
-// ========================================
 // 🔍 進階轉折點識別
 // ========================================
 
@@ -855,13 +417,124 @@ function determineWaveWithEnhancedLogic(waves, currentPrice, history) {
  * @returns {Array} 轉折點陣列
  */
 function findAdvancedPivots(history, threshold = 5) {
-  // 🆕 使用動態閾值
-  const dynamicResult = calculateDynamicZigZagThreshold(history);
-  const effectiveThreshold = Math.max(threshold, dynamicResult.threshold);
+  const pivots = [];
+  if (history.length < 10) return pivots;
   
-  console.log(`📊 ZigZag: 傳入閾值=${threshold}%, 動態閾值=${dynamicResult.threshold}%, 使用=${effectiveThreshold}%`);
+  const closes = history.map(h => h.close);
+  const highs = history.map(h => h.high || h.close);
+  const lows = history.map(h => h.low || h.close);
   
-  return findAdvancedPivotsCore(history, effectiveThreshold);
+  // 🔧 計算總漲跌幅來動態調整閾值
+  const overallHigh = Math.max(...closes);
+  const overallLow = Math.min(...closes);
+  const totalChangePercent = ((overallHigh - overallLow) / overallLow) * 100;
+  
+  // 🆕 根據總漲跌幅動態調整閾值（大幅波動用較小閾值）
+  let dynamicThreshold;
+  if (totalChangePercent > 200) {
+    dynamicThreshold = Math.max(3, threshold * 0.5);  // 大幅波動：降低閾值
+  } else if (totalChangePercent > 100) {
+    dynamicThreshold = Math.max(4, threshold * 0.7);
+  } else if (totalChangePercent > 50) {
+    dynamicThreshold = Math.max(5, threshold * 0.8);
+  } else {
+    dynamicThreshold = threshold;
+  }
+  
+  console.log(`📊 ZigZag: 總漲跌 ${totalChangePercent.toFixed(1)}%, 動態閾值: ${dynamicThreshold.toFixed(1)}%`);
+  
+  let trend = null;
+  let lastPivotPrice = closes[0];
+  let lastPivotIdx = 0;
+  
+  for (let i = 1; i < history.length; i++) {
+    const high = highs[i];
+    const low = lows[i];
+    const close = closes[i];
+    
+    if (trend === null) {
+      if (close > lastPivotPrice * (1 + dynamicThreshold / 100)) {
+        trend = 'up';
+        pivots.push({
+          type: 'low',
+          price: lastPivotPrice,
+          index: lastPivotIdx,
+          date: history[lastPivotIdx]?.date
+        });
+      } else if (close < lastPivotPrice * (1 - dynamicThreshold / 100)) {
+        trend = 'down';
+        pivots.push({
+          type: 'high',
+          price: lastPivotPrice,
+          index: lastPivotIdx,
+          date: history[lastPivotIdx]?.date
+        });
+      }
+    } else if (trend === 'up') {
+      if (high > lastPivotPrice) {
+        lastPivotPrice = high;
+        lastPivotIdx = i;
+      }
+      if (close < lastPivotPrice * (1 - dynamicThreshold / 100)) {
+        pivots.push({
+          type: 'high',
+          price: lastPivotPrice,
+          index: lastPivotIdx,
+          date: history[lastPivotIdx]?.date
+        });
+        trend = 'down';
+        lastPivotPrice = low;
+        lastPivotIdx = i;
+      }
+    } else if (trend === 'down') {
+      if (low < lastPivotPrice) {
+        lastPivotPrice = low;
+        lastPivotIdx = i;
+      }
+      if (close > lastPivotPrice * (1 + dynamicThreshold / 100)) {
+        pivots.push({
+          type: 'low',
+          price: lastPivotPrice,
+          index: lastPivotIdx,
+          date: history[lastPivotIdx]?.date
+        });
+        trend = 'up';
+        lastPivotPrice = high;
+        lastPivotIdx = i;
+      }
+    }
+  }
+  
+  // 加入最後一個點
+  if (pivots.length > 0) {
+    const lastPivot = pivots[pivots.length - 1];
+    const lastClose = closes[closes.length - 1];
+    
+    if (lastPivot.type === 'high' && lastClose < lastPivot.price * 0.95) {
+      pivots.push({
+        type: 'low',
+        price: Math.min(...lows.slice(-10)),
+        index: lows.slice(-10).indexOf(Math.min(...lows.slice(-10))) + history.length - 10,
+        date: history[history.length - 1]?.date
+      });
+    } else if (lastPivot.type === 'low' && lastClose > lastPivot.price * 1.05) {
+      pivots.push({
+        type: 'high',
+        price: Math.max(...highs.slice(-10)),
+        index: highs.slice(-10).indexOf(Math.max(...highs.slice(-10))) + history.length - 10,
+        date: history[history.length - 1]?.date
+      });
+    }
+  }
+  
+  // 🆕 如果轉折點太少，用更小的閾值再找
+  if (pivots.length < 4 && dynamicThreshold > 3) {
+    console.log(`⚠️ 轉折點不足 (${pivots.length})，降低閾值重試...`);
+    return findAdvancedPivots(history, dynamicThreshold * 0.6);
+  }
+  
+  console.log(`✅ 找到 ${pivots.length} 個轉折點`);
+  return pivots;
 }
 
 // ========================================
@@ -1017,49 +690,19 @@ function reorganizePivots(pivots, isUptrend) {
 function determineWaveName(waveCount, isUptrend, isRising) {
   let waveName, waveType;
   
-  // 🔧 艾略特波浪序列：1(↑) → 2(↓) → 3(↑) → 4(↓) → 5(↑) → A(↓) → B(↑) → C(↓)
-  const waveSequence = [
-    { label: 1, expectedDir: 'up', type: '推動' },
-    { label: 2, expectedDir: 'down', type: '修正' },
-    { label: 3, expectedDir: 'up', type: '推動' },
-    { label: 4, expectedDir: 'down', type: '修正' },
-    { label: 5, expectedDir: 'up', type: '推動' },
-    { label: 'A', expectedDir: 'down', type: '修正' },
-    { label: 'B', expectedDir: 'up', type: '反彈' },
-    { label: 'C', expectedDir: 'down', type: '修正' }
-  ];
-  
-  const actualDir = isRising ? 'up' : 'down';
-  const seqIndex = (waveCount - 1) % 8;
-  const expectedSeq = waveSequence[seqIndex];
-  
-  // 🔑 如果方向符合預期，使用正常序列
-  if (actualDir === expectedSeq.expectedDir) {
-    waveName = expectedSeq.label;
-    waveType = expectedSeq.type;
-  } else {
-    // 方向不符合，使用實際方向對應的波浪
-    // 上漲：1, 3, 5, B
-    // 下跌：2, 4, A, C
-    if (isRising) {
-      // 上漲但預期是下跌 → 可能是 B 浪反彈或新週期的推動浪
-      if (waveCount >= 6) {
-        waveName = 'B';
-        waveType = '反彈';
-      } else {
-        waveName = waveCount;
-        waveType = '推動';
-      }
+  if (isUptrend) {
+    if (waveCount <= 5) {
+      waveName = waveCount;
+      waveType = (waveCount % 2 === 1) ? '推動' : '修正';
     } else {
-      // 下跌但預期是上漲 → 可能是修正浪
-      if (waveCount > 5) {
-        waveName = seqIndex === 5 ? 'A' : 'C';
-        waveType = '修正';
-      } else {
-        waveName = waveCount;
-        waveType = '修正';
-      }
+      const abcNames = ['A', 'B', 'C'];
+      waveName = abcNames[waveCount - 6] || 'C';
+      waveType = waveName === 'B' ? '反彈' : '修正';
     }
+  } else {
+    const abcNames = ['A', 'B', 'C', '1', '2', '3', '4', '5'];
+    waveName = abcNames[waveCount - 1] || String(waveCount);
+    waveType = (waveName === 'B' || ['2', '4'].includes(waveName)) ? '反彈' : '修正';
   }
   
   return { waveName, waveType };
@@ -1399,13 +1042,101 @@ function createDefaultWaves(history, currentPrice) {
  * 🔧 主要改進：根據總漲幅和波浪結構來判斷
  */
 function determineCurrentWaveAdvanced(waves, currentPrice, history) {
-  // 🆕 使用增強版邏輯（方案1+2+3）
-  const result = determineWaveWithEnhancedLogic(waves, currentPrice, history);
+  if (!history || history.length === 0) return 1;
   
-  console.log(`🌊 波浪判斷結果: 第${result.wave}浪, 信心度=${result.confidence}%, 原因=${result.reason}`);
+  const closes = history.map(h => h.close);
+  const overallHigh = Math.max(...closes);
+  const overallLow = Math.min(...closes);
+  const startPrice = closes[0];
   
-  // 返回波浪編號（保持向後兼容）
-  return result.wave;
+  // 🆕 計算總漲跌幅（從起點）
+  const totalChangeFromStart = ((currentPrice - startPrice) / startPrice) * 100;
+  // 計算從最低點的漲幅
+  const totalChangeFromLow = ((currentPrice - overallLow) / overallLow) * 100;
+  // 計算距離高點的回撤
+  const pullbackFromHigh = ((overallHigh - currentPrice) / overallHigh) * 100;
+  // 計算當前價格在整體區間的位置 (0-1)
+  const pricePosition = (currentPrice - overallLow) / (overallHigh - overallLow);
+  
+  const recentCloses = closes.slice(-30);
+  const shortMA = calculateSMA(recentCloses, 5);
+  const mediumMA = calculateSMA(recentCloses, 10);
+  const longMA = calculateSMA(recentCloses, 20);
+  
+  const rsi = calculateRSI(closes, 14);
+  const momentum5 = recentCloses.length >= 5 ? 
+    (recentCloses[recentCloses.length - 1] - recentCloses[recentCloses.length - 5]) / recentCloses[recentCloses.length - 5] * 100 : 0;
+  
+  const isUpTrend = shortMA > mediumMA && mediumMA > longMA;
+  const isDownTrend = shortMA < mediumMA && mediumMA < longMA;
+  
+  console.log(`🌊 波浪判斷: 總漲跌=${totalChangeFromStart.toFixed(1)}%, 從低點漲=${totalChangeFromLow.toFixed(1)}%, 回撤=${pullbackFromHigh.toFixed(1)}%, 位置=${(pricePosition*100).toFixed(0)}%`);
+  
+  // 🔧 根據總漲幅判斷（這是關鍵改進！）
+  if (totalChangeFromLow > 200) {
+    // 大幅上漲 (>200%) - 很可能是第3浪或更後面
+    if (pullbackFromHigh < 10 && pricePosition > 0.9) {
+      // 接近高點，可能是第3浪頂部或第5浪
+      return rsi > 70 ? 5 : 3;
+    } else if (pullbackFromHigh >= 10 && pullbackFromHigh < 30) {
+      // 有小回調，可能是第4浪
+      return 4;
+    } else if (pullbackFromHigh >= 30) {
+      // 回調較深，可能是 A 浪
+      return 'A';
+    } else {
+      return 3;  // 主升段
+    }
+  } else if (totalChangeFromLow > 100) {
+    // 中等漲幅 (100-200%)
+    if (pricePosition > 0.8) {
+      return 3;  // 仍在主升段
+    } else if (pricePosition > 0.5) {
+      return momentum5 > 0 ? 3 : 4;
+    } else {
+      return isDownTrend ? 'A' : 2;
+    }
+  } else if (totalChangeFromLow > 50) {
+    // 較小漲幅 (50-100%)
+    if (pricePosition > 0.8 && isUpTrend) {
+      return 3;
+    } else if (pricePosition > 0.6) {
+      return momentum5 > 0 ? 1 : 2;
+    } else if (pricePosition > 0.3) {
+      return isUpTrend ? 1 : 2;
+    } else {
+      return isDownTrend ? 'A' : 4;
+    }
+  } else if (totalChangeFromLow > 20) {
+    // 小幅上漲 (20-50%)
+    if (isUpTrend && pricePosition > 0.7) {
+      return 1;
+    } else if (isDownTrend) {
+      return 'A';
+    } else {
+      return momentum5 > 0 ? 1 : 2;
+    }
+  } else if (totalChangeFromStart < -20) {
+    // 下跌中
+    if (pullbackFromHigh > 50) {
+      return 'C';
+    } else if (momentum5 > 0) {
+      return 'B';
+    } else {
+      return 'A';
+    }
+  } else {
+    // 小幅波動 - 根據波浪歷史判斷
+    if (waves.length > 0) {
+      const lastWave = waves[waves.length - 1];
+      const nextWaveMap = {
+        1: 2, 2: 3, 3: 4, 4: 5, 5: 'A',
+        'A': 'B', 'B': 'C', 'C': 1
+      };
+      return nextWaveMap[lastWave.wave] || 1;
+    }
+    return 1;
+  }
 }
 
 // ========================================
@@ -2018,6 +1749,367 @@ async function analyzeElliottWaveAdvanced(history, currentPrice) {
   };
 }
 
+// ========================================
+// 🆕 方案1+2+3：波浪分析優化
+// ========================================
+
+/**
+ * 方案1：動態 ZigZag 閾值計算
+ * 根據總漲跌幅調整閾值，大漲股用大閾值過濾小回調
+ */
+function calculateDynamicZigZagThreshold(history) {
+  if (!history || history.length < 10) {
+    return { threshold: 5, reason: '數據不足，使用預設值' };
+  }
+  
+  const closes = history.map(h => h.close);
+  const high = Math.max(...closes);
+  const low = Math.min(...closes);
+  const totalChange = ((high - low) / low) * 100;
+  
+  let threshold, reason;
+  
+  if (totalChange > 200) {
+    threshold = 12;
+    reason = `總漲跌${totalChange.toFixed(0)}% > 200%`;
+  } else if (totalChange > 100) {
+    threshold = 10;
+    reason = `總漲跌${totalChange.toFixed(0)}% (100-200%)`;
+  } else if (totalChange > 30) {
+    threshold = 8;
+    reason = `總漲跌${totalChange.toFixed(0)}% (30-100%)`;
+  } else {
+    threshold = 5;
+    reason = `總漲跌${totalChange.toFixed(0)}% < 30%`;
+  }
+  
+  return { threshold, reason, totalChange };
+}
+
+/**
+ * 方案2：RSI 背離檢測
+ * 頂背離 = 價格新高但RSI未新高 → 第5浪末端信號
+ * 底背離 = 價格新低但RSI未新低 → 修正浪結束信號
+ */
+function detectRSIDivergence(history, lookback = 30) {
+  if (!history || history.length < lookback + 14) {
+    return { hasDivergence: false, type: null };
+  }
+  
+  // 計算 RSI
+  const rsiValues = [];
+  for (let i = 14; i < history.length; i++) {
+    let gains = 0, losses = 0;
+    for (let j = i - 13; j <= i; j++) {
+      const change = history[j].close - history[j - 1].close;
+      if (change > 0) gains += change;
+      else losses -= change;
+    }
+    const avgGain = gains / 14;
+    const avgLoss = losses / 14;
+    const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+    rsiValues.push({ index: i, rsi: 100 - (100 / (1 + rs)), price: history[i].close });
+  }
+  
+  if (rsiValues.length < lookback) {
+    return { hasDivergence: false, type: null };
+  }
+  
+  // 取最近 lookback 個點
+  const recent = rsiValues.slice(-lookback);
+  
+  // 找價格高點和RSI高點
+  let priceHighIdx = 0, rsiHighIdx = 0;
+  let priceLowIdx = 0, rsiLowIdx = 0;
+  
+  for (let i = 1; i < recent.length; i++) {
+    if (recent[i].price > recent[priceHighIdx].price) priceHighIdx = i;
+    if (recent[i].rsi > recent[rsiHighIdx].rsi) rsiHighIdx = i;
+    if (recent[i].price < recent[priceLowIdx].price) priceLowIdx = i;
+    if (recent[i].rsi < recent[rsiLowIdx].rsi) rsiLowIdx = i;
+  }
+  
+  // 檢查頂背離：價格高點在後，RSI高點在前
+  const lastIdx = recent.length - 1;
+  const isBearish = priceHighIdx > lastIdx - 5 && rsiHighIdx < priceHighIdx - 3 && 
+                    recent[priceHighIdx].rsi < recent[rsiHighIdx].rsi * 0.95;
+  
+  // 檢查底背離：價格低點在後，RSI低點在前
+  const isBullish = priceLowIdx > lastIdx - 5 && rsiLowIdx < priceLowIdx - 3 &&
+                    recent[priceLowIdx].rsi > recent[rsiLowIdx].rsi * 1.05;
+  
+  if (isBearish) {
+    return { hasDivergence: true, type: 'bearish', description: 'RSI頂背離' };
+  } else if (isBullish) {
+    return { hasDivergence: true, type: 'bullish', description: 'RSI底背離' };
+  }
+  
+  return { hasDivergence: false, type: null };
+}
+
+/**
+ * 方案3輔助：日線聚合為週線
+ */
+function aggregateToWeekly(history) {
+  if (!history || history.length === 0) return [];
+  
+  const weekly = [];
+  let weekData = null;
+  
+  for (const day of history) {
+    const date = new Date(day.date);
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - date.getDay());
+    const weekKey = weekStart.toISOString().split('T')[0];
+    
+    if (!weekData || weekData.weekKey !== weekKey) {
+      if (weekData) weekly.push(weekData);
+      weekData = {
+        weekKey,
+        date: day.date,
+        open: day.open,
+        high: day.high,
+        low: day.low,
+        close: day.close,
+        volume: day.volume || 0
+      };
+    } else {
+      weekData.high = Math.max(weekData.high, day.high);
+      weekData.low = Math.min(weekData.low, day.low);
+      weekData.close = day.close;
+      weekData.volume += day.volume || 0;
+      weekData.date = day.date;
+    }
+  }
+  if (weekData) weekly.push(weekData);
+  
+  return weekly;
+}
+
+/**
+ * 方案3：週線級別轉折點識別
+ */
+function findWeeklyPivots(history, threshold = 10) {
+  const weekly = aggregateToWeekly(history);
+  if (weekly.length < 3) return [];
+  
+  const pivots = [];
+  let lastPivot = null;
+  
+  for (let i = 1; i < weekly.length - 1; i++) {
+    const prev = weekly[i - 1];
+    const curr = weekly[i];
+    const next = weekly[i + 1];
+    
+    // 高點
+    if (curr.high > prev.high && curr.high > next.high) {
+      if (!lastPivot || lastPivot.type !== 'high') {
+        const change = lastPivot ? Math.abs((curr.high - lastPivot.price) / lastPivot.price * 100) : threshold;
+        if (change >= threshold) {
+          pivots.push({ type: 'high', price: curr.high, date: curr.date, index: i });
+          lastPivot = { type: 'high', price: curr.high };
+        }
+      }
+    }
+    // 低點
+    if (curr.low < prev.low && curr.low < next.low) {
+      if (!lastPivot || lastPivot.type !== 'low') {
+        const change = lastPivot ? Math.abs((curr.low - lastPivot.price) / lastPivot.price * 100) : threshold;
+        if (change >= threshold) {
+          pivots.push({ type: 'low', price: curr.low, date: curr.date, index: i });
+          lastPivot = { type: 'low', price: curr.low };
+        }
+      }
+    }
+  }
+  
+  return pivots;
+}
+
+/**
+ * 用動態閾值找主要轉折點（日線級別）
+ */
+function findMajorPivots(history, threshold) {
+  if (!history || history.length < 3) return [];
+  
+  const pivots = [];
+  let lastPivot = null;
+  
+  for (let i = 1; i < history.length - 1; i++) {
+    const prev = history[i - 1];
+    const curr = history[i];
+    const next = history[i + 1];
+    
+    // 高點
+    if (curr.high > prev.high && curr.high > next.high) {
+      if (!lastPivot || lastPivot.type !== 'high') {
+        const change = lastPivot ? Math.abs((curr.high - lastPivot.price) / lastPivot.price * 100) : threshold;
+        if (change >= threshold) {
+          pivots.push({ type: 'high', price: curr.high, date: curr.date, index: i });
+          lastPivot = { type: 'high', price: curr.high };
+        }
+      } else if (curr.high > lastPivot.price) {
+        // 更高的高點，更新
+        pivots[pivots.length - 1] = { type: 'high', price: curr.high, date: curr.date, index: i };
+        lastPivot = { type: 'high', price: curr.high };
+      }
+    }
+    // 低點
+    if (curr.low < prev.low && curr.low < next.low) {
+      if (!lastPivot || lastPivot.type !== 'low') {
+        const change = lastPivot ? Math.abs((curr.low - lastPivot.price) / lastPivot.price * 100) : threshold;
+        if (change >= threshold) {
+          pivots.push({ type: 'low', price: curr.low, date: curr.date, index: i });
+          lastPivot = { type: 'low', price: curr.low };
+        }
+      } else if (curr.low < lastPivot.price) {
+        // 更低的低點，更新
+        pivots[pivots.length - 1] = { type: 'low', price: curr.low, date: curr.date, index: i };
+        lastPivot = { type: 'low', price: curr.low };
+      }
+    }
+  }
+  
+  return pivots;
+}
+
+/**
+ * 🔑 方案1+2+3 整合判斷函數
+ * 
+ * 判斷邏輯：
+ * 1. 用動態閾值（方案1）計算主要轉折點數量
+ * 2. 用RSI背離（方案2）判斷是否在浪末端
+ * 3. 用週線波浪數（方案3）驗證判斷
+ * 
+ * 核心原則：
+ * - 主要轉折點 ≤2 → 第1或2浪
+ * - 主要轉折點 3-4 且大漲 → 第3浪主升段
+ * - 主要轉折點 ≥5 或有頂背離 → 第5浪
+ */
+function determineWaveWithEnhancedLogic(waves, currentPrice, history) {
+  if (!history || history.length === 0) {
+    return { wave: 1, confidence: 50, reason: '數據不足' };
+  }
+  
+  const closes = history.map(h => h.close);
+  const overallHigh = Math.max(...closes);
+  const overallLow = Math.min(...closes);
+  
+  // 關鍵指標
+  const totalChangeFromLow = ((currentPrice - overallLow) / overallLow) * 100;
+  const pullbackFromHigh = ((overallHigh - currentPrice) / overallHigh) * 100;
+  const pricePosition = (currentPrice - overallLow) / (overallHigh - overallLow);
+  
+  // 🔧 方案1：動態閾值
+  const dynamicResult = calculateDynamicZigZagThreshold(history);
+  const threshold = dynamicResult.threshold;
+  
+  // 🔧 方案2：RSI背離
+  const divergence = detectRSIDivergence(history, 30);
+  
+  // 🔧 方案3：用動態閾值找主要轉折點
+  const majorPivots = findMajorPivots(history, threshold);
+  const majorWaveCount = Math.max(1, majorPivots.length - 1);
+  
+  // 週線驗證
+  const weeklyPivots = findWeeklyPivots(history, threshold);
+  const weeklyWaveCount = Math.max(1, weeklyPivots.length - 1);
+  
+  console.log(`🌊 方案1+2+3 判斷:`);
+  console.log(`   方案1 動態閾值: ${threshold}% (${dynamicResult.reason})`);
+  console.log(`   方案1 主要轉折點: ${majorPivots.length}個, 波浪數: ${majorWaveCount}`);
+  console.log(`   方案2 RSI背離: ${divergence.type || '無'}`);
+  console.log(`   方案3 週線波浪: ${weeklyWaveCount}`);
+  console.log(`   漲幅: ${totalChangeFromLow.toFixed(1)}%, 回撤: ${pullbackFromHigh.toFixed(1)}%`);
+  
+  let wave, confidence, reason;
+  
+  // ========================================
+  // 核心判斷邏輯
+  // ========================================
+  
+  if (majorWaveCount <= 2) {
+    // 只有1-2個主要波浪 → 第1或2浪
+    if (pullbackFromHigh > 15) {
+      wave = 2;
+      confidence = 75;
+      reason = `主要波浪${majorWaveCount}個(閾值${threshold}%)，回調${pullbackFromHigh.toFixed(0)}%，第2浪修正`;
+    } else {
+      wave = 1;
+      confidence = 70;
+      reason = `主要波浪${majorWaveCount}個(閾值${threshold}%)，初升段第1浪`;
+    }
+  }
+  else if (majorWaveCount <= 4) {
+    // 3-4個主要波浪 → 大多在第3浪
+    if (divergence.hasDivergence && divergence.type === 'bearish') {
+      // 有頂背離 → 第3浪可能接近尾聲
+      wave = 3;
+      confidence = 75;
+      reason = `大漲${totalChangeFromLow.toFixed(0)}%，RSI頂背離，第3浪可能接近尾聲`;
+    } else if (pullbackFromHigh < 15 && pricePosition > 0.85) {
+      // 接近高點無背離 → 第3浪主升段！
+      wave = 3;
+      confidence = 85;
+      reason = `大漲${totalChangeFromLow.toFixed(0)}%，接近高點，無背離，第3浪主升段`;
+    } else if (pullbackFromHigh >= 15 && pullbackFromHigh < 30) {
+      wave = 3;
+      confidence = 80;
+      reason = `大漲後回調${pullbackFromHigh.toFixed(0)}%，第3浪整理中`;
+    } else if (pullbackFromHigh >= 30 && pullbackFromHigh < 50) {
+      wave = 4;
+      confidence = 70;
+      reason = `深度回調${pullbackFromHigh.toFixed(0)}%，可能第4浪`;
+    } else if (pullbackFromHigh >= 50) {
+      wave = 'A';
+      confidence = 65;
+      reason = `深度回調${pullbackFromHigh.toFixed(0)}%，可能ABC修正`;
+    } else {
+      wave = 3;
+      confidence = 80;
+      reason = `大漲${totalChangeFromLow.toFixed(0)}%，第3浪主升段進行中`;
+    }
+  }
+  else {
+    // 5+個主要波浪 → 可能已完成5浪
+    if (divergence.hasDivergence && divergence.type === 'bearish') {
+      wave = 5;
+      confidence = 80;
+      reason = `主要波浪${majorWaveCount}個，RSI頂背離，第5浪末端`;
+    } else if (pullbackFromHigh < 15) {
+      wave = 5;
+      confidence = 75;
+      reason = `主要波浪${majorWaveCount}個，接近高點，第5浪`;
+    } else if (pullbackFromHigh >= 25) {
+      wave = divergence.type === 'bullish' ? 'C' : 'A';
+      confidence = 70;
+      reason = `主要波浪${majorWaveCount}個，深度回調，ABC修正`;
+    } else {
+      wave = 5;
+      confidence = 70;
+      reason = `主要波浪${majorWaveCount}個，第5浪`;
+    }
+  }
+  
+  // 🔧 方案3：週線驗證
+  if (weeklyWaveCount <= 2 && (wave === 5 || wave === 4)) {
+    console.log(`⚠️ 週線驗證下調：週線僅${weeklyWaveCount}浪`);
+    wave = 3;
+    confidence = Math.max(70, confidence - 5);
+    reason += `（週線僅${weeklyWaveCount}浪，下調）`;
+  }
+  
+  return {
+    wave,
+    confidence,
+    reason,
+    divergence,
+    weeklyWaveCount,
+    majorWaveCount,
+    dynamicThreshold: threshold
+  };
+}
+
 // 導出
 module.exports = {
   analyzeElliottWaveAdvanced,
@@ -2033,11 +2125,12 @@ module.exports = {
   calculateSMA,
   calculateEMA,
   calculateATR,
-  // 🆕 新增函數（方案1+2+3）
+  WAVE_KNOWLEDGE,
+  // 🆕 方案1+2+3
   calculateDynamicZigZagThreshold,
   detectRSIDivergence,
   aggregateToWeekly,
   findWeeklyPivots,
-  determineWaveWithEnhancedLogic,
-  WAVE_KNOWLEDGE
+  findMajorPivots,
+  determineWaveWithEnhancedLogic
 };

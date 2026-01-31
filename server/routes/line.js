@@ -12158,7 +12158,7 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
       const enhancedResult = elliottWaveAdvanced.determineWaveWithEnhancedLogic(waveAnalysis.waves, currentPrice, history);
       
       waveResult = {
-        currentWave: waveAnalysis.currentWave,
+        currentWave: enhancedResult.wave,  // 🆕 使用增強版判斷
         waves: waveAnalysis.waves,
         pivots: waveAnalysis.pivots,
         isUptrend: waveAnalysis.isUptrend,
@@ -12177,9 +12177,11 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
         details: suggestion.details,
         psychology: suggestion.psychology,
         volumePattern: suggestion.volumePattern,
-        // 🆕 新增：波浪判斷原因
+        // 🆕 方案1+2+3 新增欄位
         waveReason: enhancedResult.reason,
         weeklyWaveCount: enhancedResult.weeklyWaveCount,
+        majorWaveCount: enhancedResult.majorWaveCount,
+        dynamicThreshold: enhancedResult.dynamicThreshold,
         divergenceInfo: divergence,
         technicals: {
           rsi: Math.round(technicals.rsi * 10) / 10,
