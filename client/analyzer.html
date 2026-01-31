@@ -11799,7 +11799,7 @@
                 
                 // 繪製波浪圖
                 renderOddWaveChart(data);
-                renderOddWaveCircles(wave, data.waves || []);
+                renderOddWaveCircles(wave);  // 只傳當前波浪
                 
             } catch (e) {
                 loading.innerHTML = `<div style="color: var(--accent-down); text-align: center; padding: 20px;">❌ 分析失敗: ${e.message}</div>`;
@@ -12192,24 +12192,20 @@
         }
 
         // 渲染零股波浪圓圈
-        function renderOddWaveCircles(currentWave, waves) {
+        function renderOddWaveCircles(currentWave) {
             const container = document.getElementById('oddWaveCircles');
             if (!container) return;
             
             const allWaves = ['1', '2', '3', '4', '5', 'A', 'B', 'C'];
-            let html = '';
             
-            console.log(`零股波浪圓圈: 當前波浪=${currentWave}, 波浪數=${waves.length}`);
-            
-            allWaves.forEach(w => {
-                // 🔧 使用正確的欄位名：wave (不是 label)
-                const found = waves.find(wave => String(wave.wave) === w);
-                const isActive = found ? 'active' : '';
-                const isCurrent = String(currentWave) === w ? 'current' : '';
-                html += `<div class="wave-circle ${isActive} ${isCurrent}" onclick="showOddWaveDesc('${w}')">${w}</div>`;
-            });
-            
-            container.innerHTML = html;
+            // 跟多股一樣，只有當前波浪才 active
+            container.innerHTML = allWaves.map(w => {
+                const isActive = String(currentWave) === w;
+                let cls = 'w' + w;
+                if (w === 'A' || w === 'C') cls = 'wA';
+                else if (w === 'B') cls = 'wB';
+                return `<div class="wave-circle ${cls} ${isActive ? 'active' : ''}" onclick="showOddWaveDesc('${w}')">${w}</div>`;
+            }).join('');
         }
         
         // 顯示波浪說明
