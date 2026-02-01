@@ -17285,7 +17285,35 @@ ${waveAiResults.openai?.content || '未完成'}
         }
         
         // 載入已儲存的 API 金鑰和模型選擇
-        function loadPortfolioApiKeys() {
+        // 🆕 從後端載入 AI 模型設定
+        async function loadBackendAiSettings() {
+            try {
+                const response = await fetch('/api/settings/ai-models');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    console.log('📥 從後端載入 AI 模型設定:', result.data);
+                    // 同步到 localStorage
+                    if (result.data.claude?.model) {
+                        localStorage.setItem('portfolio_claude_model', result.data.claude.model);
+                    }
+                    if (result.data.gemini?.model) {
+                        localStorage.setItem('portfolio_gemini_model', result.data.gemini.model);
+                    }
+                    if (result.data.openai?.model) {
+                        localStorage.setItem('portfolio_openai_model', result.data.openai.model);
+                    }
+                    return true;
+                }
+            } catch (error) {
+                console.warn('⚠️ 無法從後端載入 AI 設定:', error.message);
+            }
+            return false;
+        }
+        
+        async function loadPortfolioApiKeys() {
+            // 🆕 先嘗試從後端同步設定
+            await loadBackendAiSettings();
+            
             const providers = ['claude', 'gemini', 'openai'];
             providers.forEach(provider => {
                 const key = localStorage.getItem(`portfolio_${provider}_api_key`);
@@ -17349,7 +17377,27 @@ ${waveAiResults.openai?.content || '未完成'}
         }
         
         // 儲存 API 金鑰和模型選擇
-        function savePortfolioApiKey(provider) {
+        // 🆕 同步模型設定到後端（供 LINE BOT 使用）
+        async function syncModelToBackend(provider, model) {
+            try {
+                const response = await fetch('/api/settings/ai-models', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider, model })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    console.log(`✅ ${provider} 模型已同步到後端: ${model}`);
+                } else {
+                    console.warn(`⚠️ 同步失敗: ${result.error}`);
+                }
+            } catch (error) {
+                console.warn(`⚠️ 同步到後端失敗: ${error.message}`);
+            }
+        }
+        
+        // 儲存 API 金鑰和模型選擇
+        async function savePortfolioApiKey(provider) {
             const inputId = `portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}Key`;
             const modelId = `portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}Model`;
             const key = document.getElementById(inputId).value.trim();
@@ -17366,6 +17414,8 @@ ${waveAiResults.openai?.content || '未完成'}
             // 🆕 同時儲存模型選擇
             if (model) {
                 localStorage.setItem(`portfolio_${provider}_model`, model);
+                // 🆕 同步到後端（供 LINE BOT 使用）
+                await syncModelToBackend(provider, model);
             }
             
             const dot = document.getElementById(`portfolio${provider.charAt(0).toUpperCase() + provider.slice(1)}Dot`);
@@ -17376,7 +17426,7 @@ ${waveAiResults.openai?.content || '未完成'}
             // 🆕 更新 AI 卡片標題
             updateAiCardModelNames();
             
-            showToast(`✅ ${provider.toUpperCase()} API 金鑰及模型已儲存`);
+            showToast(`✅ ${provider.toUpperCase()} API 金鑰及模型已儲存（LINE BOT 已同步）`);
         }
         
         // 清除 API 金鑰和重置模型

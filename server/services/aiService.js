@@ -3,7 +3,45 @@
  */
 
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 const { pool } = require('../db');
+
+// 🆕 AI 設定檔路徑
+const AI_SETTINGS_PATH = path.join(__dirname, '../data/ai-settings.json');
+
+// 🆕 讀取 AI 模型設定
+function getAiModelSettings() {
+  try {
+    if (fs.existsSync(AI_SETTINGS_PATH)) {
+      const data = fs.readFileSync(AI_SETTINGS_PATH, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('讀取 AI 設定失敗:', error);
+  }
+  // 預設值
+  return {
+    claude: { model: 'claude-sonnet-4-20250514' },
+    gemini: { model: 'gemini-2.0-flash' },
+    openai: { model: 'gpt-4o' }
+  };
+}
+
+// 🆕 取得特定 AI 的模型名稱
+function getModelName(provider) {
+  const settings = getAiModelSettings();
+  return settings[provider]?.model || getDefaultModel(provider);
+}
+
+function getDefaultModel(provider) {
+  const defaults = {
+    claude: 'claude-sonnet-4-20250514',
+    gemini: 'gemini-2.0-flash',
+    openai: 'gpt-4o'
+  };
+  return defaults[provider] || 'gpt-4o';
+}
 
 class AIService {
 
@@ -149,7 +187,7 @@ ${holdingInfo}`;
    */
   async callGeminiDual(prompt, apiKey, type) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${getModelName('gemini')}:generateContent?key=${apiKey}`;
 
       const response = await axios.post(url, {
         contents: [{ parts: [{ text: prompt }] }],
@@ -283,7 +321,7 @@ ${holdingInfo}`;
    */
   async callGemini(prompt, apiKey) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${getModelName('gemini')}:generateContent?key=${apiKey}`;
 
       const response = await axios.post(url, {
         contents: [{ parts: [{ text: prompt }] }],
@@ -314,7 +352,7 @@ ${holdingInfo}`;
   async callOpenAI(prompt, apiKey) {
     try {
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4o-mini',
+        model: getModelName('openai'),
         messages: [
           { role: 'system', content: '你是專業的台灣股市技術分析師，擁有20年以上實戰經驗，擅長技術指標分析和買賣時機判斷。請提供詳細且專業的分析，只用 JSON 格式回覆。' },
           { role: 'user', content: prompt }
@@ -554,7 +592,7 @@ ${baseInfo}
 4. 一句話結論`;
 
     try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${getModelName('gemini')}:generateContent?key=${geminiKey}`;
       
       // 並行呼叫：樂觀派(Gemini) + 謹慎派(Gemini或OpenAI) + 綜合建議
       const requests = [];
@@ -581,7 +619,7 @@ ${baseInfo}
         console.log('   🔴 呼叫 OpenAI GPT-4o 謹慎派...');
         requests.push(
           axios.post('https://api.openai.com/v1/chat/completions', {
-            model: 'gpt-4o-mini',
+            model: getModelName('openai'),
             messages: [{ role: 'user', content: bearishPrompt }],
             max_tokens: 300,
             temperature: 0.7
@@ -739,7 +777,7 @@ ${baseInfo}
 4. 一句話總結`;
 
     try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${getModelName('gemini')}:generateContent?key=${geminiKey}`;
       
       const requests = [];
       
@@ -760,7 +798,7 @@ ${baseInfo}
       if (openaiKey) {
         requests.push(
           axios.post('https://api.openai.com/v1/chat/completions', {
-            model: 'gpt-4o-mini',
+            model: getModelName('openai'),
             messages: [{ role: 'user', content: bearishPrompt }],
             max_tokens: 350,
             temperature: 0.7
@@ -858,7 +896,7 @@ ${baseInfo}
 只輸出新聞列表，不要其他說明。如果找不到近期新聞，就說「暫無重大新聞」。`;
 
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${getModelName('gemini')}:generateContent?key=${apiKey}`;
 
       const response = await axios.post(url, {
         contents: [{ parts: [{ text: prompt }] }],
@@ -901,7 +939,7 @@ ${baseInfo}
 {"heat": 數字, "sentiment": 數字, "summary": "一句話總結"}`;
 
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${getModelName('gemini')}:generateContent?key=${apiKey}`;
 
       const response = await axios.post(url, {
         contents: [{ parts: [{ text: prompt }] }],

@@ -1,0 +1,14 @@
+{
+  "claude": {
+    "model": "claude-sonnet-4-20250514",
+    "updatedAt": null
+  },
+  "gemini": {
+    "model": "gemini-2.0-flash",
+    "updatedAt": null
+  },
+  "openai": {
+    "model": "gpt-4o",
+    "updatedAt": null
+  }
+}
