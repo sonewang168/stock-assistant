@@ -4,7 +4,40 @@
 
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 const { pool } = require('../db');
+
+// 🆕 AI 設定檔路徑
+const AI_SETTINGS_PATH = path.join(__dirname, '../data/ai-settings.json');
+
+// 讀取 AI 設定
+function readAiSettings() {
+  try {
+    if (fs.existsSync(AI_SETTINGS_PATH)) {
+      const data = fs.readFileSync(AI_SETTINGS_PATH, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('讀取 AI 設定失敗:', error);
+  }
+  return {
+    claude: { model: 'claude-sonnet-4-20250514', updatedAt: null },
+    gemini: { model: 'gemini-2.0-flash', updatedAt: null },
+    openai: { model: 'gpt-4o', updatedAt: null }
+  };
+}
+
+// 寫入 AI 設定
+function writeAiSettings(settings) {
+  try {
+    fs.writeFileSync(AI_SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('寫入 AI 設定失敗:', error);
+    return false;
+  }
+}
 
 /**
  * GET /api/settings
@@ -23,6 +56,95 @@ router.get('/', async (req, res) => {
     res.json(settings);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// 🆕 AI 模型設定 API（必須在 /:key 之前）
+// ============================================
+
+/**
+ * GET /api/settings/ai-models
+ * 取得 AI 模型設定
+ */
+router.get('/ai-models', (req, res) => {
+  try {
+    const settings = readAiSettings();
+    res.json({
+      success: true,
+      data: settings
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * PUT /api/settings/ai-models
+ * 更新 AI 模型設定
+ */
+router.put('/ai-models', (req, res) => {
+  try {
+    const { provider, model } = req.body;
+    
+    if (!provider || !model) {
+      return res.status(400).json({ 
+        success: false, 
+        error: '缺少 provider 或 model 參數' 
+      });
+    }
+    
+    const validProviders = ['claude', 'gemini', 'openai'];
+    if (!validProviders.includes(provider)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: '無效的 provider' 
+      });
+    }
+    
+    const settings = readAiSettings();
+    settings[provider] = {
+      model: model,
+      updatedAt: new Date().toISOString()
+    };
+    
+    if (writeAiSettings(settings)) {
+      console.log(`✅ AI 模型設定已更新: ${provider} -> ${model}`);
+      res.json({
+        success: true,
+        message: `${provider} 模型已更新為 ${model}`,
+        data: settings
+      });
+    } else {
+      res.status(500).json({ success: false, error: '寫入設定失敗' });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * PUT /api/settings/ai-models/batch
+ * 批次更新所有 AI 模型設定
+ */
+router.put('/ai-models/batch', (req, res) => {
+  try {
+    const { claude, gemini, openai } = req.body;
+    const settings = readAiSettings();
+    const now = new Date().toISOString();
+    
+    if (claude) settings.claude = { model: claude, updatedAt: now };
+    if (gemini) settings.gemini = { model: gemini, updatedAt: now };
+    if (openai) settings.openai = { model: openai, updatedAt: now };
+    
+    if (writeAiSettings(settings)) {
+      console.log(`✅ AI 模型設定已批次更新`);
+      res.json({ success: true, data: settings });
+    } else {
+      res.status(500).json({ success: false, error: '寫入設定失敗' });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
@@ -251,148 +373,6 @@ router.post('/test-market-reminder', async (req, res) => {
 
   } catch (error) {
     console.error('測試開盤提醒錯誤:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ============================================
-// 🆕 AI 模型設定 API
-// ============================================
-const fs = require('fs');
-const path = require('path');
-const AI_SETTINGS_PATH = path.join(__dirname, '../data/ai-settings.json');
-
-// 讀取 AI 設定
-function readAiSettings() {
-  try {
-    if (fs.existsSync(AI_SETTINGS_PATH)) {
-      const data = fs.readFileSync(AI_SETTINGS_PATH, 'utf8');
-      return JSON.parse(data);
-    }
-  } catch (error) {
-    console.error('讀取 AI 設定失敗:', error);
-  }
-  // 預設值
-  return {
-    claude: { model: 'claude-sonnet-4-20250514', updatedAt: null },
-    gemini: { model: 'gemini-2.0-flash', updatedAt: null },
-    openai: { model: 'gpt-4o', updatedAt: null }
-  };
-}
-
-// 寫入 AI 設定
-function writeAiSettings(settings) {
-  try {
-    fs.writeFileSync(AI_SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf8');
-    return true;
-  } catch (error) {
-    console.error('寫入 AI 設定失敗:', error);
-    return false;
-  }
-}
-
-/**
- * GET /api/settings/ai-models
- * 取得 AI 模型設定
- */
-router.get('/ai-models', (req, res) => {
-  try {
-    const settings = readAiSettings();
-    res.json({
-      success: true,
-      data: settings
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * PUT /api/settings/ai-models
- * 更新 AI 模型設定
- */
-router.put('/ai-models', (req, res) => {
-  try {
-    const { provider, model } = req.body;
-    
-    if (!provider || !model) {
-      return res.status(400).json({ 
-        success: false, 
-        error: '缺少 provider 或 model 參數' 
-      });
-    }
-    
-    // 驗證 provider
-    const validProviders = ['claude', 'gemini', 'openai'];
-    if (!validProviders.includes(provider)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: '無效的 provider，必須是 claude、gemini 或 openai' 
-      });
-    }
-    
-    // 讀取現有設定
-    const settings = readAiSettings();
-    
-    // 更新設定
-    settings[provider] = {
-      model: model,
-      updatedAt: new Date().toISOString()
-    };
-    
-    // 寫入檔案
-    if (writeAiSettings(settings)) {
-      console.log(`✅ AI 模型設定已更新: ${provider} -> ${model}`);
-      res.json({
-        success: true,
-        message: `${provider} 模型已更新為 ${model}`,
-        data: settings
-      });
-    } else {
-      res.status(500).json({ success: false, error: '寫入設定失敗' });
-    }
-  } catch (error) {
-    console.error('更新 AI 模型設定錯誤:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * PUT /api/settings/ai-models/batch
- * 批次更新所有 AI 模型設定
- */
-router.put('/ai-models/batch', (req, res) => {
-  try {
-    const { claude, gemini, openai } = req.body;
-    
-    // 讀取現有設定
-    const settings = readAiSettings();
-    const now = new Date().toISOString();
-    
-    // 更新各 provider
-    if (claude) {
-      settings.claude = { model: claude, updatedAt: now };
-    }
-    if (gemini) {
-      settings.gemini = { model: gemini, updatedAt: now };
-    }
-    if (openai) {
-      settings.openai = { model: openai, updatedAt: now };
-    }
-    
-    // 寫入檔案
-    if (writeAiSettings(settings)) {
-      console.log(`✅ AI 模型設定已批次更新:`, settings);
-      res.json({
-        success: true,
-        message: 'AI 模型設定已更新',
-        data: settings
-      });
-    } else {
-      res.status(500).json({ success: false, error: '寫入設定失敗' });
-    }
-  } catch (error) {
-    console.error('批次更新 AI 模型設定錯誤:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
