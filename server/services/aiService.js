@@ -22,6 +22,8 @@ class AIService {
    */
   async analyzeBuySellTiming(stockData, technicalData, holdingData = null) {
     const geminiKey = process.env.GEMINI_API_KEY;
+    console.log(`🤖 AI分析: ${stockData.name}`);
+    console.log(`   Gemini Key: ${geminiKey ? "✅ 已設定" : "❌ 未設定"}`);
 
     if (!geminiKey) {
       return {
@@ -151,6 +153,7 @@ ${holdingInfo}`;
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
+      console.log(`   🔄 呼叫 Gemini ${type}...`);
       const response = await axios.post(url, {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
