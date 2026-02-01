@@ -21,6 +21,7 @@ class AIService {
    * 🎯 雙 AI 買賣建議分析（正面觀點 + 風險提醒）
    */
   async analyzeBuySellTiming(stockData, technicalData, holdingData = null) {
+    console.log(`🤖 AI分析: ${stockData.name}`);
     const geminiKey = process.env.GEMINI_API_KEY;
 
     if (!geminiKey) {
@@ -149,6 +150,7 @@ ${holdingInfo}`;
    */
   async callGeminiDual(prompt, apiKey, type) {
     try {
+      console.log(`   🔄 呼叫 Gemini ${type}...`);
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
       const response = await axios.post(url, {
@@ -167,10 +169,12 @@ ${holdingInfo}`;
       if (!text) return null;
 
       // 移除 markdown 格式標記
-      text = text.replace(/```json\\s*/gi, "").replace(/```\\s*/g, "").trim();
+      text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      console.log(`   ✅ Gemini ${type} 清理後:`, text.substring(0, 80));
       // 解析 JSON
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
+        console.log(`   ✅ Gemini ${type} JSON 解析成功`);
         return JSON.parse(jsonMatch[0]);
       }
       return null;
