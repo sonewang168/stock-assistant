@@ -1,241 +1,196 @@
-/**
- * 🤖 AI 服務 - Gemini + OpenAI 雙 AI 股市分析
- */
-
-const axios = require('axios');
-const { pool } = require('../db');
-
-class AIService {
-
   /**
-   * 取得 AI 風格設定（已改為雙 AI 正反面分析，此函數保留供未來擴展）
-   */
-  async getAIStyle() {
-    const result = await pool.query(
-      "SELECT value FROM settings WHERE key = 'ai_style'"
-    );
-    return result.rows[0]?.value || 'professional';
-  }
-
-  /**
-   * 🎯 雙 AI 買賣建議分析（正面觀點 + 風險提醒）
+   * 🎯 三 AI 買賣建議分析（樂觀派 Gemini + 謹慎派 GPT + 中立派 Claude）
    */
   async analyzeBuySellTiming(stockData, technicalData, holdingData = null) {
     const geminiKey = process.env.GEMINI_API_KEY;
+    const openaiKey = process.env.OPENAI_API_KEY;
+    const claudeKey = process.env.CLAUDE_API_KEY;
 
-    if (!geminiKey) {
+    console.log('🤖 三AI分析啟動:');
+    console.log(`   Gemini: ${geminiKey ? '✅' : '❌'}, OpenAI: ${openaiKey ? '✅' : '❌'}, Claude: ${claudeKey ? '✅' : '❌'}`);
+
+    if (!geminiKey && !openaiKey && !claudeKey) {
       return {
-        positive: null,
-        negative: null,
-        combined: {
-          action: 'hold',
-          actionText: '持有觀望',
-          confidence: 0,
-          reason: 'AI 服務未設定',
-          aiCount: 0
-        }
+        optimistic: null, cautious: null, neutral: null,
+        combined: { action: 'hold', actionText: '持有觀望', confidence: 0, reason: 'AI 服務未設定', aiCount: 0 }
       };
     }
 
-    // 組合分析提示詞
-    const positivePrompt = this.buildPositivePrompt(stockData, technicalData, holdingData);
-    const negativePrompt = this.buildNegativePrompt(stockData, technicalData, holdingData);
-
-    // 並行呼叫兩個分析
-    const [positiveResult, negativeResult] = await Promise.all([
-      this.callGeminiDual(positivePrompt, geminiKey, 'positive'),
-      this.callGeminiDual(negativePrompt, geminiKey, 'negative')
-    ]);
-
-    // 綜合分析結果
-    const combined = this.combineAnalysisDual(positiveResult, negativeResult, stockData, technicalData, holdingData);
-
-    return {
-      positive: positiveResult,
-      negative: negativeResult,
-      combined
-    };
-  }
-
-  /**
-   * 📈 建立正面觀點分析提示詞（簡化版）
-   */
-  buildPositivePrompt(stockData, technicalData, holdingData) {
     const baseInfo = this.buildBaseInfo(stockData, technicalData, holdingData);
-    return `樂觀派台股分析師。繁體中文。只輸出純JSON（不要markdown標記）：
+
+    const optimisticPrompt = `樂觀派台股分析師。繁體中文。只輸出純JSON：
 ${baseInfo}
-回覆格式：{"action":"buy","confidence":85,"opportunity":"簡短說明","target_price":1900,"support_price":1750}`;
+{"action":"buy","confidence":85,"opportunity":"30字機會","target_price":數字,"support_price":數字}`;
+
+    const cautiousPrompt = `謹慎派台股分析師。繁體中文。只輸出純JSON：
+${baseInfo}
+{"action":"hold","confidence":70,"risk_factors":"30字風險","resistance_price":數字,"stop_loss":數字}`;
+
+    const neutralPrompt = `中立派台股分析師。繁體中文。只輸出純JSON：
+${baseInfo}
+{"action":"hold","confidence":60,"analysis":"30字分析","fair_price":數字,"strategy":"操作建議"}`;
+
+    const promises = [];
+    
+    // 樂觀派 - Gemini
+    if (geminiKey) promises.push(this.callGeminiAnalysis(optimisticPrompt, geminiKey, 'optimistic'));
+    else if (openaiKey) promises.push(this.callOpenAIAnalysis(optimisticPrompt, openaiKey, 'optimistic'));
+    else promises.push(this.callClaudeAnalysis(optimisticPrompt, claudeKey, 'optimistic'));
+
+    // 謹慎派 - OpenAI
+    if (openaiKey) promises.push(this.callOpenAIAnalysis(cautiousPrompt, openaiKey, 'cautious'));
+    else if (geminiKey) promises.push(this.callGeminiAnalysis(cautiousPrompt, geminiKey, 'cautious'));
+    else promises.push(this.callClaudeAnalysis(cautiousPrompt, claudeKey, 'cautious'));
+
+    // 中立派 - Claude
+    if (claudeKey) promises.push(this.callClaudeAnalysis(neutralPrompt, claudeKey, 'neutral'));
+    else if (geminiKey) promises.push(this.callGeminiAnalysis(neutralPrompt, geminiKey, 'neutral'));
+    else promises.push(this.callOpenAIAnalysis(neutralPrompt, openaiKey, 'neutral'));
+
+    const [optimisticResult, cautiousResult, neutralResult] = await Promise.all(promises);
+    const combined = this.combineThreeAIAnalysis(optimisticResult, cautiousResult, neutralResult, stockData);
+
+    return { optimistic: optimisticResult, cautious: cautiousResult, neutral: neutralResult, combined };
   }
 
   /**
-   * ⚠️ 建立風險觀點分析提示詞（簡化版）
+   * 🟢 呼叫 Gemini API
    */
-  buildNegativePrompt(stockData, technicalData, holdingData) {
-    const baseInfo = this.buildBaseInfo(stockData, technicalData, holdingData);
-    return `謹慎派台股分析師。繁體中文。只輸出純JSON（不要markdown標記）：
-${baseInfo}
-回覆格式：{"action":"hold","confidence":70,"risk_factors":"簡短說明","resistance_price":1850,"stop_loss":1700}`;
-  }
-  buildBaseInfo(stockData, technicalData, holdingData) {
-    // 技術指標資訊
-    let technicalInfo = '無技術指標資料';
-    if (technicalData) {
-      technicalInfo = `
-【技術指標】
-• RSI(14): ${technicalData.rsi || 'N/A'}（30以下超賣，70以上超買）
-• KD值: K=${technicalData.kd?.k || 'N/A'}, D=${technicalData.kd?.d || 'N/A'}
-• MACD: DIF=${technicalData.macd?.dif || 'N/A'}, MACD=${technicalData.macd?.macd || 'N/A'}
-• 布林通道: 上軌=${technicalData.bollinger?.upper || 'N/A'}, 中軌=${technicalData.bollinger?.middle || 'N/A'}, 下軌=${technicalData.bollinger?.lower || 'N/A'}
-• 均線: MA5=${technicalData.ma5 || 'N/A'}, MA10=${technicalData.ma10 || 'N/A'}, MA20=${technicalData.ma20 || 'N/A'}`;
-    }
-
-    // 持股資訊
-    let holdingInfo = '';
-    if (holdingData) {
-      const costPrice = parseFloat(holdingData.won_price) || parseFloat(holdingData.bid_price) || 0;
-      const totalShares = (holdingData.lots || 0) * 1000 + (holdingData.odd_shares || 0);
-      const profitPercent = costPrice > 0 
-        ? (((stockData.price - costPrice) / costPrice) * 100).toFixed(2)
-        : 0;
-      holdingInfo = `
-【持股資訊】
-• 持有: ${holdingData.lots || 0}張 ${holdingData.odd_shares || 0}股
-• 成本價: $${costPrice}
-• 獲利: ${profitPercent >= 0 ? '+' : ''}${profitPercent}%`;
-    }
-
-    return `【股票基本資訊】
-• 股票: ${stockData.name}（${stockData.id}）
-• 現價: $${stockData.price}
-• 漲跌: ${stockData.change > 0 ? '+' : ''}${stockData.change}（${stockData.changePercent > 0 ? '+' : ''}${stockData.changePercent}%）
-• 今日區間: $${stockData.low || 'N/A'} ~ $${stockData.high || 'N/A'}
-• 成交量: ${stockData.volume ? stockData.volume.toLocaleString() : 'N/A'}
-${technicalInfo}
-${holdingInfo}`;
-  }
-
-  /**
-   * 呼叫 Gemini（雙 AI 版）
-   */
-  async callGeminiDual(prompt, apiKey, type) {
+  async callGeminiAnalysis(prompt, apiKey, role) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
+      console.log(`   🟢 呼叫 Gemini (${role})...`);
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       const response = await axios.post(url, {
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: type === 'positive' ? 0.7 : 0.6,
-          maxOutputTokens: 1000,
-          topP: 0.9
-        }
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1000 }
+      }, { headers: { 'Content-Type': 'application/json' }, timeout: 20000 });
+
+      let text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) return { ai: 'Gemini 2.5', error: '無回應' };
+      text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        parsed.ai = 'Gemini 2.5';
+        console.log(`   ✅ Gemini (${role}) 成功`);
+        return parsed;
+      }
+      return { ai: 'Gemini 2.5', error: '解析失敗' };
+    } catch (error) {
+      console.error(`   ❌ Gemini (${role}) 錯誤:`, error.message);
+      return { ai: 'Gemini 2.5', error: error.message };
+    }
+  }
+
+  /**
+   * 🔴 呼叫 OpenAI API
+   */
+  async callOpenAIAnalysis(prompt, apiKey, role) {
+    try {
+      console.log(`   🔴 呼叫 OpenAI (${role})...`);
+      const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+        model: 'gpt-5.2',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 500, temperature: 0.7
       }, {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         timeout: 20000
       });
 
-      let text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) return null;
-
-      // 解析 JSON
-      // 移除 markdown 格式標記
-      text = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      let text = response.data.choices[0]?.message?.content?.trim();
+      if (!text) return { ai: 'GPT-5.2', error: '無回應' };
+      text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      console.log(`   ✅ Gemini ${type} 清理後:`, text.substring(0, 100));
       if (jsonMatch) {
-        console.log(`   ✅ Gemini ${type} JSON 解析成功`);
-        return JSON.parse(jsonMatch[0]);
+        const parsed = JSON.parse(jsonMatch[0]);
+        parsed.ai = 'GPT-5.2';
+        console.log(`   ✅ OpenAI (${role}) 成功`);
+        return parsed;
       }
-      return null;
-
+      return { ai: 'GPT-5.2', error: '解析失敗' };
     } catch (error) {
-      console.error(`Gemini ${type} 分析錯誤:`, error.message);
-      return null;
+      console.error(`   ❌ OpenAI (${role}) 錯誤:`, error.message);
+      return { ai: 'GPT-5.2', error: error.message };
     }
   }
 
   /**
-   * 綜合雙 AI 分析結果
+   * 🟣 呼叫 Claude API
    */
-  combineAnalysisDual(positiveResult, negativeResult, stockData, technicalData, holdingData) {
-    const actionScore = {
-      'strong_buy': 2, 'buy': 1, 'hold': 0, 'sell': -1, 'strong_sell': -2
-    };
+  async callClaudeAnalysis(prompt, apiKey, role) {
+    try {
+      console.log(`   🟣 呼叫 Claude (${role})...`);
+      const response = await axios.post('https://api.anthropic.com/v1/messages', {
+        model: 'claude-sonnet-4-5-20250929',
+        max_tokens: 500,
+        messages: [{ role: 'user', content: prompt }]
+      }, {
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        timeout: 20000
+      });
 
-    const scoreToAction = (score) => {
-      if (score >= 1.2) return 'strong_buy';
-      if (score >= 0.4) return 'buy';
-      if (score <= -1.2) return 'strong_sell';
-      if (score <= -0.4) return 'sell';
-      return 'hold';
-    };
-
-    const actionText = {
-      'strong_buy': '🔥 強力買入',
-      'buy': '📈 建議買入',
-      'hold': '⏸️ 持有觀望',
-      'sell': '📉 建議賣出',
-      'strong_sell': '⚠️ 強力賣出'
-    };
-
-    // 計算綜合評分
-    let totalScore = 0;
-    let aiCount = 0;
-
-    if (positiveResult) {
-      totalScore += (actionScore[positiveResult.action] || 0) * 0.5;
-      aiCount++;
+      let text = response.data?.content?.[0]?.text;
+      if (!text) return { ai: 'Claude 4.5', error: '無回應' };
+      text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        parsed.ai = 'Claude 4.5';
+        console.log(`   ✅ Claude (${role}) 成功`);
+        return parsed;
+      }
+      return { ai: 'Claude 4.5', error: '解析失敗' };
+    } catch (error) {
+      console.error(`   ❌ Claude (${role}) 錯誤:`, error.message);
+      return { ai: 'Claude 4.5', error: error.message };
     }
-    if (negativeResult) {
-      totalScore += (actionScore[negativeResult.action] || 0) * 0.5;
-      aiCount++;
-    }
+  }
 
-    const combinedAction = scoreToAction(totalScore);
+  /**
+   * 📊 綜合三AI分析結果
+   */
+  combineThreeAIAnalysis(optimistic, cautious, neutral, stockData) {
+    const actionScore = { 'strong_buy': 2, 'buy': 1, 'hold': 0, 'sell': -1, 'strong_sell': -2 };
     
-    // 計算信心度
-    const positiveConf = positiveResult?.confidence || 50;
-    const negativeConf = negativeResult?.confidence || 50;
-    const avgConfidence = Math.round((positiveConf + (100 - negativeConf)) / 2);
+    let totalScore = 0, aiCount = 0;
+    let votes = { up: 0, down: 0, neutral: 0 };
+
+    [optimistic, cautious, neutral].forEach(result => {
+      if (result && !result.error) {
+        const action = result.action || 'hold';
+        totalScore += actionScore[action] || 0;
+        aiCount++;
+        if (action.includes('buy')) votes.up++;
+        else if (action.includes('sell')) votes.down++;
+        else votes.neutral++;
+      }
+    });
+
+    const avgScore = aiCount > 0 ? totalScore / aiCount : 0;
+    let action, actionText;
+    if (avgScore >= 1.2) { action = 'strong_buy'; actionText = '🔥 強力買入'; }
+    else if (avgScore >= 0.4) { action = 'buy'; actionText = '📈 建議買入'; }
+    else if (avgScore <= -1.2) { action = 'strong_sell'; actionText = '⚠️ 強力賣出'; }
+    else if (avgScore <= -0.4) { action = 'sell'; actionText = '📉 建議賣出'; }
+    else { action = 'hold'; actionText = '➡️ 持有觀望'; }
+
+    let consensus = votes.up >= 2 ? `📈 ${votes.up}/3 AI 看漲` : 
+                   votes.down >= 2 ? `📉 ${votes.down}/3 AI 看跌` : '🤔 意見分歧';
 
     return {
-      action: combinedAction,
-      actionText: actionText[combinedAction],
-      confidence: avgConfidence,
-      finalConfidence: avgConfidence,
-      aiCount,
-      
-      // 正面分析
-      positive: {
-        opportunity: positiveResult?.opportunity || '暫無分析',
-        technical: positiveResult?.technical_positive || '',
-        support: positiveResult?.support_price,
-        target: positiveResult?.target_price,
-        buyTiming: positiveResult?.buy_timing || '',
-        holdingAdvice: positiveResult?.holding_advice || ''
-      },
-      
-      // 風險分析
-      negative: {
-        riskFactors: negativeResult?.risk_factors || '暫無分析',
-        technical: negativeResult?.technical_negative || '',
-        resistance: negativeResult?.resistance_price,
-        stopLoss: negativeResult?.stop_loss,
-        sellTiming: negativeResult?.sell_timing || '',
-        warning: negativeResult?.warning || ''
-      },
-
-      // 價格建議（綜合）
-      buyPrice: positiveResult?.support_price,
-      sellPrice: negativeResult?.resistance_price,
-      stopLoss: negativeResult?.stop_loss,
-      targetPrice: positiveResult?.target_price,
-
-      // 保留舊格式的兼容性
-      reasons: [],
-      timings: [positiveResult?.buy_timing, negativeResult?.sell_timing].filter(Boolean),
-      holdingAdvices: [positiveResult?.holding_advice, negativeResult?.warning].filter(Boolean),
-      riskLevel: negativeConf >= 70 ? '高' : negativeConf >= 40 ? '中' : '低',
-      consensus: false
+      action, actionText,
+      confidence: Math.round((optimistic?.confidence || 50) * 0.4 + (cautious?.confidence || 50) * 0.3 + (neutral?.confidence || 50) * 0.3),
+      consensus, votes, aiCount,
+      targetPrice: optimistic?.target_price || neutral?.fair_price,
+      supportPrice: optimistic?.support_price || cautious?.stop_loss,
+      resistancePrice: cautious?.resistance_price,
+      buyPrice: optimistic?.support_price || cautious?.stop_loss,
+      optimisticView: optimistic?.opportunity || '分析中...',
+      cautiousView: cautious?.risk_factors || '分析中...',
+      neutralView: neutral?.analysis || neutral?.strategy || '分析中...',
+      // 兼容舊格式
+      positive: { opportunity: optimistic?.opportunity || '暫無分析', target: optimistic?.target_price, support: optimistic?.support_price },
+      negative: { riskFactors: cautious?.risk_factors || '暫無分析', resistance: cautious?.resistance_price, stopLoss: cautious?.stop_loss }
     };
   }
 
