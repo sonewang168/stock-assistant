@@ -1075,7 +1075,7 @@ ${baseInfo}
 async function callClaudeForAnalysis(apiKey, prompt) {
   try {
     const response = await axios.post('https://api.anthropic.com/v1/messages', {
-      model: 'claude-sonnet-4-5-20250929',
+      model: 'claude-3-haiku-20240307',
       max_tokens: 200,
       messages: [{ role: 'user', content: prompt }]
     }, {
@@ -1098,7 +1098,7 @@ async function callClaudeForAnalysis(apiKey, prompt) {
  */
 async function callGeminiForAnalysis(apiKey, prompt) {
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
     const response = await axios.post(url, {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.7, maxOutputTokens: 200 }
@@ -1116,7 +1116,7 @@ async function callGeminiForAnalysis(apiKey, prompt) {
 async function callOpenAIForAnalysis(apiKey, prompt) {
   try {
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: 'gpt-5.1',
+      model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 200,
       temperature: 0.7
@@ -11094,7 +11094,7 @@ ${twMarketInfo}
   };
   
   try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
     
     // Gemini 分析（樂觀派）
     const geminiRequests = [
@@ -11109,10 +11109,10 @@ ${twMarketInfo}
     let bearishRequests;
     if (openaiKey) {
       bearishRequests = [
-        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-5.1', messages: [{ role: 'user', content: prompts.usAiBearish }], max_tokens: 200 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 }),
-        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-5.1', messages: [{ role: 'user', content: prompts.dramBearish }], max_tokens: 250 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 }),
-        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-5.1', messages: [{ role: 'user', content: prompts.twAiBearish }], max_tokens: 200 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 }),
-        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-5.1', messages: [{ role: 'user', content: prompts.twMarketBearish }], max_tokens: 200 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 })
+        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompts.usAiBearish }], max_tokens: 200 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 }),
+        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompts.dramBearish }], max_tokens: 250 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 }),
+        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompts.twAiBearish }], max_tokens: 200 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 }),
+        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompts.twMarketBearish }], max_tokens: 200 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 })
       ];
     } else {
       bearishRequests = [
@@ -11831,7 +11831,7 @@ AI 代表股輝達: ${data.aiStocks.find(s => s.id === 'NVDA')?.changePercent ||
 DRAM 代表股美光: ${data.dramStocks.find(s => s.id === 'MU')?.changePercent || 0}%`;
 
   try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
     
     // 並行呼叫
     const requests = [
@@ -11860,7 +11860,7 @@ DRAM 代表股美光: ${data.dramStocks.find(s => s.id === 'MU')?.changePercent 
     
     if (openaiKey) {
       bearishRequest = axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-5.1',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: bearishPrompt }],
         max_tokens: 600,
         temperature: 0.6
@@ -13130,7 +13130,7 @@ async function callPredictionAPI(aiName, role, stockInfo, claudeKey, geminiKey, 
     
     if (aiName === 'Claude' && claudeKey) {
       const response = await axios.post('https://api.anthropic.com/v1/messages', {
-        model: 'claude-sonnet-4-5-20250929',
+        model: 'claude-3-haiku-20240307',
         max_tokens: 100,
         messages: [{ role: 'user', content: prompt }]
       }, {
@@ -13143,7 +13143,7 @@ async function callPredictionAPI(aiName, role, stockInfo, claudeKey, geminiKey, 
       });
       text = response.data?.content?.[0]?.text || text;
     } else if (aiName === 'Gemini' && geminiKey) {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
       const response = await axios.post(url, {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.7, maxOutputTokens: 100 }
@@ -13151,7 +13151,7 @@ async function callPredictionAPI(aiName, role, stockInfo, claudeKey, geminiKey, 
       text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || text;
     } else if (aiName === 'GPT' && openaiKey) {
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-5.1',
+        model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 100,
         temperature: 0.7
