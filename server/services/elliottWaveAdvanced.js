@@ -1994,25 +1994,25 @@ function analyzeMultipleTimeframes(history, currentPrice, threshold) {
   }
   
   // ========================================
-  // 視角A：短線（6個月 ≈ 130個交易日）
+  // 視角A：短線（3個月 ≈ 65個交易日）
   // ========================================
-  const shortLen = Math.min(130, history.length);
+  const shortLen = Math.min(65, history.length);
   const shortHistory = history.slice(-shortLen);
-  const shortTerm = analyzeTimeframeWave(shortHistory, currentPrice, threshold * 0.8, '短線');
+  const shortTerm = analyzeTimeframeWave(shortHistory, currentPrice, threshold * 0.7, '短線(3個月)');
   
   // ========================================
-  // 視角B：中線（9個月 ≈ 195個交易日）
+  // 視角B：中線（6個月 ≈ 130個交易日）
   // ========================================
-  const midLen = Math.min(195, history.length);
+  const midLen = Math.min(130, history.length);
   const midHistory = history.slice(-midLen);
-  const midTerm = analyzeTimeframeWave(midHistory, currentPrice, threshold, '中線');
+  const midTerm = analyzeTimeframeWave(midHistory, currentPrice, threshold, '中線(6個月)');
   
   // ========================================
   // 視角C：長線（12個月 ≈ 260個交易日）
   // ========================================
   const longLen = Math.min(260, history.length);
   const longHistory = history.slice(-longLen);
-  const longTerm = analyzeTimeframeWave(longHistory, currentPrice, threshold * 1.2, '長線');
+  const longTerm = analyzeTimeframeWave(longHistory, currentPrice, threshold * 1.3, '長線(12個月)');
   
   // ========================================
   // 計算共識
@@ -2387,6 +2387,10 @@ function determineWaveWithEnhancedLogic(waves, currentPrice, history) {
     weeklyWaveCount,
     majorWaveCount,
     dynamicThreshold: threshold,
+    // 🆕 關鍵指標（供前端判斷邏輯顯示）
+    pricePosition: pricePosition * 100,  // 轉為百分比
+    fromHigh: pullbackFromHigh,
+    totalChange: totalChangeFromLow,
     // 🆕 多重視角詳情
     multiViewAnalysis: {
       shortTerm: multiView.shortTerm,

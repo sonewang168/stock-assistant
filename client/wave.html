@@ -162,6 +162,65 @@
     .consensus-badge.medium { background: rgba(210, 153, 34, 0.2); color: #d29922; }
     .consensus-badge.low { background: rgba(248, 81, 73, 0.2); color: #f85149; }
     
+    /* 判斷邏輯區域 */
+    .decision-logic-container {
+      background: rgba(45, 50, 60, 0.5);
+      border-radius: 8px;
+      padding: 12px;
+      border: 1px solid rgba(139, 148, 158, 0.2);
+    }
+    .logic-header {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #58a6ff;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(139, 148, 158, 0.2);
+    }
+    .logic-content {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .logic-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      padding: 4px 8px;
+      background: rgba(30, 35, 45, 0.5);
+      border-radius: 4px;
+    }
+    .logic-label { color: #8b949e; }
+    .logic-value { color: #c9d1d9; font-weight: 500; }
+    .logic-value.highlight { color: #ffa657; }
+    .logic-value.up { color: #f85149; }
+    .logic-value.down { color: #3fb950; }
+    .logic-decision {
+      margin-top: 10px;
+      padding: 10px;
+      background: linear-gradient(135deg, rgba(88, 166, 255, 0.1), rgba(63, 185, 80, 0.1));
+      border-radius: 6px;
+      font-size: 0.85rem;
+      color: #c9d1d9;
+      border-left: 3px solid #58a6ff;
+    }
+    .logic-decision .decision-wave {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #ffa657;
+    }
+    .logic-tree {
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.75rem;
+      color: #8b949e;
+      background: rgba(30, 35, 45, 0.8);
+      padding: 8px;
+      border-radius: 4px;
+      margin-top: 8px;
+      white-space: pre-wrap;
+    }
+    .logic-tree .active { color: #3fb950; font-weight: 600; }
+    
     /* Trend Info */
     .trend-info {
       display: flex; justify-content: center; align-items: center; gap: 16px;
@@ -522,21 +581,48 @@
               <!-- 🆕 A+B+C 多重視角 -->
               <div class="multi-view-container" id="multiViewContainer" style="display: none;">
                 <div class="view-card" id="shortTermView">
-                  <div class="view-label">📍 短線視角</div>
+                  <div class="view-label">📍 短線(3個月)</div>
                   <div class="view-wave" id="shortTermWave">--</div>
                   <div class="view-reason" id="shortTermReason">--</div>
                 </div>
                 <div class="view-card" id="midTermView">
-                  <div class="view-label">📍 中線視角</div>
+                  <div class="view-label">📍 中線(6個月)</div>
                   <div class="view-wave" id="midTermWave">--</div>
                   <div class="view-reason" id="midTermReason">--</div>
                 </div>
                 <div class="view-card" id="longTermView">
-                  <div class="view-label">📍 長線視角</div>
+                  <div class="view-label">📍 長線(12個月)</div>
                   <div class="view-wave" id="longTermWave">--</div>
                   <div class="view-reason" id="longTermReason">--</div>
                 </div>
               </div>
+              
+              <!-- 🆕 判斷邏輯說明 -->
+              <div class="decision-logic-container" id="decisionLogicContainer" style="display: none; margin-top: 12px;">
+                <div class="logic-header">🔍 判斷邏輯</div>
+                <div class="logic-content" id="decisionLogicContent">
+                  <div class="logic-item">
+                    <span class="logic-label">價格位置:</span>
+                    <span class="logic-value" id="logicPricePosition">--</span>
+                  </div>
+                  <div class="logic-item">
+                    <span class="logic-label">從高點回撤:</span>
+                    <span class="logic-value" id="logicFromHigh">--</span>
+                  </div>
+                  <div class="logic-item">
+                    <span class="logic-label">總漲幅:</span>
+                    <span class="logic-value" id="logicTotalChange">--</span>
+                  </div>
+                  <div class="logic-item">
+                    <span class="logic-label">RSI背離:</span>
+                    <span class="logic-value" id="logicDivergence">--</span>
+                  </div>
+                </div>
+                <div class="logic-decision" id="logicDecision">
+                  <!-- 決策說明將動態填入 -->
+                </div>
+              </div>
+              
               <div id="consensusBadgeContainer" style="display: none;">
                 <span class="consensus-badge" id="consensusBadge">共識度: --</span>
               </div>
@@ -882,6 +968,9 @@
         // 🆕 A+B+C 多重視角分析
         renderMultiViewAnalysis(data.multiViewAnalysis);
         
+        // 🆕 渲染判斷邏輯說明
+        renderDecisionLogic(data);
+        
       } else {
         // 沒有 waveReason，使用舊版顯示或隱藏
         box.style.display = 'none';
@@ -934,6 +1023,108 @@
         const card = document.getElementById(id);
         card.className = `view-card consensus-${consensus}`;
       });
+    }
+    
+    // 🆕 渲染判斷邏輯說明
+    function renderDecisionLogic(data) {
+      const container = document.getElementById('decisionLogicContainer');
+      if (!data) {
+        container.style.display = 'none';
+        return;
+      }
+      
+      container.style.display = 'block';
+      
+      // 從 data 中提取關鍵指標
+      const pricePosition = data.pricePosition || 0;
+      const fromHigh = data.fromHigh || 0;
+      const totalChange = data.totalChange || 0;
+      const divergence = data.divergenceInfo;
+      const currentWave = data.currentWave;
+      
+      // 填入指標值
+      document.getElementById('logicPricePosition').textContent = `${pricePosition.toFixed(0)}%`;
+      document.getElementById('logicPricePosition').className = `logic-value ${pricePosition > 70 ? 'up' : pricePosition < 40 ? 'down' : ''}`;
+      
+      document.getElementById('logicFromHigh').textContent = `${fromHigh.toFixed(1)}%`;
+      document.getElementById('logicFromHigh').className = `logic-value ${fromHigh > 20 ? 'down' : fromHigh < 10 ? 'up' : ''}`;
+      
+      document.getElementById('logicTotalChange').textContent = `${totalChange > 0 ? '+' : ''}${totalChange.toFixed(1)}%`;
+      document.getElementById('logicTotalChange').className = `logic-value ${totalChange > 100 ? 'up' : totalChange < 0 ? 'down' : ''}`;
+      
+      const hasDivergence = divergence && divergence.hasDivergence;
+      const divType = hasDivergence ? divergence.type : '無';
+      document.getElementById('logicDivergence').textContent = hasDivergence ? (divType === 'bearish' ? '⚠️頂背離' : '✨底背離') : '無';
+      document.getElementById('logicDivergence').className = `logic-value ${divType === 'bearish' ? 'down' : divType === 'bullish' ? 'up' : ''}`;
+      
+      // 生成判斷決策樹說明
+      let decisionHtml = generateDecisionTree(pricePosition, fromHigh, totalChange, currentWave, hasDivergence, divType);
+      document.getElementById('logicDecision').innerHTML = decisionHtml;
+    }
+    
+    // 生成決策樹說明
+    function generateDecisionTree(pricePosition, fromHigh, totalChange, currentWave, hasDivergence, divType) {
+      let tree = `<div class="logic-tree">`;
+      let activeRule = '';
+      
+      // 根據條件判斷哪個規則被觸發
+      if (fromHigh >= 30) {
+        activeRule = 'fromHigh30';
+        tree += `<span class="active">├─ 從高點回撤 ≥ 30% → A浪（修正）✓</span>\n`;
+      } else {
+        tree += `├─ 從高點回撤 ≥ 30% → A浪\n`;
+      }
+      
+      if (fromHigh >= 20 && fromHigh < 30) {
+        activeRule = 'fromHigh20';
+        tree += `<span class="active">├─ 從高點回撤 ≥ 20% → 第4浪（整理）✓</span>\n`;
+      } else {
+        tree += `├─ 從高點回撤 ≥ 20% → 第4浪\n`;
+      }
+      
+      if (pricePosition < 50 && !activeRule) {
+        activeRule = 'pricePos50';
+        tree += `<span class="active">├─ 價格位置 < 50% → 第2浪或第1浪 ✓</span>\n`;
+      } else {
+        tree += `├─ 價格位置 < 50% → 第2浪或第1浪\n`;
+      }
+      
+      if (pricePosition >= 50 && pricePosition < 70 && totalChange > 100 && !activeRule) {
+        activeRule = 'wave3mid';
+        tree += `<span class="active">├─ 價格50-70% + 漲幅>100% → 第3浪 ✓</span>\n`;
+      } else {
+        tree += `├─ 價格50-70% + 漲幅>100% → 第3浪\n`;
+      }
+      
+      if (pricePosition >= 70 && pricePosition < 85 && totalChange > 150 && !activeRule) {
+        activeRule = 'wave3high';
+        tree += `<span class="active">├─ 價格70-85% + 漲幅>150% → 第3浪延續 ✓</span>\n`;
+      } else {
+        tree += `├─ 價格70-85% + 漲幅>150% → 第3浪延續\n`;
+      }
+      
+      if (pricePosition >= 85 && totalChange > 200 && fromHigh < 10 && !activeRule) {
+        activeRule = 'wave5';
+        tree += `<span class="active">└─ 價格≥85% + 漲幅>200% + 接近高點 → 第5浪 ✓</span>`;
+      } else {
+        tree += `└─ 價格≥85% + 漲幅>200% + 接近高點 → 第5浪`;
+      }
+      
+      tree += `</div>`;
+      
+      // 最終判斷說明
+      let conclusion = `<div style="margin-top:8px;">`;
+      conclusion += `綜合判斷：<span class="decision-wave">第 ${currentWave} 浪</span>`;
+      
+      if (hasDivergence && divType === 'bearish') {
+        conclusion += ` <span style="color:#f85149;">(RSI頂背離，注意風險)</span>`;
+      } else if (hasDivergence && divType === 'bullish') {
+        conclusion += ` <span style="color:#3fb950;">(RSI底背離，可能反彈)</span>`;
+      }
+      
+      conclusion += `</div>`;
+      
+      return tree + conclusion;
     }
     
     function renderWaveCircles(currentWave) {

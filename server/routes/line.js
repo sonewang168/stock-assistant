@@ -12198,6 +12198,10 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
         majorWaveCount: enhancedResult.majorWaveCount,
         dynamicThreshold: enhancedResult.dynamicThreshold,
         divergenceInfo: divergence,
+        // 🆕 關鍵指標（供前端判斷邏輯顯示）
+        pricePosition: enhancedResult.pricePosition,
+        fromHigh: enhancedResult.fromHigh,
+        totalChange: enhancedResult.totalChange,
         // 🆕 A+B+C 多重視角分析
         multiViewAnalysis: enhancedResult.multiViewAnalysis || null,
         technicals: {
@@ -12272,6 +12276,10 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
       dynamicThreshold: waveResult.dynamicThreshold || null,
       divergenceInfo: waveResult.divergenceInfo || null,
       multiViewAnalysis: waveResult.multiViewAnalysis || null,  // 🆕 A+B+C 多重視角
+      // 🆕 關鍵指標（供前端判斷邏輯顯示）
+      pricePosition: waveResult.pricePosition || null,
+      fromHigh: waveResult.fromHigh || null,
+      totalChange: waveResult.totalChange || null,
       
       // 規則與指引
       rules: waveResult.rules || [],
