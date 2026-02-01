@@ -21,7 +21,6 @@ class AIService {
    * 🎯 雙 AI 買賣建議分析（正面觀點 + 風險提醒）
    */
   async analyzeBuySellTiming(stockData, technicalData, holdingData = null) {
-    console.log(`🤖 AI分析: ${stockData.name}`);
     const geminiKey = process.env.GEMINI_API_KEY;
 
     if (!geminiKey) {
@@ -150,14 +149,13 @@ ${holdingInfo}`;
    */
   async callGeminiDual(prompt, apiKey, type) {
     try {
-      console.log(`   🔄 呼叫 Gemini ${type}...`);
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
       const response = await axios.post(url, {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: type === 'positive' ? 0.7 : 0.6,
-          maxOutputTokens: 1000,
+          maxOutputTokens: 500,
           topP: 0.9
         }
       }, {
@@ -165,16 +163,12 @@ ${holdingInfo}`;
         timeout: 20000
       });
 
-      let text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) return null;
 
-      // 移除 markdown 格式標記
-      text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-      console.log(`   ✅ Gemini ${type} 清理後:`, text.substring(0, 80));
       // 解析 JSON
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        console.log(`   ✅ Gemini ${type} JSON 解析成功`);
         return JSON.parse(jsonMatch[0]);
       }
       return null;
@@ -289,7 +283,7 @@ ${holdingInfo}`;
    */
   async callGemini(prompt, apiKey) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
       const response = await axios.post(url, {
         contents: [{ parts: [{ text: prompt }] }],
@@ -320,7 +314,7 @@ ${holdingInfo}`;
   async callOpenAI(prompt, apiKey) {
     try {
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-5.1',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: '你是專業的台灣股市技術分析師，擁有20年以上實戰經驗，擅長技術指標分析和買賣時機判斷。請提供詳細且專業的分析，只用 JSON 格式回覆。' },
           { role: 'user', content: prompt }
@@ -560,7 +554,7 @@ ${baseInfo}
 4. 一句話結論`;
 
     try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
       
       // 並行呼叫：樂觀派(Gemini) + 謹慎派(Gemini或OpenAI) + 綜合建議
       const requests = [];
@@ -587,7 +581,7 @@ ${baseInfo}
         console.log('   🔴 呼叫 OpenAI GPT-4o 謹慎派...');
         requests.push(
           axios.post('https://api.openai.com/v1/chat/completions', {
-            model: 'gpt-5.1',
+            model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: bearishPrompt }],
             max_tokens: 300,
             temperature: 0.7
@@ -745,7 +739,7 @@ ${baseInfo}
 4. 一句話總結`;
 
     try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
       
       const requests = [];
       
@@ -766,7 +760,7 @@ ${baseInfo}
       if (openaiKey) {
         requests.push(
           axios.post('https://api.openai.com/v1/chat/completions', {
-            model: 'gpt-5.1',
+            model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: bearishPrompt }],
             max_tokens: 350,
             temperature: 0.7
@@ -864,7 +858,7 @@ ${baseInfo}
 只輸出新聞列表，不要其他說明。如果找不到近期新聞，就說「暫無重大新聞」。`;
 
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
       const response = await axios.post(url, {
         contents: [{ parts: [{ text: prompt }] }],
@@ -907,7 +901,7 @@ ${baseInfo}
 {"heat": 數字, "sentiment": 數字, "summary": "一句話總結"}`;
 
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
       const response = await axios.post(url, {
         contents: [{ parts: [{ text: prompt }] }],
