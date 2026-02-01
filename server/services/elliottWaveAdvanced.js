@@ -1994,23 +1994,25 @@ function analyzeMultipleTimeframes(history, currentPrice, threshold) {
   }
   
   // ========================================
-  // 視角A：短線（最近60天或1/4數據）
+  // 視角A：短線（6個月 ≈ 130個交易日）
   // ========================================
-  const shortLen = Math.min(60, Math.floor(history.length / 4));
+  const shortLen = Math.min(130, history.length);
   const shortHistory = history.slice(-shortLen);
-  const shortTerm = analyzeTimeframeWave(shortHistory, currentPrice, threshold * 0.7, '短線');
+  const shortTerm = analyzeTimeframeWave(shortHistory, currentPrice, threshold * 0.8, '短線');
   
   // ========================================
-  // 視角B：中線（最近120天或1/2數據）
+  // 視角B：中線（9個月 ≈ 195個交易日）
   // ========================================
-  const midLen = Math.min(120, Math.floor(history.length / 2));
+  const midLen = Math.min(195, history.length);
   const midHistory = history.slice(-midLen);
   const midTerm = analyzeTimeframeWave(midHistory, currentPrice, threshold, '中線');
   
   // ========================================
-  // 視角C：長線（全部數據）
+  // 視角C：長線（12個月 ≈ 260個交易日）
   // ========================================
-  const longTerm = analyzeTimeframeWave(history, currentPrice, threshold * 1.3, '長線');
+  const longLen = Math.min(260, history.length);
+  const longHistory = history.slice(-longLen);
+  const longTerm = analyzeTimeframeWave(longHistory, currentPrice, threshold * 1.2, '長線');
   
   // ========================================
   // 計算共識
@@ -2111,48 +2113,88 @@ function analyzeTimeframeWave(history, currentPrice, threshold, label) {
   }
   else {
     // waveCount >= 5
-    // 🆕 改進：不再單純因為轉折點多就判定為第5浪
-    // 需要綜合考慮價格位置和趨勢特徵
+    // 🆕 改進：轉折點多不代表就是第5浪
+    // 6-12個月數據本來就會有很多轉折，應該看整體趨勢特徵
+    
+    // 計算從起點到現在的漲跌幅
+    const startPrice = closes[0];
+    const totalChange = ((currentPrice - startPrice) / startPrice) * 100;
+    
+    // 判斷目前是上漲還是回調趨勢
+    const recentCloses = closes.slice(-20);
+    const recentHigh = Math.max(...recentCloses);
+    const recentLow = Math.min(...recentCloses);
+    const recentTrend = recentCloses[recentCloses.length - 1] > recentCloses[0] ? 'up' : 'down';
     
     if (fromHigh >= 30) {
-      // 從高點大幅回撤，可能是修正浪
+      // 從高點大幅回撤，進入修正浪
       wave = 'A';
       reason = `${label}回調${fromHigh.toFixed(0)}%，可能進入修正`;
     } else if (fromHigh >= 20) {
-      // 中度回撤，可能是第4浪整理
-      wave = 4;
-      reason = `${label}回調${fromHigh.toFixed(0)}%，整理階段`;
-    } else if (pricePosition < 0.4) {
-      // 價格位置低，不太可能是第5浪末端
-      wave = 2;
-      reason = `${label}價格位置偏低，可能是回調`;
-    } else if (pricePosition < 0.6) {
-      // 價格位置中等，可能是第3浪中段或第4浪
-      if (fromHigh > 10) {
+      // 中度回撤
+      if (totalChange > 50) {
         wave = 4;
-        reason = `${label}價格整理中`;
+        reason = `${label}漲幅${totalChange.toFixed(0)}%後回調，第4浪整理`;
+      } else {
+        wave = 2;
+        reason = `${label}回調${fromHigh.toFixed(0)}%，可能第2浪`;
+      }
+    } else if (pricePosition < 0.5) {
+      // 價格位置在下半部
+      if (totalChange > 30 && recentTrend === 'down') {
+        wave = 4;
+        reason = `${label}回調整理中`;
+      } else if (totalChange > 0) {
+        wave = 2;
+        reason = `${label}上漲後回調`;
+      } else {
+        wave = 1;
+        reason = `${label}築底階段`;
+      }
+    } else if (pricePosition < 0.7) {
+      // 價格位置中等偏上
+      if (totalChange > 100) {
+        // 漲幅巨大，可能是第3浪主升段
+        wave = 3;
+        reason = `${label}漲幅${totalChange.toFixed(0)}%，主升段`;
+      } else if (fromHigh > 10) {
+        wave = 4;
+        reason = `${label}整理中`;
       } else {
         wave = 3;
-        reason = `${label}主升段`;
+        reason = `${label}上升趨勢`;
       }
-    } else if (pricePosition < 0.8) {
-      // 價格位置偏高但未到極端
-      if (fromHigh > 5) {
+    } else if (pricePosition < 0.85) {
+      // 價格位置偏高
+      if (totalChange > 150 && fromHigh < 10) {
+        // 大漲且接近高點，但還沒到極端
+        wave = 3;
+        reason = `${label}漲幅${totalChange.toFixed(0)}%，主升段延續`;
+      } else if (fromHigh > 5) {
         wave = 4;
         reason = `${label}高位整理`;
       } else {
         wave = 3;
-        reason = `${label}主升段延續`;
+        reason = `${label}主升段`;
       }
     } else {
-      // pricePosition >= 0.8 且 fromHigh < 20
-      // 價格接近高點，才判定為第5浪
-      if (fromHigh < 5) {
+      // pricePosition >= 0.85 且接近高點
+      if (totalChange > 200 && fromHigh < 5) {
+        // 超大漲幅且在最高點附近，才判定為第5浪
         wave = 5;
-        reason = `${label}多浪完成，可能第5浪末端`;
-      } else if (fromHigh < 10) {
-        wave = 5;
-        reason = `${label}第5浪，注意風險`;
+        reason = `${label}漲幅${totalChange.toFixed(0)}%，可能第5浪末端`;
+      } else if (totalChange > 100 && fromHigh < 10) {
+        // 大漲且接近高點
+        if (recentTrend === 'up') {
+          wave = 3;
+          reason = `${label}漲幅${totalChange.toFixed(0)}%，主升段持續`;
+        } else {
+          wave = 5;
+          reason = `${label}第5浪，注意風險`;
+        }
+      } else if (fromHigh < 5) {
+        wave = 3;
+        reason = `${label}創新高中`;
       } else {
         wave = 4;
         reason = `${label}高位回調`;
