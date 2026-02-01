@@ -1,196 +1,269 @@
+/**
+ * 🤖 AI 服務 - Gemini + OpenAI 雙 AI 股市分析
+ */
+
+const axios = require('axios');
+const { pool } = require('../db');
+
+class AIService {
+
   /**
-   * 🎯 三 AI 買賣建議分析（樂觀派 Gemini + 謹慎派 GPT + 中立派 Claude）
+   * 取得 AI 風格設定（已改為雙 AI 正反面分析，此函數保留供未來擴展）
+   */
+  async getAIStyle() {
+    const result = await pool.query(
+      "SELECT value FROM settings WHERE key = 'ai_style'"
+    );
+    return result.rows[0]?.value || 'professional';
+  }
+
+  /**
+   * 🎯 雙 AI 買賣建議分析（正面觀點 + 風險提醒）
    */
   async analyzeBuySellTiming(stockData, technicalData, holdingData = null) {
     const geminiKey = process.env.GEMINI_API_KEY;
-    const openaiKey = process.env.OPENAI_API_KEY;
-    const claudeKey = process.env.CLAUDE_API_KEY;
 
-    console.log('🤖 三AI分析啟動:');
-    console.log(`   Gemini: ${geminiKey ? '✅' : '❌'}, OpenAI: ${openaiKey ? '✅' : '❌'}, Claude: ${claudeKey ? '✅' : '❌'}`);
-
-    if (!geminiKey && !openaiKey && !claudeKey) {
+    if (!geminiKey) {
       return {
-        optimistic: null, cautious: null, neutral: null,
-        combined: { action: 'hold', actionText: '持有觀望', confidence: 0, reason: 'AI 服務未設定', aiCount: 0 }
+        positive: null,
+        negative: null,
+        combined: {
+          action: 'hold',
+          actionText: '持有觀望',
+          confidence: 0,
+          reason: 'AI 服務未設定',
+          aiCount: 0
+        }
       };
     }
 
-    const baseInfo = this.buildBaseInfo(stockData, technicalData, holdingData);
+    // 組合分析提示詞
+    const positivePrompt = this.buildPositivePrompt(stockData, technicalData, holdingData);
+    const negativePrompt = this.buildNegativePrompt(stockData, technicalData, holdingData);
 
-    const optimisticPrompt = `樂觀派台股分析師。繁體中文。只輸出純JSON：
-${baseInfo}
-{"action":"buy","confidence":85,"opportunity":"30字機會","target_price":數字,"support_price":數字}`;
+    // 並行呼叫兩個分析
+    const [positiveResult, negativeResult] = await Promise.all([
+      this.callGeminiDual(positivePrompt, geminiKey, 'positive'),
+      this.callGeminiDual(negativePrompt, geminiKey, 'negative')
+    ]);
 
-    const cautiousPrompt = `謹慎派台股分析師。繁體中文。只輸出純JSON：
-${baseInfo}
-{"action":"hold","confidence":70,"risk_factors":"30字風險","resistance_price":數字,"stop_loss":數字}`;
-
-    const neutralPrompt = `中立派台股分析師。繁體中文。只輸出純JSON：
-${baseInfo}
-{"action":"hold","confidence":60,"analysis":"30字分析","fair_price":數字,"strategy":"操作建議"}`;
-
-    const promises = [];
-    
-    // 樂觀派 - Gemini
-    if (geminiKey) promises.push(this.callGeminiAnalysis(optimisticPrompt, geminiKey, 'optimistic'));
-    else if (openaiKey) promises.push(this.callOpenAIAnalysis(optimisticPrompt, openaiKey, 'optimistic'));
-    else promises.push(this.callClaudeAnalysis(optimisticPrompt, claudeKey, 'optimistic'));
-
-    // 謹慎派 - OpenAI
-    if (openaiKey) promises.push(this.callOpenAIAnalysis(cautiousPrompt, openaiKey, 'cautious'));
-    else if (geminiKey) promises.push(this.callGeminiAnalysis(cautiousPrompt, geminiKey, 'cautious'));
-    else promises.push(this.callClaudeAnalysis(cautiousPrompt, claudeKey, 'cautious'));
-
-    // 中立派 - Claude
-    if (claudeKey) promises.push(this.callClaudeAnalysis(neutralPrompt, claudeKey, 'neutral'));
-    else if (geminiKey) promises.push(this.callGeminiAnalysis(neutralPrompt, geminiKey, 'neutral'));
-    else promises.push(this.callOpenAIAnalysis(neutralPrompt, openaiKey, 'neutral'));
-
-    const [optimisticResult, cautiousResult, neutralResult] = await Promise.all(promises);
-    const combined = this.combineThreeAIAnalysis(optimisticResult, cautiousResult, neutralResult, stockData);
-
-    return { optimistic: optimisticResult, cautious: cautiousResult, neutral: neutralResult, combined };
-  }
-
-  /**
-   * 🟢 呼叫 Gemini API
-   */
-  async callGeminiAnalysis(prompt, apiKey, role) {
-    try {
-      console.log(`   🟢 呼叫 Gemini (${role})...`);
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-      const response = await axios.post(url, {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 1000 }
-      }, { headers: { 'Content-Type': 'application/json' }, timeout: 20000 });
-
-      let text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) return { ai: 'Gemini 2.5', error: '無回應' };
-      text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        parsed.ai = 'Gemini 2.5';
-        console.log(`   ✅ Gemini (${role}) 成功`);
-        return parsed;
-      }
-      return { ai: 'Gemini 2.5', error: '解析失敗' };
-    } catch (error) {
-      console.error(`   ❌ Gemini (${role}) 錯誤:`, error.message);
-      return { ai: 'Gemini 2.5', error: error.message };
-    }
-  }
-
-  /**
-   * 🔴 呼叫 OpenAI API
-   */
-  async callOpenAIAnalysis(prompt, apiKey, role) {
-    try {
-      console.log(`   🔴 呼叫 OpenAI (${role})...`);
-      const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-5.1',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 500, temperature: 0.7
-      }, {
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        timeout: 20000
-      });
-
-      let text = response.data.choices[0]?.message?.content?.trim();
-      if (!text) return { ai: 'GPT-5.1', error: '無回應' };
-      text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        parsed.ai = 'GPT-5.1';
-        console.log(`   ✅ OpenAI (${role}) 成功`);
-        return parsed;
-      }
-      return { ai: 'GPT-5.1', error: '解析失敗' };
-    } catch (error) {
-      console.error(`   ❌ OpenAI (${role}) 錯誤:`, error.message);
-      return { ai: 'GPT-5.1', error: error.message };
-    }
-  }
-
-  /**
-   * 🟣 呼叫 Claude API
-   */
-  async callClaudeAnalysis(prompt, apiKey, role) {
-    try {
-      console.log(`   🟣 呼叫 Claude (${role})...`);
-      const response = await axios.post('https://api.anthropic.com/v1/messages', {
-        model: 'claude-sonnet-4-5-20250929',
-        max_tokens: 500,
-        messages: [{ role: 'user', content: prompt }]
-      }, {
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        timeout: 20000
-      });
-
-      let text = response.data?.content?.[0]?.text;
-      if (!text) return { ai: 'Claude 4.5', error: '無回應' };
-      text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        parsed.ai = 'Claude 4.5';
-        console.log(`   ✅ Claude (${role}) 成功`);
-        return parsed;
-      }
-      return { ai: 'Claude 4.5', error: '解析失敗' };
-    } catch (error) {
-      console.error(`   ❌ Claude (${role}) 錯誤:`, error.message);
-      return { ai: 'Claude 4.5', error: error.message };
-    }
-  }
-
-  /**
-   * 📊 綜合三AI分析結果
-   */
-  combineThreeAIAnalysis(optimistic, cautious, neutral, stockData) {
-    const actionScore = { 'strong_buy': 2, 'buy': 1, 'hold': 0, 'sell': -1, 'strong_sell': -2 };
-    
-    let totalScore = 0, aiCount = 0;
-    let votes = { up: 0, down: 0, neutral: 0 };
-
-    [optimistic, cautious, neutral].forEach(result => {
-      if (result && !result.error) {
-        const action = result.action || 'hold';
-        totalScore += actionScore[action] || 0;
-        aiCount++;
-        if (action.includes('buy')) votes.up++;
-        else if (action.includes('sell')) votes.down++;
-        else votes.neutral++;
-      }
-    });
-
-    const avgScore = aiCount > 0 ? totalScore / aiCount : 0;
-    let action, actionText;
-    if (avgScore >= 1.2) { action = 'strong_buy'; actionText = '🔥 強力買入'; }
-    else if (avgScore >= 0.4) { action = 'buy'; actionText = '📈 建議買入'; }
-    else if (avgScore <= -1.2) { action = 'strong_sell'; actionText = '⚠️ 強力賣出'; }
-    else if (avgScore <= -0.4) { action = 'sell'; actionText = '📉 建議賣出'; }
-    else { action = 'hold'; actionText = '➡️ 持有觀望'; }
-
-    let consensus = votes.up >= 2 ? `📈 ${votes.up}/3 AI 看漲` : 
-                   votes.down >= 2 ? `📉 ${votes.down}/3 AI 看跌` : '🤔 意見分歧';
+    // 綜合分析結果
+    const combined = this.combineAnalysisDual(positiveResult, negativeResult, stockData, technicalData, holdingData);
 
     return {
-      action, actionText,
-      confidence: Math.round((optimistic?.confidence || 50) * 0.4 + (cautious?.confidence || 50) * 0.3 + (neutral?.confidence || 50) * 0.3),
-      consensus, votes, aiCount,
-      targetPrice: optimistic?.target_price || neutral?.fair_price,
-      supportPrice: optimistic?.support_price || cautious?.stop_loss,
-      resistancePrice: cautious?.resistance_price,
-      buyPrice: optimistic?.support_price || cautious?.stop_loss,
-      optimisticView: optimistic?.opportunity || '分析中...',
-      cautiousView: cautious?.risk_factors || '分析中...',
-      neutralView: neutral?.analysis || neutral?.strategy || '分析中...',
-      // 兼容舊格式
-      positive: { opportunity: optimistic?.opportunity || '暫無分析', target: optimistic?.target_price, support: optimistic?.support_price },
-      negative: { riskFactors: cautious?.risk_factors || '暫無分析', resistance: cautious?.resistance_price, stopLoss: cautious?.stop_loss }
+      positive: positiveResult,
+      negative: negativeResult,
+      combined
+    };
+  }
+
+  /**
+   * 📈 建立正面觀點分析提示詞
+   */
+  buildPositivePrompt(stockData, technicalData, holdingData) {
+    const baseInfo = this.buildBaseInfo(stockData, technicalData, holdingData);
+    
+    return `你是一位【樂觀派】的台灣股市分析師，擅長發掘投資機會。請從【正面角度】分析這檔股票。使用繁體中文台灣用語。
+
+${baseInfo}
+
+請提供【正面觀點分析】，以 JSON 格式回覆，只輸出 JSON：
+{
+  "action": "strong_buy" 或 "buy" 或 "hold"（從正面角度判斷）,
+  "confidence": 1-100 的看多信心度,
+  "opportunity": "100字以內，說明目前的投資機會、利多因素",
+  "technical_positive": "技術面正面訊號（50字）",
+  "support_price": 支撐價位（數字）,
+  "target_price": 目標價位（數字）,
+  "buy_timing": "最佳買入時機建議（40字）",
+  "holding_advice": "持股者正面建議（40字）"
+}`;
+  }
+
+  /**
+   * ⚠️ 建立風險觀點分析提示詞
+   */
+  buildNegativePrompt(stockData, technicalData, holdingData) {
+    const baseInfo = this.buildBaseInfo(stockData, technicalData, holdingData);
+    
+    return `你是一位【謹慎派】的台灣股市分析師，擅長風險評估。請從【風險角度】分析這檔股票。使用繁體中文台灣用語。
+
+${baseInfo}
+
+請提供【風險觀點分析】，以 JSON 格式回覆，只輸出 JSON：
+{
+  "action": "hold" 或 "sell" 或 "strong_sell"（從風險角度判斷）,
+  "confidence": 1-100 的風險警戒度,
+  "risk_factors": "100字以內，說明主要風險因素、利空訊號",
+  "technical_negative": "技術面負面訊號（50字）",
+  "resistance_price": 壓力價位（數字）,
+  "stop_loss": 建議停損價（數字）,
+  "sell_timing": "減碼/賣出時機建議（40字）",
+  "warning": "投資人需注意事項（40字）"
+}`;
+  }
+
+  /**
+   * 建立基礎資訊（共用）
+   */
+  buildBaseInfo(stockData, technicalData, holdingData) {
+    // 技術指標資訊
+    let technicalInfo = '無技術指標資料';
+    if (technicalData) {
+      technicalInfo = `
+【技術指標】
+• RSI(14): ${technicalData.rsi || 'N/A'}（30以下超賣，70以上超買）
+• KD值: K=${technicalData.kd?.k || 'N/A'}, D=${technicalData.kd?.d || 'N/A'}
+• MACD: DIF=${technicalData.macd?.dif || 'N/A'}, MACD=${technicalData.macd?.macd || 'N/A'}
+• 布林通道: 上軌=${technicalData.bollinger?.upper || 'N/A'}, 中軌=${technicalData.bollinger?.middle || 'N/A'}, 下軌=${technicalData.bollinger?.lower || 'N/A'}
+• 均線: MA5=${technicalData.ma5 || 'N/A'}, MA10=${technicalData.ma10 || 'N/A'}, MA20=${technicalData.ma20 || 'N/A'}`;
+    }
+
+    // 持股資訊
+    let holdingInfo = '';
+    if (holdingData) {
+      const costPrice = parseFloat(holdingData.won_price) || parseFloat(holdingData.bid_price) || 0;
+      const totalShares = (holdingData.lots || 0) * 1000 + (holdingData.odd_shares || 0);
+      const profitPercent = costPrice > 0 
+        ? (((stockData.price - costPrice) / costPrice) * 100).toFixed(2)
+        : 0;
+      holdingInfo = `
+【持股資訊】
+• 持有: ${holdingData.lots || 0}張 ${holdingData.odd_shares || 0}股
+• 成本價: $${costPrice}
+• 獲利: ${profitPercent >= 0 ? '+' : ''}${profitPercent}%`;
+    }
+
+    return `【股票基本資訊】
+• 股票: ${stockData.name}（${stockData.id}）
+• 現價: $${stockData.price}
+• 漲跌: ${stockData.change > 0 ? '+' : ''}${stockData.change}（${stockData.changePercent > 0 ? '+' : ''}${stockData.changePercent}%）
+• 今日區間: $${stockData.low || 'N/A'} ~ $${stockData.high || 'N/A'}
+• 成交量: ${stockData.volume ? stockData.volume.toLocaleString() : 'N/A'}
+${technicalInfo}
+${holdingInfo}`;
+  }
+
+  /**
+   * 呼叫 Gemini（雙 AI 版）
+   */
+  async callGeminiDual(prompt, apiKey, type) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+      const response = await axios.post(url, {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: type === 'positive' ? 0.7 : 0.6,
+          maxOutputTokens: 1000,
+          topP: 0.9
+        }
+      }, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 20000
+      });
+
+      let text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) return null;
+
+      // 移除 markdown 格式標記
+      text = text.replace(/```json\\s*/gi, "").replace(/```\\s*/g, "").trim();
+      // 解析 JSON
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+      return null;
+
+    } catch (error) {
+      console.error(`Gemini ${type} 分析錯誤:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * 綜合雙 AI 分析結果
+   */
+  combineAnalysisDual(positiveResult, negativeResult, stockData, technicalData, holdingData) {
+    const actionScore = {
+      'strong_buy': 2, 'buy': 1, 'hold': 0, 'sell': -1, 'strong_sell': -2
+    };
+
+    const scoreToAction = (score) => {
+      if (score >= 1.2) return 'strong_buy';
+      if (score >= 0.4) return 'buy';
+      if (score <= -1.2) return 'strong_sell';
+      if (score <= -0.4) return 'sell';
+      return 'hold';
+    };
+
+    const actionText = {
+      'strong_buy': '🔥 強力買入',
+      'buy': '📈 建議買入',
+      'hold': '⏸️ 持有觀望',
+      'sell': '📉 建議賣出',
+      'strong_sell': '⚠️ 強力賣出'
+    };
+
+    // 計算綜合評分
+    let totalScore = 0;
+    let aiCount = 0;
+
+    if (positiveResult) {
+      totalScore += (actionScore[positiveResult.action] || 0) * 0.5;
+      aiCount++;
+    }
+    if (negativeResult) {
+      totalScore += (actionScore[negativeResult.action] || 0) * 0.5;
+      aiCount++;
+    }
+
+    const combinedAction = scoreToAction(totalScore);
+    
+    // 計算信心度
+    const positiveConf = positiveResult?.confidence || 50;
+    const negativeConf = negativeResult?.confidence || 50;
+    const avgConfidence = Math.round((positiveConf + (100 - negativeConf)) / 2);
+
+    return {
+      action: combinedAction,
+      actionText: actionText[combinedAction],
+      confidence: avgConfidence,
+      finalConfidence: avgConfidence,
+      aiCount,
+      
+      // 正面分析
+      positive: {
+        opportunity: positiveResult?.opportunity || '暫無分析',
+        technical: positiveResult?.technical_positive || '',
+        support: positiveResult?.support_price,
+        target: positiveResult?.target_price,
+        buyTiming: positiveResult?.buy_timing || '',
+        holdingAdvice: positiveResult?.holding_advice || ''
+      },
+      
+      // 風險分析
+      negative: {
+        riskFactors: negativeResult?.risk_factors || '暫無分析',
+        technical: negativeResult?.technical_negative || '',
+        resistance: negativeResult?.resistance_price,
+        stopLoss: negativeResult?.stop_loss,
+        sellTiming: negativeResult?.sell_timing || '',
+        warning: negativeResult?.warning || ''
+      },
+
+      // 價格建議（綜合）
+      buyPrice: positiveResult?.support_price,
+      sellPrice: negativeResult?.resistance_price,
+      stopLoss: negativeResult?.stop_loss,
+      targetPrice: positiveResult?.target_price,
+
+      // 保留舊格式的兼容性
+      reasons: [],
+      timings: [positiveResult?.buy_timing, negativeResult?.sell_timing].filter(Boolean),
+      holdingAdvices: [positiveResult?.holding_advice, negativeResult?.warning].filter(Boolean),
+      riskLevel: negativeConf >= 70 ? '高' : negativeConf >= 40 ? '中' : '低',
+      consensus: false
     };
   }
 
@@ -212,7 +285,7 @@ ${baseInfo}
    */
   async callGemini(prompt, apiKey) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
       const response = await axios.post(url, {
         contents: [{ parts: [{ text: prompt }] }],
@@ -258,7 +331,7 @@ ${baseInfo}
         timeout: 30000
       });
 
-      let text = response.data.choices[0]?.message?.content?.trim();
+      const text = response.data.choices[0]?.message?.content?.trim();
       if (text) {
         return this.parseAIResponse(text, 'OpenAI');
       }
@@ -275,8 +348,6 @@ ${baseInfo}
   parseAIResponse(text, source) {
     try {
       // 嘗試提取 JSON
-      // 移除 markdown 格式標記
-      text = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
@@ -485,7 +556,7 @@ ${baseInfo}
 4. 一句話結論`;
 
     try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
       
       // 並行呼叫：樂觀派(Gemini) + 謹慎派(Gemini或OpenAI) + 綜合建議
       const requests = [];
@@ -670,7 +741,7 @@ ${baseInfo}
 4. 一句話總結`;
 
     try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
       
       const requests = [];
       
@@ -789,7 +860,7 @@ ${baseInfo}
 只輸出新聞列表，不要其他說明。如果找不到近期新聞，就說「暫無重大新聞」。`;
 
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
       const response = await axios.post(url, {
         contents: [{ parts: [{ text: prompt }] }],
@@ -832,7 +903,7 @@ ${baseInfo}
 {"heat": 數字, "sentiment": 數字, "summary": "一句話總結"}`;
 
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
       const response = await axios.post(url, {
         contents: [{ parts: [{ text: prompt }] }],
