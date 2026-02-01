@@ -617,8 +617,8 @@ function analyzeWaveStructureAdvanced(pivots, currentPrice, history) {
   // 分析子浪結構
   const subwaveAnalysis = analyzeSubwaves(lastCycleWaves, history);
   
-  // 判斷當前波浪位置（使用最後週期的波浪）
-  const currentWave = determineCurrentWaveAdvanced(lastCycleWaves, currentPrice, history);
+  // 🆕 使用方案1+2+3（短期+中期+長期綜合判定）
+  const currentWave = determineWaveWithEnhancedLogic(lastCycleWaves, currentPrice, history);
   
   // 計算波浪統計
   const waveStats = calculateWaveStatistics(lastCycleWaves);
@@ -2070,6 +2070,11 @@ function analyzeTimeframeWave(history, currentPrice, threshold, label) {
   
   let wave, reason;
   
+  // ========================================
+  // 🆕 改進的波浪判斷邏輯
+  // 核心原則：價格位置 + 趨勢特徵 > 單純轉折點數量
+  // ========================================
+  
   // 根據轉折點數量和價格位置判斷
   if (waveCount <= 1) {
     if (pricePosition > 0.7) {
@@ -2106,15 +2111,52 @@ function analyzeTimeframeWave(history, currentPrice, threshold, label) {
   }
   else {
     // waveCount >= 5
-    if (pricePosition > 0.9 && fromHigh < 10) {
-      wave = 5;
-      reason = `${label}多浪完成，可能第5浪末端`;
-    } else if (fromHigh >= 20) {
+    // 🆕 改進：不再單純因為轉折點多就判定為第5浪
+    // 需要綜合考慮價格位置和趨勢特徵
+    
+    if (fromHigh >= 30) {
+      // 從高點大幅回撤，可能是修正浪
       wave = 'A';
-      reason = `${label}可能進入修正`;
+      reason = `${label}回調${fromHigh.toFixed(0)}%，可能進入修正`;
+    } else if (fromHigh >= 20) {
+      // 中度回撤，可能是第4浪整理
+      wave = 4;
+      reason = `${label}回調${fromHigh.toFixed(0)}%，整理階段`;
+    } else if (pricePosition < 0.4) {
+      // 價格位置低，不太可能是第5浪末端
+      wave = 2;
+      reason = `${label}價格位置偏低，可能是回調`;
+    } else if (pricePosition < 0.6) {
+      // 價格位置中等，可能是第3浪中段或第4浪
+      if (fromHigh > 10) {
+        wave = 4;
+        reason = `${label}價格整理中`;
+      } else {
+        wave = 3;
+        reason = `${label}主升段`;
+      }
+    } else if (pricePosition < 0.8) {
+      // 價格位置偏高但未到極端
+      if (fromHigh > 5) {
+        wave = 4;
+        reason = `${label}高位整理`;
+      } else {
+        wave = 3;
+        reason = `${label}主升段延續`;
+      }
     } else {
-      wave = 5;
-      reason = `${label}第5浪`;
+      // pricePosition >= 0.8 且 fromHigh < 20
+      // 價格接近高點，才判定為第5浪
+      if (fromHigh < 5) {
+        wave = 5;
+        reason = `${label}多浪完成，可能第5浪末端`;
+      } else if (fromHigh < 10) {
+        wave = 5;
+        reason = `${label}第5浪，注意風險`;
+      } else {
+        wave = 4;
+        reason = `${label}高位回調`;
+      }
     }
   }
   
