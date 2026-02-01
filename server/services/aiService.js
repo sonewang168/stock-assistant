@@ -160,7 +160,7 @@ ${holdingInfo}`;
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: type === 'positive' ? 0.7 : 0.6,
-          maxOutputTokens: 500,
+          maxOutputTokens: 1000,
           topP: 0.9
         }
       }, {
