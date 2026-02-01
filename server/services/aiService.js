@@ -172,8 +172,11 @@ ${holdingInfo}`;
       console.log(`   ✅ Gemini ${type} 回應: ${text ? "有內容" : "無內容"}`);
       if (!text) return null;
 
+      // 移除 markdown 格式標記
+      let cleanText = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+      
       // 解析 JSON
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
           const parsed = JSON.parse(jsonMatch[0]);
@@ -181,7 +184,7 @@ ${holdingInfo}`;
           return parsed;
         } catch (e) {
           console.log(`   ⚠️ Gemini ${type} JSON 解析失敗:`, e.message);
-          console.log(`   ⚠️ 原始回應:`, text.substring(0, 200));
+          console.log(`   ⚠️ 清理後文字:`, cleanText.substring(0, 200));
           return null;
         }
       }
