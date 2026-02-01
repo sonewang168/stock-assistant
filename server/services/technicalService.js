@@ -61,8 +61,8 @@ class TechnicalService {
       }
     }
     
-    if (history.length < 26) {
-      console.log(`   ⚠️ 歷史資料不足: ${history.length} 筆 (需要 26 筆)`);
+    if (history.length < 10) {
+      console.log(`   ⚠️ 歷史資料不足: ${history.length} 筆 (需要 10 筆)`);
       return null;
     }
 
