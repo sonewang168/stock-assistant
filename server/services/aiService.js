@@ -50,6 +50,8 @@ class AIService {
     ]);
 
     // 綜合分析結果
+    console.log(`   📊 正面分析結果:`, positiveResult ? JSON.stringify(positiveResult).substring(0, 100) : "null");
+    console.log(`   📊 負面分析結果:`, negativeResult ? JSON.stringify(negativeResult).substring(0, 100) : "null");
     const combined = this.combineAnalysisDual(positiveResult, negativeResult, stockData, technicalData, holdingData);
 
     return {
@@ -167,14 +169,23 @@ ${holdingInfo}`;
       });
 
       const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) return null;
       console.log(`   ✅ Gemini ${type} 回應: ${text ? "有內容" : "無內容"}`);
+      if (!text) return null;
 
       // 解析 JSON
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          console.log(`   ✅ Gemini ${type} JSON 解析成功:`, JSON.stringify(parsed).substring(0, 150));
+          return parsed;
+        } catch (e) {
+          console.log(`   ⚠️ Gemini ${type} JSON 解析失敗:`, e.message);
+          console.log(`   ⚠️ 原始回應:`, text.substring(0, 200));
+          return null;
+        }
       }
+      console.log(`   ⚠️ Gemini ${type} 無 JSON 格式，原始回應:`, text.substring(0, 200));
       return null;
 
     } catch (error) {
