@@ -133,7 +133,7 @@ ${holdingInfo}`;
         timeout: 20000
       });
 
-      const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      let text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) return null;
 
       // 解析 JSON
@@ -303,7 +303,7 @@ ${holdingInfo}`;
         timeout: 30000
       });
 
-      const text = response.data.choices[0]?.message?.content?.trim();
+      let text = response.data.choices[0]?.message?.content?.trim();
       if (text) {
         return this.parseAIResponse(text, 'OpenAI');
       }
