@@ -168,6 +168,7 @@ ${holdingInfo}`;
 
       const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) return null;
+      console.log(`   ✅ Gemini ${type} 回應: ${text ? "有內容" : "無內容"}`);
 
       // 解析 JSON
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -177,7 +178,7 @@ ${holdingInfo}`;
       return null;
 
     } catch (error) {
-      console.error(`Gemini ${type} 分析錯誤:`, error.message);
+      console.error(`   ❌ Gemini ${type} 分析錯誤:`, error.message); if (error.response?.data) console.error(`   ❌ 詳情:`, JSON.stringify(error.response.data).substring(0,300));
       return null;
     }
   }
