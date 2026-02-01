@@ -4031,10 +4031,12 @@
                     <button class="quick-btn" style="background: var(--accent-blue);" onclick="refreshAllMonitorStaggered()">🔄 全部更新</button>
                     <button class="quick-btn" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);" onclick="startMultiStockAIAnalysis()">🧠 3AI 分析</button>
                     <button class="quick-btn" style="background: var(--accent-purple);" onclick="togglePortfolioApiSettings()">⚙️ API</button>
-                    <select id="monitorInterval" onchange="updateMonitorInterval()" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;">
+                    <select id="monitorInterval" onchange="updateMonitorInterval()" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;" title="全部更新週期">
+                        <option value="10">10秒</option>
                         <option value="15">15秒</option>
                         <option value="30" selected>30秒</option>
-                        <option value="45">45秒</option>
+                        <option value="40">40秒</option>
+                        <option value="50">50秒</option>
                         <option value="60">60秒</option>
                     </select>
                     <select id="staggerDelaySelect" onchange="updateStaggerDelay()" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;" title="每檔股票抓取間隔">
@@ -4317,11 +4319,13 @@
                         <button class="quick-btn" onclick="addOddLotStock()">➕ 新增</button>
                     </div>
                     <button class="quick-btn" style="background: var(--accent-blue);" onclick="refreshAllOddLotStaggered()">🔄 全部更新</button>
-                    <select id="oddMonitorInterval" onchange="updateOddMonitorInterval()" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;">
+                    <select id="oddMonitorInterval" onchange="updateOddMonitorInterval()" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;" title="全部更新週期">
+                        <option value="10">10秒</option>
+                        <option value="15">15秒</option>
                         <option value="30">30秒</option>
+                        <option value="40">40秒</option>
+                        <option value="50">50秒</option>
                         <option value="60" selected>60秒</option>
-                        <option value="90">90秒</option>
-                        <option value="180">3分鐘</option>
                     </select>
                     <select id="oddStaggerDelaySelect" onchange="updateOddStaggerDelay()" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;" title="每檔股票抓取間隔">
                         <option value="1000">間隔1秒</option>
