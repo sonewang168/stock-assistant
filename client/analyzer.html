@@ -4037,6 +4037,13 @@
                         <option value="45">45秒</option>
                         <option value="60">60秒</option>
                     </select>
+                    <select id="staggerDelaySelect" onchange="updateStaggerDelay()" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;" title="每檔股票抓取間隔">
+                        <option value="1000">間隔1秒</option>
+                        <option value="1500">間隔1.5秒</option>
+                        <option value="2000" selected>間隔2秒</option>
+                        <option value="2500">間隔2.5秒</option>
+                        <option value="3000">間隔3秒</option>
+                    </select>
                     <label style="display: flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--text-secondary);" title="手動開啟自動更新">
                         <input type="checkbox" id="monitorAutoRefresh" onchange="toggleMonitorAutoRefresh()">
                         自動更新
@@ -4315,6 +4322,13 @@
                         <option value="60" selected>60秒</option>
                         <option value="90">90秒</option>
                         <option value="180">3分鐘</option>
+                    </select>
+                    <select id="oddStaggerDelaySelect" onchange="updateOddStaggerDelay()" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;" title="每檔股票抓取間隔">
+                        <option value="1000">間隔1秒</option>
+                        <option value="1500">間隔1.5秒</option>
+                        <option value="2000" selected>間隔2秒</option>
+                        <option value="2500">間隔2.5秒</option>
+                        <option value="3000">間隔3秒</option>
                     </select>
                     <label style="display: flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--text-secondary);" title="手動開啟自動更新">
                         <input type="checkbox" id="oddAutoRefresh" onchange="toggleOddAutoRefresh()">
@@ -11084,7 +11098,8 @@
         let monitorIntervalSeconds = 30; // 預設30秒
         let tradingTimeChecker = null; // 交易時間檢查器
         const MAX_MONITOR = 8;
-        const STAGGER_DELAY = 2000; // 每檔間隔2秒錯開
+        let staggerDelay = 2000; // 🆕 每檔間隔（可調整：1000/1500/2000/2500/3000 毫秒）
+        let oddStaggerDelay = 2000; // 🆕 零股每檔間隔
 
         // 檢查是否為交易時間 (週一~週五 09:00~13:30)
         function isTradingTime() {
@@ -11225,6 +11240,13 @@
                     monitorIntervalSeconds = parseInt(savedInterval);
                     document.getElementById('monitorInterval').value = monitorIntervalSeconds;
                 }
+                // 🆕 載入個股間隔設定
+                const savedStaggerDelay = localStorage.getItem('staggerDelay');
+                if (savedStaggerDelay) {
+                    staggerDelay = parseInt(savedStaggerDelay);
+                    const staggerSelect = document.getElementById('staggerDelaySelect');
+                    if (staggerSelect) staggerSelect.value = staggerDelay;
+                }
                 // 載入智能模式設定
                 const savedSmartAuto = localStorage.getItem('monitorSmartAuto');
                 if (savedSmartAuto === 'true') {
@@ -11266,6 +11288,13 @@
                 startMonitorAutoRefresh();
                 showToast(`⏱️ 更新間隔已改為 ${monitorIntervalSeconds} 秒`);
             }
+        }
+
+        // 🆕 更新個股抓取間隔
+        function updateStaggerDelay() {
+            staggerDelay = parseInt(document.getElementById('staggerDelaySelect').value);
+            localStorage.setItem('staggerDelay', staggerDelay);
+            showToast(`⏱️ 個股間隔已改為 ${staggerDelay / 1000} 秒`);
         }
 
         // 新增監控股票
@@ -11561,9 +11590,9 @@
                 
                 await refreshMonitorStock(i);
                 
-                // 除了最後一檔，每檔之間等待2秒
+                // 除了最後一檔，每檔之間等待（可調整）
                 if (i < monitorStocks.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, STAGGER_DELAY));
+                    await new Promise(resolve => setTimeout(resolve, staggerDelay));
                 }
             }
             
@@ -11705,6 +11734,13 @@
             }
         }
 
+        // 🆕 更新零股個股抓取間隔
+        function updateOddStaggerDelay() {
+            oddStaggerDelay = parseInt(document.getElementById('oddStaggerDelaySelect').value);
+            localStorage.setItem('oddStaggerDelay', oddStaggerDelay);
+            showToast(`⏱️ 零股個股間隔已改為 ${oddStaggerDelay / 1000} 秒`);
+        }
+
         // 開啟零股自動更新
         function startOddAutoRefresh() {
             if (oddMonitorInterval) return;
@@ -11786,6 +11822,13 @@
                 if (saved) {
                     oddLotStocks = JSON.parse(saved);
                     renderOddLotGrid();
+                }
+                // 🆕 載入零股個股間隔設定
+                const savedOddStaggerDelay = localStorage.getItem('oddStaggerDelay');
+                if (savedOddStaggerDelay) {
+                    oddStaggerDelay = parseInt(savedOddStaggerDelay);
+                    const oddStaggerSelect = document.getElementById('oddStaggerDelaySelect');
+                    if (oddStaggerSelect) oddStaggerSelect.value = oddStaggerDelay;
                 }
             } catch (e) {
                 console.error('載入零股監控清單失敗:', e);
@@ -12092,7 +12135,7 @@
                 }
                 
                 if (i < oddLotStocks.length - 1) {
-                    await new Promise(r => setTimeout(r, 1200));
+                    await new Promise(r => setTimeout(r, oddStaggerDelay));
                 }
             }
             
