@@ -89,7 +89,7 @@ ${baseInfo}
     try {
       console.log(`   🔴 呼叫 OpenAI (${role})...`);
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-5.2',
+        model: 'gpt-5.1',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 500, temperature: 0.7
       }, {
@@ -98,19 +98,19 @@ ${baseInfo}
       });
 
       let text = response.data.choices[0]?.message?.content?.trim();
-      if (!text) return { ai: 'GPT-5.2', error: '無回應' };
+      if (!text) return { ai: 'GPT-5.1', error: '無回應' };
       text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        parsed.ai = 'GPT-5.2';
+        parsed.ai = 'GPT-5.1';
         console.log(`   ✅ OpenAI (${role}) 成功`);
         return parsed;
       }
-      return { ai: 'GPT-5.2', error: '解析失敗' };
+      return { ai: 'GPT-5.1', error: '解析失敗' };
     } catch (error) {
       console.error(`   ❌ OpenAI (${role}) 錯誤:`, error.message);
-      return { ai: 'GPT-5.2', error: error.message };
+      return { ai: 'GPT-5.1', error: error.message };
     }
   }
 
@@ -243,7 +243,7 @@ ${baseInfo}
   async callOpenAI(prompt, apiKey) {
     try {
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-4o-mini',
+        model: 'gpt-5.1',
         messages: [
           { role: 'system', content: '你是專業的台灣股市技術分析師，擁有20年以上實戰經驗，擅長技術指標分析和買賣時機判斷。請提供詳細且專業的分析，只用 JSON 格式回覆。' },
           { role: 'user', content: prompt }
@@ -512,7 +512,7 @@ ${baseInfo}
         console.log('   🔴 呼叫 OpenAI GPT-4o 謹慎派...');
         requests.push(
           axios.post('https://api.openai.com/v1/chat/completions', {
-            model: 'gpt-4o-mini',
+            model: 'gpt-5.1',
             messages: [{ role: 'user', content: bearishPrompt }],
             max_tokens: 300,
             temperature: 0.7
@@ -691,7 +691,7 @@ ${baseInfo}
       if (openaiKey) {
         requests.push(
           axios.post('https://api.openai.com/v1/chat/completions', {
-            model: 'gpt-4o-mini',
+            model: 'gpt-5.1',
             messages: [{ role: 'user', content: bearishPrompt }],
             max_tokens: 350,
             temperature: 0.7

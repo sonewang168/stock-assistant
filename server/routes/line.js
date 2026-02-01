@@ -1116,7 +1116,7 @@ async function callGeminiForAnalysis(apiKey, prompt) {
 async function callOpenAIForAnalysis(apiKey, prompt) {
   try {
     const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-      model: 'gpt-5.2',
+      model: 'gpt-5.1',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 200,
       temperature: 0.7
@@ -8498,7 +8498,7 @@ async function getAIAnalysisFlex(stockId) {
         type: 'box',
         layout: 'vertical',
         contents: [
-          { type: 'text', text: `🔴 謹慎派 (${cautious?.ai || 'GPT-5.2'})`, size: 'lg', color: '#ffffff', weight: 'bold' }
+          { type: 'text', text: `🔴 謹慎派 (${cautious?.ai || 'GPT-5.1'})`, size: 'lg', color: '#ffffff', weight: 'bold' }
         ],
         backgroundColor: '#F44336',
         paddingAll: '15px'
@@ -10969,10 +10969,10 @@ ${twMarketInfo}
     let bearishRequests;
     if (openaiKey) {
       bearishRequests = [
-        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-5.2', messages: [{ role: 'user', content: prompts.usAiBearish }], max_tokens: 200 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 }),
-        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-5.2', messages: [{ role: 'user', content: prompts.dramBearish }], max_tokens: 250 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 }),
-        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-5.2', messages: [{ role: 'user', content: prompts.twAiBearish }], max_tokens: 200 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 }),
-        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-5.2', messages: [{ role: 'user', content: prompts.twMarketBearish }], max_tokens: 200 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 })
+        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-5.1', messages: [{ role: 'user', content: prompts.usAiBearish }], max_tokens: 200 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 }),
+        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-5.1', messages: [{ role: 'user', content: prompts.dramBearish }], max_tokens: 250 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 }),
+        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-5.1', messages: [{ role: 'user', content: prompts.twAiBearish }], max_tokens: 200 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 }),
+        axios.post('https://api.openai.com/v1/chat/completions', { model: 'gpt-5.1', messages: [{ role: 'user', content: prompts.twMarketBearish }], max_tokens: 200 }, { headers: { 'Authorization': `Bearer ${openaiKey}` }, timeout: 15000 })
       ];
     } else {
       bearishRequests = [
@@ -11477,7 +11477,7 @@ async function getUSMarketDeepAnalysisFlex() {
       }
     };
     
-    // 卡片 5：GPT-5.2 謹慎派分析
+    // 卡片 5：GPT-5.1 謹慎派分析
     const card5 = {
       type: 'bubble',
       size: 'mega',
@@ -11485,7 +11485,7 @@ async function getUSMarketDeepAnalysisFlex() {
         type: 'box',
         layout: 'vertical',
         contents: [
-          { type: 'text', text: `🔴 ${aiAnalysis.aiSource2 || 'GPT-5.2'} 謹慎派`, color: '#ffffff', size: 'lg', weight: 'bold' },
+          { type: 'text', text: `🔴 ${aiAnalysis.aiSource2 || 'GPT-5.1'} 謹慎派`, color: '#ffffff', size: 'lg', weight: 'bold' },
           { type: 'text', text: '台股明日風險評估', color: '#ffffffcc', size: 'sm', margin: 'sm' }
         ],
         backgroundColor: '#C62828',
@@ -11714,13 +11714,13 @@ DRAM 代表股美光: ${data.dramStocks.find(s => s.id === 'MU')?.changePercent 
       }, { timeout: 20000 })
     ];
     
-    // 謹慎派 (GPT-5.2 或 Gemini)
+    // 謹慎派 (GPT-5.1 或 Gemini)
     let bearishRequest;
-    let aiSource2 = 'GPT-5.2';
+    let aiSource2 = 'GPT-5.1';
     
     if (openaiKey) {
       bearishRequest = axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-5.2',
+        model: 'gpt-5.1',
         messages: [{ role: 'user', content: bearishPrompt }],
         max_tokens: 600,
         temperature: 0.6
@@ -13011,7 +13011,7 @@ async function callPredictionAPI(aiName, role, stockInfo, claudeKey, geminiKey, 
       text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || text;
     } else if (aiName === 'GPT' && openaiKey) {
       const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-        model: 'gpt-5.2',
+        model: 'gpt-5.1',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 100,
         temperature: 0.7
