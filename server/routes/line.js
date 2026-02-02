@@ -8019,7 +8019,8 @@ function getTutorialReport() {
               { type: 'text', text: '⏰ 13:35 績效報告', size: 'xs', color: '#2980B9' },
               { type: 'text', text: '⏰ 13:40 收盤日報', size: 'xs', color: '#2980B9' },
               { type: 'text', text: '⏰ 14:00 持股摘要', size: 'xs', color: '#2980B9' },
-              { type: 'text', text: '⏰ 15:30 三大法人', size: 'xs', color: '#2980B9' }
+              { type: 'text', text: '⏰ 15:30 三大法人', size: 'xs', color: '#2980B9' },
+              { type: 'text', text: '🇺🇸 21:30 美股開盤預告', size: 'xs', color: '#8E44AD' }
             ]
           }
         ],
@@ -10322,7 +10323,7 @@ function getFullFeatureList() {
               { type: 'text', text: '台積電現在多少\n鴻海漲還跌\n幫我查聯發科', size: 'xs', color: '#666666', wrap: true, margin: 'sm' },
               { type: 'separator', margin: 'lg' },
               { type: 'text', text: '⏰ 自動通知', weight: 'bold', size: 'sm', color: '#F39C12', margin: 'lg' },
-              { type: 'text', text: '09:00 開盤提醒\n盤中 價格警報\n13:35 收盤摘要\n15:00 法人買賣超', size: 'xs', color: '#666666', wrap: true, margin: 'sm' }
+              { type: 'text', text: '09:00 開盤提醒\n盤中 價格警報\n13:35 收盤摘要\n15:00 法人買賣超\n🇺🇸 21:30 美股開盤預告', size: 'xs', color: '#666666', wrap: true, margin: 'sm' }
             ],
             paddingAll: '15px'
           },
