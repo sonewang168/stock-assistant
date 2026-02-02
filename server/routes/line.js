@@ -3709,6 +3709,8 @@ async function fetchTPEXHistory(stockId, days) {
   
   console.log(`TPEX 抓取 ${stockId}，需要 ${days} 天，抓取 ${maxMonths} 個月`);
   
+  let consecutiveFailures = 0; // 🆕 連續失敗計數
+  
   for (let m = 0; m < maxMonths; m++) {
     const targetDate = new Date(now.getFullYear(), now.getMonth() - m, 1);
     const year = targetDate.getFullYear() - 1911;
@@ -3719,7 +3721,7 @@ async function fetchTPEXHistory(stockId, days) {
     
     try {
       const response = await axios.get(url, {
-        timeout: 20000,
+        timeout: 8000, // 🆕 減少超時時間
         maxRedirects: 5,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -3730,6 +3732,8 @@ async function fetchTPEXHistory(stockId, days) {
           'Connection': 'keep-alive'
         }
       });
+      
+      consecutiveFailures = 0; // 成功則重置
       
       if (response.data?.aaData) {
         for (const row of response.data.aaData) {
@@ -3754,9 +3758,16 @@ async function fetchTPEXHistory(stockId, days) {
       }
     } catch (e) {
       console.log(`TPEX ${dateStr} 抓取失敗: ${e.message}`);
+      consecutiveFailures++;
+      
+      // 🆕 如果是 520 錯誤（被封鎖）或連續失敗 2 次，直接退出
+      if (e.message.includes('520') || e.message.includes('403') || consecutiveFailures >= 2) {
+        console.log(`⚠️ TPEX 被封鎖或連續失敗，停止抓取 ${stockId}`);
+        break;
+      }
     }
     
-    await new Promise(r => setTimeout(r, 500)); // 增加等待時間避免限流
+    await new Promise(r => setTimeout(r, 300)); // 🆕 減少等待時間
   }
   
   // 排序並回傳（不限制筆數，讓上層函數決定）
