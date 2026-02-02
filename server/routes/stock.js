@@ -43,8 +43,21 @@ router.get('/realtime/:code', async (req, res) => {
       
       if (twseRes.data?.msgArray?.[0]) {
         const d = twseRes.data.msgArray[0];
-        const price = parseFloat(d.z) || parseFloat(d.y) || 0;
-        const prevClose = parseFloat(d.y) || price;
+        const prevClose = parseFloat(d.y) || 0;
+        
+        // 🔧 修正：正確取得最新價格
+        // z: 最新成交價（可能是 "-" 表示尚未成交）
+        // b: 買價（五檔）, a: 賣價（五檔）
+        let price = 0;
+        if (d.z && d.z !== '-' && !isNaN(parseFloat(d.z))) {
+          price = parseFloat(d.z);
+        } else {
+          // 成交價無效時，用買價或賣價
+          const buyPrice = d.b ? parseFloat(d.b.split('_')[0]) : 0;
+          const sellPrice = d.a ? parseFloat(d.a.split('_')[0]) : 0;
+          price = buyPrice || sellPrice || prevClose;
+        }
+        
         const change = price - prevClose;
         const changePercent = prevClose > 0 ? (change / prevClose * 100) : 0;
         
@@ -148,8 +161,18 @@ router.post('/realtime/batch', async (req, res) => {
           
           if (twseRes.data?.msgArray?.[0]) {
             const d = twseRes.data.msgArray[0];
-            const price = parseFloat(d.z) || parseFloat(d.y) || 0;
-            const prevClose = parseFloat(d.y) || price;
+            const prevClose = parseFloat(d.y) || 0;
+            
+            // 🔧 修正：正確取得最新價格
+            let price = 0;
+            if (d.z && d.z !== '-' && !isNaN(parseFloat(d.z))) {
+              price = parseFloat(d.z);
+            } else {
+              const buyPrice = d.b ? parseFloat(d.b.split('_')[0]) : 0;
+              const sellPrice = d.a ? parseFloat(d.a.split('_')[0]) : 0;
+              price = buyPrice || sellPrice || prevClose;
+            }
+            
             data = {
               code: d.c,
               name: d.n,
