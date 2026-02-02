@@ -316,7 +316,9 @@ async function handleCommand(message, userId) {
     '大盤': () => getMarketReply(),
     '指數': () => getMarketReply(),
     '說明': () => getHelpReply(),
-    'help': () => getHelpReply()
+    'help': () => getHelpReply(),
+    '設定': () => getSettingsPageFlex(),
+    '通知設定': () => getSettingsPageFlex()
   };
   
   // 賣出指令：賣出 股票代碼 價格
@@ -496,6 +498,26 @@ async function handleCommand(message, userId) {
   if (msg === '語音關' || msg === '關閉語音') {
     await pool.query("INSERT INTO settings (key, value) VALUES ('voice_enabled', 'false') ON CONFLICT (key) DO UPDATE SET value = 'false'");
     return { type: 'text', text: '🔇 語音播報已關閉' };
+  }
+  
+  // 🇺🇸 美股提醒開關指令
+  if (msg === '開啟美股提醒' || msg === '美股提醒開') {
+    await pool.query("INSERT INTO settings (key, value) VALUES ('us_market_reminder', '60') ON CONFLICT (key) DO UPDATE SET value = '60'");
+    return { type: 'text', text: '🇺🇸 美股開盤提醒已開啟！\n\n每日 21:30 左右會發送美股開盤預告' };
+  }
+  if (msg === '關閉美股提醒' || msg === '美股提醒關') {
+    await pool.query("INSERT INTO settings (key, value) VALUES ('us_market_reminder', '0') ON CONFLICT (key) DO UPDATE SET value = '0'");
+    return { type: 'text', text: '🇺🇸 美股開盤提醒已關閉' };
+  }
+  
+  // 🔔 智能通知開關指令
+  if (msg === '開啟智能通知' || msg === '智能通知開') {
+    await pool.query("INSERT INTO settings (key, value) VALUES ('smart_alert_enabled', 'true') ON CONFLICT (key) DO UPDATE SET value = 'true'");
+    return { type: 'text', text: '🔔 智能通知已開啟！\n\n盤中會自動發送價格異動提醒' };
+  }
+  if (msg === '關閉智能通知' || msg === '智能通知關') {
+    await pool.query("INSERT INTO settings (key, value) VALUES ('smart_alert_enabled', 'false') ON CONFLICT (key) DO UPDATE SET value = 'false'");
+    return { type: 'text', text: '🔕 智能通知已關閉' };
   }
   // 語音指令：語音 2330
   if (msg.startsWith('語音') || msg.startsWith('播報')) {
@@ -10809,6 +10831,85 @@ async function cancelReservation(stockId) {
   } catch (error) {
     console.error('取消預約錯誤:', error);
     return { type: 'text', text: `❌ 取消預約失敗: ${error.message}` };
+  }
+}
+
+/**
+ * 📋 設定頁面
+ */
+async function getSettingsPageFlex() {
+  try {
+    // 從資料庫讀取設定
+    const settings = {};
+    const result = await pool.query("SELECT key, value FROM settings");
+    result.rows.forEach(row => {
+      settings[row.key] = row.value;
+    });
+    
+    // 美股開盤提醒（分鐘）
+    const usMarketReminder = parseInt(settings.us_market_reminder) || 60;
+    const usReminderText = usMarketReminder === 0 ? '❌ 已關閉' : `✅ 開盤前 ${usMarketReminder} 分鐘`;
+    
+    // 台股開盤提醒
+    const twMarketReminder = parseInt(settings.tw_market_reminder) || 30;
+    const twReminderText = twMarketReminder === 0 ? '❌ 已關閉' : `✅ 開盤前 ${twMarketReminder} 分鐘`;
+    
+    // 智能通知
+    const smartAlert = settings.smart_alert_enabled === 'true' ? '✅ 已開啟' : '❌ 已關閉';
+    
+    // 語音功能
+    const voiceEnabled = settings.voice_enabled === 'true' ? '✅ 已開啟' : '❌ 已關閉';
+    
+    return {
+      type: 'flex',
+      altText: '⚙️ 設定',
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '⚙️ 通知設定', size: 'xl', weight: 'bold', color: '#ffffff' }
+          ],
+          backgroundColor: '#3498DB',
+          paddingAll: '15px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text', text: '🇹🇼 台股開盤提醒', weight: 'bold', size: 'md' },
+            { type: 'text', text: twReminderText, size: 'sm', color: '#666666', margin: 'sm' },
+            { type: 'separator', margin: 'lg' },
+            { type: 'text', text: '🇺🇸 美股開盤提醒', weight: 'bold', size: 'md', margin: 'lg' },
+            { type: 'text', text: usReminderText, size: 'sm', color: '#666666', margin: 'sm' },
+            { type: 'text', text: '每日 21:30 左右發送', size: 'xs', color: '#888888', margin: 'xs' },
+            { type: 'separator', margin: 'lg' },
+            { type: 'text', text: '🔔 智能通知', weight: 'bold', size: 'md', margin: 'lg' },
+            { type: 'text', text: smartAlert, size: 'sm', color: '#666666', margin: 'sm' },
+            { type: 'separator', margin: 'lg' },
+            { type: 'text', text: '🎤 語音播報', weight: 'bold', size: 'md', margin: 'lg' },
+            { type: 'text', text: voiceEnabled, size: 'sm', color: '#666666', margin: 'sm' },
+            { type: 'separator', margin: 'lg' },
+            { type: 'box', layout: 'vertical', margin: 'lg', backgroundColor: '#EBF5FB', cornerRadius: 'md', paddingAll: '10px',
+              contents: [
+                { type: 'text', text: '💡 修改設定請至網頁版', size: 'xs', color: '#2980B9' },
+                { type: 'text', text: '或輸入以下指令：', size: 'xs', color: '#2980B9', margin: 'xs' },
+                { type: 'text', text: '• 開啟美股提醒', size: 'xs', color: '#666666', margin: 'xs' },
+                { type: 'text', text: '• 關閉美股提醒', size: 'xs', color: '#666666' },
+                { type: 'text', text: '• 開啟智能通知', size: 'xs', color: '#666666' },
+                { type: 'text', text: '• 關閉智能通知', size: 'xs', color: '#666666' }
+              ]
+            }
+          ],
+          paddingAll: '15px'
+        }
+      }
+    };
+  } catch (error) {
+    console.error('取得設定錯誤:', error);
+    return { type: 'text', text: '❌ 無法取得設定: ' + error.message };
   }
 }
 
