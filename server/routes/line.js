@@ -491,11 +491,11 @@ async function handleCommand(message, userId) {
     await pool.query("INSERT INTO settings (key, value) VALUES ('voice_provider', 'elevenlabs') ON CONFLICT (key) DO UPDATE SET value = 'elevenlabs'"); await pool.query("INSERT INTO settings (key, value) VALUES ('elevenlabs_voice_id', '21m00Tcm4TlvDq8ikWAM') ON CONFLICT (key) DO UPDATE SET value = '21m00Tcm4TlvDq8ikWAM'");
   }
   // 語音開關指令
-  if (msg === '語音開' || msg === '開啟語音') {
+  if (msg === '語音開' || msg === '開啟語音' || msg === '開啟語音播報' || msg === '語音播報開') {
     await pool.query("INSERT INTO settings (key, value) VALUES ('voice_enabled', 'true') ON CONFLICT (key) DO UPDATE SET value = 'true'");
     return { type: 'text', text: '🔊 語音播報已開啟！\n\n輸入「語音 2330」即可聽取報價' };
   }
-  if (msg === '語音關' || msg === '關閉語音') {
+  if (msg === '語音關' || msg === '關閉語音' || msg === '關閉語音播報' || msg === '語音播報關') {
     await pool.query("INSERT INTO settings (key, value) VALUES ('voice_enabled', 'false') ON CONFLICT (key) DO UPDATE SET value = 'false'");
     return { type: 'text', text: '🔇 語音播報已關閉' };
   }
