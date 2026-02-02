@@ -6599,6 +6599,33 @@
         async function getStockQuote(code, market) {
             console.log(`📊 獲取 ${code} 報價...`);
             
+            // 🆕 0. 優先使用後端 API 代理（最可靠）
+            try {
+                const backendUrl = `/api/stock/realtime/${code}?market=${market || 'twse'}`;
+                const backendRes = await fetch(backendUrl);
+                if (backendRes.ok) {
+                    const result = await backendRes.json();
+                    if (result.success && result.data?.price > 0) {
+                        console.log(`✅ ${code} 從後端代理取得 (${result.source}): ${result.data.price}`);
+                        return {
+                            code: result.data.code || code,
+                            name: result.data.name || getStockChineseName(code, null),
+                            price: result.data.price,
+                            prevClose: result.data.prevClose,
+                            open: result.data.open,
+                            high: result.data.high,
+                            low: result.data.low,
+                            change: result.data.change,
+                            changePercent: result.data.changePercent,
+                            volume: result.data.volume,
+                            source: 'backend-' + result.source
+                        };
+                    }
+                }
+            } catch (backendErr) {
+                console.log(`⚠️ 後端代理失敗: ${backendErr.message}，改用前端抓取`);
+            }
+            
             // 1. 先嘗試 TWSE 即時（盤中最準確）
             let data = await fetchFromTWSE(code, market);
             if (data && data.price > 0) {
