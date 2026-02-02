@@ -4046,6 +4046,11 @@
                         <option value="2500">間隔2.5秒</option>
                         <option value="3000">間隔3秒</option>
                     </select>
+                    <select id="dataSourceSelect" onchange="updateDataSource()" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;" title="報價資料來源">
+                        <option value="backend" selected>🔄 自動（後端代理）</option>
+                        <option value="twse">🏛️ 台灣證交所</option>
+                        <option value="yahoo">📊 Yahoo 奇摩</option>
+                    </select>
                     <label style="display: flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--text-secondary);" title="手動開啟自動更新">
                         <input type="checkbox" id="monitorAutoRefresh" onchange="toggleMonitorAutoRefresh()">
                         自動更新
@@ -6595,59 +6600,74 @@
             };
         }
         
-        // 🔥 主要股票報價函數（自動選擇最佳來源）
+        // 🔥 主要股票報價函數（根據 dataSource 選擇來源）
         async function getStockQuote(code, market) {
-            console.log(`📊 獲取 ${code} 報價...`);
+            const sourceNames = { 'backend': '後端代理', 'twse': '台灣證交所', 'yahoo': 'Yahoo奇摩' };
+            console.log(`📊 獲取 ${code} 報價... (來源: ${sourceNames[dataSource]})`);
             
-            // 🆕 0. 優先使用後端 API 代理（最可靠）
-            try {
-                const backendUrl = `/api/stock/realtime/${code}?market=${market || 'twse'}`;
-                const backendRes = await fetch(backendUrl);
-                if (backendRes.ok) {
-                    const result = await backendRes.json();
-                    if (result.success && result.data?.price > 0) {
-                        console.log(`✅ ${code} 從後端代理取得 (${result.source}): ${result.data.price}`);
-                        return {
-                            code: result.data.code || code,
-                            name: result.data.name || getStockChineseName(code, null),
-                            price: result.data.price,
-                            prevClose: result.data.prevClose,
-                            open: result.data.open,
-                            high: result.data.high,
-                            low: result.data.low,
-                            change: result.data.change,
-                            changePercent: result.data.changePercent,
-                            volume: result.data.volume,
-                            source: 'backend-' + result.source
-                        };
+            let data = null;
+            
+            // 🆕 根據 dataSource 設定選擇來源
+            if (dataSource === 'backend') {
+                // 自動模式：使用後端 API 代理
+                try {
+                    const backendUrl = `/api/stock/realtime/${code}?market=${market || 'twse'}`;
+                    const backendRes = await fetch(backendUrl);
+                    if (backendRes.ok) {
+                        const result = await backendRes.json();
+                        if (result.success && result.data?.price > 0) {
+                            console.log(`✅ ${code} 從後端代理取得 (${result.source}): ${result.data.price}`);
+                            return {
+                                code: result.data.code || code,
+                                name: result.data.name || getStockChineseName(code, null),
+                                price: result.data.price,
+                                prevClose: result.data.prevClose,
+                                open: result.data.open,
+                                high: result.data.high,
+                                low: result.data.low,
+                                change: result.data.change,
+                                changePercent: result.data.changePercent,
+                                volume: result.data.volume,
+                                source: 'backend-' + result.source
+                            };
+                        }
                     }
+                } catch (backendErr) {
+                    console.log(`⚠️ 後端代理失敗: ${backendErr.message}`);
                 }
-            } catch (backendErr) {
-                console.log(`⚠️ 後端代理失敗: ${backendErr.message}，改用前端抓取`);
+                
+                // 後端失敗時的備援
+                data = await fetchFromTWSE(code, market);
+                if (data && data.price > 0) return data;
+                
+                data = await fetchFromYahoo(code, market);
+                if (data && data.price > 0) return data;
+                
+            } else if (dataSource === 'twse') {
+                // 台灣證交所模式
+                data = await fetchFromTWSE(code, market);
+                if (data && data.price > 0) {
+                    console.log(`✅ ${code} 從 TWSE 取得: ${data.price}`);
+                    return data;
+                }
+                
+                // TWSE 失敗時嘗試歷史資料
+                data = await fetchFromTWSEHistory(code, market);
+                if (data && data.price > 0) {
+                    console.log(`✅ ${code} 從 TWSE 歷史取得: ${data.price}`);
+                    return data;
+                }
+                
+            } else if (dataSource === 'yahoo') {
+                // Yahoo 奇摩模式
+                data = await fetchFromYahoo(code, market);
+                if (data && data.price > 0) {
+                    console.log(`✅ ${code} 從 Yahoo 取得: ${data.price}`);
+                    return data;
+                }
             }
             
-            // 1. 先嘗試 TWSE 即時（盤中最準確）
-            let data = await fetchFromTWSE(code, market);
-            if (data && data.price > 0) {
-                console.log(`✅ ${code} 從 TWSE 取得: ${data.price}`);
-                return data;
-            }
-            
-            // 2. 嘗試 Yahoo Finance（盤後可用）
-            data = await fetchFromYahoo(code, market);
-            if (data && data.price > 0) {
-                console.log(`✅ ${code} 從 Yahoo 取得: ${data.price}`);
-                return data;
-            }
-            
-            // 3. 最後嘗試歷史資料 API
-            data = await fetchFromTWSEHistory(code, market);
-            if (data && data.price > 0) {
-                console.log(`✅ ${code} 從歷史資料取得: ${data.price}`);
-                return data;
-            }
-            
-            console.log(`❌ ${code} 所有來源都失敗`);
+            console.log(`❌ ${code} 取得報價失敗`);
             
             // 返回僅有名稱的空資料
             return {
@@ -11131,6 +11151,7 @@
         const MAX_MONITOR = 8;
         let staggerDelay = 2000; // 🆕 每檔間隔（可調整：1000/1500/2000/2500/3000 毫秒）
         let oddStaggerDelay = 2000; // 🆕 零股每檔間隔
+        let dataSource = 'backend'; // 🆕 報價資料來源（backend/twse/yahoo）
 
         // 檢查是否為交易時間 (週一~週五 09:00~13:30)
         function isTradingTime() {
@@ -11278,6 +11299,13 @@
                     const staggerSelect = document.getElementById('staggerDelaySelect');
                     if (staggerSelect) staggerSelect.value = staggerDelay;
                 }
+                // 🆕 載入報價資料來源設定
+                const savedDataSource = localStorage.getItem('dataSource');
+                if (savedDataSource) {
+                    dataSource = savedDataSource;
+                    const dataSourceSelect = document.getElementById('dataSourceSelect');
+                    if (dataSourceSelect) dataSourceSelect.value = dataSource;
+                }
                 // 載入智能模式設定
                 const savedSmartAuto = localStorage.getItem('monitorSmartAuto');
                 if (savedSmartAuto === 'true') {
@@ -11326,6 +11354,18 @@
             staggerDelay = parseInt(document.getElementById('staggerDelaySelect').value);
             localStorage.setItem('staggerDelay', staggerDelay);
             showToast(`⏱️ 個股間隔已改為 ${staggerDelay / 1000} 秒`);
+        }
+
+        // 🆕 更新報價資料來源
+        function updateDataSource() {
+            dataSource = document.getElementById('dataSourceSelect').value;
+            localStorage.setItem('dataSource', dataSource);
+            const sourceNames = {
+                'backend': '🔄 自動（後端代理）',
+                'twse': '🏛️ 台灣證交所',
+                'yahoo': '📊 Yahoo 奇摩'
+            };
+            showToast(`📡 報價來源已改為 ${sourceNames[dataSource]}`);
         }
 
         // 新增監控股票
