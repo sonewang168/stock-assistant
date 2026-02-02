@@ -3428,6 +3428,13 @@ async function getKLineChart(stockId) {
  * 取得歷史資料（多來源備援）
  */
 async function fetchYahooHistory(stockId, days = 30) {
+  // 🆕 加權指數特殊處理
+  const taiexCodes = ['t00', 'T00', 'TAIEX', 'taiex', '加權', '大盤', '^TWII'];
+  if (taiexCodes.includes(stockId)) {
+    console.log(`📊 偵測到加權指數代碼: ${stockId}，轉換為 ^TWII`);
+    return await fetchTaiexHistory(days);
+  }
+  
   const isUS = /^[A-Z]+$/.test(stockId);
   
   if (isUS) {
@@ -3488,6 +3495,52 @@ async function fetchYahooHistory(stockId, days = 30) {
   
   console.log(`📊 ${stockId} 歷史資料筆數: ${history.length} (要求 ${days} 天)`);
   return history;
+}
+
+/**
+ * 🆕 加權指數歷史資料（使用 Yahoo Finance ^TWII）
+ */
+async function fetchTaiexHistory(days) {
+  const endDate = Math.floor(Date.now() / 1000);
+  const startDate = endDate - (days * 2 * 24 * 60 * 60);
+  
+  const yahooHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Accept': 'application/json'
+  };
+  
+  // 加權指數代碼
+  const symbol = '^TWII';
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${startDate}&period2=${endDate}&interval=1d`;
+  
+  try {
+    console.log(`📊 抓取加權指數歷史: ${url}`);
+    const response = await axios.get(url, { timeout: 15000, headers: yahooHeaders });
+    const result = response.data?.chart?.result?.[0];
+    
+    if (result?.timestamp && result.timestamp.length > 0) {
+      console.log(`✅ 加權指數歷史資料: ${result.timestamp.length} 筆`);
+      return parseYahooData(result);
+    }
+  } catch (e) {
+    console.log(`❌ 加權指數 Yahoo 失敗: ${e.message}`);
+  }
+  
+  // 備援：query2
+  try {
+    const url2 = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?period1=${startDate}&period2=${endDate}&interval=1d`;
+    const response = await axios.get(url2, { timeout: 15000, headers: yahooHeaders });
+    const result = response.data?.chart?.result?.[0];
+    
+    if (result?.timestamp && result.timestamp.length > 0) {
+      console.log(`✅ 加權指數歷史資料（備援）: ${result.timestamp.length} 筆`);
+      return parseYahooData(result);
+    }
+  } catch (e) {
+    console.log(`❌ 加權指數 Yahoo 備援失敗: ${e.message}`);
+  }
+  
+  return [];
 }
 
 /**
@@ -12072,18 +12125,69 @@ router.get('/wave/test', (req, res) => {
  */
 router.get('/wave/analyze/:stockId', async (req, res) => {
   try {
-    const stockId = req.params.stockId;
+    let stockId = req.params.stockId;
     // 🆕 取得 period 參數（預設 365 天 = 1年）
     const period = parseInt(req.query.period) || 365;
     // 限制範圍：最少 90 天，最多 730 天（2年）
     const safePeriod = Math.max(90, Math.min(730, period));
     
-    console.log(`🌊 波浪分析 API 開始: ${stockId}, 期間: ${safePeriod} 天`);
+    // 🆕 加權指數特殊處理
+    const taiexCodes = ['t00', 'T00', 'TAIEX', 'taiex', '加權', '大盤', '^TWII'];
+    const isTaiex = taiexCodes.includes(stockId);
     
-    // 取得股票資料
-    const stockData = await stockService.getRealtimePrice(stockId);
-    const stockName = stockData?.name || getStockNameById(stockId) || stockId;
-    const currentPrice = parseFloat(stockData?.price) || 0;
+    console.log(`🌊 波浪分析 API 開始: ${stockId}, 期間: ${safePeriod} 天, 加權指數: ${isTaiex}`);
+    
+    let stockName, currentPrice, changePercent;
+    
+    if (isTaiex) {
+      // 🆕 加權指數：從 Yahoo Finance 獲取即時資料
+      stockId = 'TAIEX';
+      stockName = '台灣加權指數';
+      
+      try {
+        const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent('^TWII')}?interval=1d&range=5d`;
+        const yahooRes = await axios.get(yahooUrl, {
+          timeout: 10000,
+          headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+        
+        const meta = yahooRes.data?.chart?.result?.[0]?.meta;
+        if (meta) {
+          currentPrice = meta.regularMarketPrice || 0;
+          const prevClose = meta.chartPreviousClose || meta.previousClose || currentPrice;
+          changePercent = prevClose > 0 ? ((currentPrice - prevClose) / prevClose * 100) : 0;
+          console.log(`📊 加權指數即時: ${currentPrice}, 漲跌: ${changePercent.toFixed(2)}%`);
+        }
+      } catch (yahooErr) {
+        console.log(`⚠️ Yahoo 取得加權指數失敗: ${yahooErr.message}`);
+        // 嘗試 TWSE 即時報價
+        try {
+          const twseUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_t00.tw&json=1&delay=0`;
+          const twseRes = await axios.get(twseUrl, { timeout: 5000 });
+          if (twseRes.data?.msgArray?.[0]) {
+            const d = twseRes.data.msgArray[0];
+            currentPrice = parseFloat(d.z) || parseFloat(d.y) || 0;
+            const prevClose = parseFloat(d.y) || currentPrice;
+            changePercent = prevClose > 0 ? ((currentPrice - prevClose) / prevClose * 100) : 0;
+            stockName = d.n || '台灣加權指數';
+          }
+        } catch (twseErr) {
+          console.log(`⚠️ TWSE 取得加權指數失敗: ${twseErr.message}`);
+        }
+      }
+      
+      if (!currentPrice) {
+        currentPrice = 0;
+        changePercent = 0;
+      }
+    } else {
+      // 一般股票
+      const stockData = await stockService.getRealtimePrice(stockId);
+      stockName = stockData?.name || getStockNameById(stockId) || stockId;
+      currentPrice = parseFloat(stockData?.price) || 0;
+      changePercent = parseFloat(stockData?.changePercent) || 0;
+    }
+    
     console.log(`📈 ${stockId} 股價: ${currentPrice}, 名稱: ${stockName}`);
     
     // 🆕 根據 period 取得歷史資料
@@ -12242,9 +12346,11 @@ router.get('/wave/analyze/:stockId', async (req, res) => {
       };
     }
     
-    // 漲跌幅計算
+    // 漲跌幅計算（如果還沒有，從歷史資料計算）
     const prevClose = history.length > 1 ? history[history.length - 2].close : currentPrice;
-    const changePercent = ((currentPrice - prevClose) / prevClose * 100);
+    if (!changePercent) {
+      changePercent = ((currentPrice - prevClose) / prevClose * 100);
+    }
     const fromWaveChange = waveResult.waves?.length > 0 ? 
       ((currentPrice - waveResult.waves[waveResult.waves.length - 1].end) / waveResult.waves[waveResult.waves.length - 1].end * 100) : changePercent;
     

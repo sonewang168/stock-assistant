@@ -509,6 +509,7 @@
       <div class="search-box">
         <input type="text" id="stockInput" placeholder="股票代碼" value="2330" />
         <button class="btn btn-primary" onclick="analyzeStock()">🔍 分析波浪</button>
+        <button class="btn" style="background: #6e40c9; color: white;" onclick="analyzeIndex()" title="分析台灣加權指數">📊 加權指數</button>
       </div>
     </header>
     
@@ -843,6 +844,38 @@
       document.querySelectorAll('.tab')[tab === 'wave' ? 0 : 1].classList.add('active');
       document.getElementById('waveTab').classList.toggle('hidden', tab !== 'wave');
       document.getElementById('portfolioTab').classList.toggle('hidden', tab !== 'portfolio');
+    }
+    
+    // 🆕 分析加權指數
+    async function analyzeIndex() {
+      document.getElementById('stockInput').value = 'TAIEX';
+      showLoading();
+      
+      try {
+        const res = await fetch(`/api/line/wave/analyze/TAIEX`);
+        
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error('API 回應非 JSON:', contentType);
+          throw new Error('伺服器回應格式錯誤，請確認 API 是否正確部署');
+        }
+        
+        if (!res.ok) {
+          throw new Error(`HTTP 錯誤: ${res.status}`);
+        }
+        
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        
+        // 儲存數據供圖表使用
+        currentPivots = data.pivots || [];
+        currentHistory = data.history || [];
+        
+        renderAnalysis(data);
+      } catch (e) {
+        console.error('加權指數分析錯誤:', e);
+        alert('加權指數分析失敗: ' + e.message);
+      }
     }
     
     async function analyzeStock() {
