@@ -12220,6 +12220,14 @@ router.get('/wave/test', (req, res) => {
  * 波浪分析 API（供網頁版使用）- 進階版
  */
 router.get('/wave/analyze/:stockId', async (req, res) => {
+  // 🆕 禁止快取 - 確保每次都從後端取得最新資料
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store'
+  });
+  
   try {
     let stockId = req.params.stockId;
     // 🆕 取得 period 參數（預設 365 天 = 1年）

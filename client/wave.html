@@ -884,7 +884,8 @@
       showLoading();
       
       try {
-        const res = await fetch(`/api/line/wave/analyze/${stockId}`);
+        // 🆕 加入時間戳記防止快取
+        const res = await fetch(`/api/line/wave/analyze/${stockId}?_t=${Date.now()}`);
         
         // 檢查回應類型
         const contentType = res.headers.get('content-type');
