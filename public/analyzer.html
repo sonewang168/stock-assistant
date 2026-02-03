@@ -6325,6 +6325,9 @@
 
         // 格式化成交量（以張為單位）
         function formatVolume(volume) {
+            if (volume === undefined || volume === null || isNaN(volume)) {
+                return '---';
+            }
             if (volume >= 10000) {
                 return (volume / 10000).toFixed(2) + '萬張';
             } else if (volume >= 1000) {
