@@ -76,6 +76,8 @@ router.get('/realtime/:code', async (req, res) => {
             changePercent: changePercent,
             volume: parseInt(d.v) || 0,
             time: d.t || new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+            limitUp: parseFloat(d.u) || 0,    // 🆕 漲停價
+            limitDown: parseFloat(d.w) || 0,  // 🆕 跌停價
             buyPrice: d.b?.split('_')?.[0] || '',
             sellPrice: d.a?.split('_')?.[0] || ''
           }

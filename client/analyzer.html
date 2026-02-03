@@ -4066,11 +4066,11 @@
                         <option value="60">60秒</option>
                     </select>
                     <select id="staggerDelaySelect" onchange="updateStaggerDelay()" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;" title="每檔股票抓取間隔">
-                        <option value="1000">間隔1秒</option>
                         <option value="1500">間隔1.5秒</option>
-                        <option value="2000" selected>間隔2秒</option>
-                        <option value="2500">間隔2.5秒</option>
+                        <option value="2000">間隔2秒</option>
+                        <option value="2500" selected>間隔2.5秒</option>
                         <option value="3000">間隔3秒</option>
+                        <option value="4000">間隔4秒</option>
                     </select>
                     <select id="dataSourceSelect" onchange="updateDataSource()" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;" title="報價資料來源">
                         <option value="backend" selected>🔄 自動（後端代理）</option>
@@ -6657,6 +6657,8 @@
                                 change: result.data.change,
                                 changePercent: result.data.changePercent,
                                 volume: result.data.volume,
+                                limitUp: result.data.limitUp || Math.round(result.data.prevClose * 1.1 * 100) / 100,
+                                limitDown: result.data.limitDown || Math.round(result.data.prevClose * 0.9 * 100) / 100,
                                 tradeTime: result.data.time || new Date().toLocaleTimeString('zh-TW'),
                                 source: 'backend-' + result.source
                             };
@@ -6707,6 +6709,8 @@
                                 change: result.data.change,
                                 changePercent: result.data.changePercent,
                                 volume: result.data.volume,
+                                limitUp: result.data.limitUp || Math.round(result.data.prevClose * 1.1 * 100) / 100,
+                                limitDown: result.data.limitDown || Math.round(result.data.prevClose * 0.9 * 100) / 100,
                                 tradeTime: result.data.time || new Date().toLocaleTimeString('zh-TW'),
                                 source: 'backend-fallback'
                             };
@@ -6743,6 +6747,8 @@
                                 change: result.data.change,
                                 changePercent: result.data.changePercent,
                                 volume: result.data.volume,
+                                limitUp: result.data.limitUp || Math.round(result.data.prevClose * 1.1 * 100) / 100,
+                                limitDown: result.data.limitDown || Math.round(result.data.prevClose * 0.9 * 100) / 100,
                                 tradeTime: result.data.time || new Date().toLocaleTimeString('zh-TW'),
                                 source: 'backend-fallback'
                             };
@@ -11235,7 +11241,7 @@
         let monitorIntervalSeconds = 30; // 預設30秒
         let tradingTimeChecker = null; // 交易時間檢查器
         const MAX_MONITOR = 12;
-        let staggerDelay = 2000; // 🆕 每檔間隔（可調整：1000/1500/2000/2500/3000 毫秒）
+        let staggerDelay = 2500; // 🆕 每檔間隔（可調整：1500/2000/2500/3000/4000 毫秒）
         let oddStaggerDelay = 2000; // 🆕 零股每檔間隔
         let dataSource = 'backend'; // 🆕 報價資料來源（backend/twse/yahoo）
 
