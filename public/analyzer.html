@@ -11509,7 +11509,7 @@
             const volume = data ? formatVolume(data.volume) : '---';
             const limitUp = data && data.limitUp ? data.limitUp.toFixed(2) : '---';
             const limitDown = data && data.limitDown ? data.limitDown.toFixed(2) : '---';
-            const updateTime = data ? data.tradeTime : '--:--';
+            const updateTime = (data && data.tradeTime) ? data.tradeTime : new Date().toLocaleTimeString('zh-TW');
             // 🔧 修正：即使沒有即時數據，也從資料庫取得中文名稱
             const name = (data && data.name) ? data.name : getStockChineseName(stock.code, null);
             
@@ -11533,20 +11533,21 @@
             }
             
             return `
-                <div class="monitor-card ${cardClass}" id="monitorCard${index}" draggable="true" data-index="${index}"
-                    ondragstart="handleDragStart(event, ${index})"
-                    ondragend="handleDragEnd(event)"
-                    ondragover="handleDragOver(event)"
-                    ondragleave="handleDragLeave(event)"
-                    ondrop="handleDrop(event, ${index})">
-                    <div class="monitor-card-header">
+                <div class="monitor-card ${cardClass}" id="monitorCard${index}" data-index="${index}">
+                    <div class="monitor-card-header" draggable="true"
+                        ondragstart="handleDragStart(event, ${index})"
+                        ondragend="handleDragEnd(event)"
+                        ondragover="handleDragOver(event)"
+                        ondragleave="handleDragLeave(event)"
+                        ondrop="handleDrop(event, ${index})"
+                        style="cursor: grab;">
                         <div class="monitor-stock-info">
                             <span class="drag-handle" title="拖曳排序">☰</span>
                             <span class="monitor-stock-code">${stock.code}</span>
                             <span class="monitor-stock-name">${name}</span>
                             <span class="monitor-market-tag ${stock.market === 'tpex' ? 'tpex' : ''}">${stock.market === 'twse' ? '上市' : '上櫃'}</span>
                         </div>
-                        <button class="monitor-remove-btn" onclick="removeMonitorStock(${index})" title="移除">✕</button>
+                        <button class="monitor-remove-btn" onclick="event.stopPropagation(); removeMonitorStock(${index})" title="移除">✕</button>
                     </div>
                     <div class="monitor-price-row">
                         <div style="display: flex; align-items: center; gap: 15px;">
@@ -12024,7 +12025,7 @@
                 const volume = data ? formatVolume(data.volume) : '---';
                 const limitUp = data && data.limitUp ? parseFloat(data.limitUp).toFixed(2) : '---';
                 const limitDown = data && data.limitDown ? parseFloat(data.limitDown).toFixed(2) : '---';
-                const updateTime = data ? data.tradeTime : '--:--';
+                const updateTime = (data && data.tradeTime) ? data.tradeTime : new Date().toLocaleTimeString('zh-TW');
                 const name = (data && data.name) ? data.name : getStockChineseName(stock.code, null);
                 
                 // 計算持有損益（零股用股數計算）
@@ -12046,13 +12047,14 @@
                 }
                 
                 html += `
-                    <div class="monitor-card ${cardClass}" id="oddMonitorCard${index}" draggable="true" data-index="${index}" data-type="odd"
-                        ondragstart="handleOddDragStart(event, ${index})"
-                        ondragend="handleOddDragEnd(event)"
-                        ondragover="handleOddDragOver(event)"
-                        ondragleave="handleOddDragLeave(event)"
-                        ondrop="handleOddDrop(event, ${index})">
-                        <div class="monitor-card-header">
+                    <div class="monitor-card ${cardClass}" id="oddMonitorCard${index}" data-index="${index}" data-type="odd">
+                        <div class="monitor-card-header" draggable="true"
+                            ondragstart="handleOddDragStart(event, ${index})"
+                            ondragend="handleOddDragEnd(event)"
+                            ondragover="handleOddDragOver(event)"
+                            ondragleave="handleOddDragLeave(event)"
+                            ondrop="handleOddDrop(event, ${index})"
+                            style="cursor: grab;">
                             <div class="monitor-stock-info">
                                 <span class="drag-handle" title="拖曳排序">☰</span>
                                 <span class="monitor-stock-code">${stock.code}</span>
@@ -12060,7 +12062,7 @@
                                 <span class="monitor-market-tag ${stock.market === 'tpex' ? 'tpex' : ''}">${stock.market === 'twse' ? '上市' : '上櫃'}</span>
                                 <span style="background: linear-gradient(135deg, #8b5cf6, #ec4899); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; color: white;">零股</span>
                             </div>
-                            <button class="monitor-remove-btn" onclick="removeOddLotStock(${index})" title="移除">✕</button>
+                            <button class="monitor-remove-btn" onclick="event.stopPropagation(); removeOddLotStock(${index})" title="移除">✕</button>
                         </div>
                         <div class="monitor-price-row">
                             <div style="display: flex; align-items: center; gap: 15px;">
@@ -18899,17 +18901,16 @@ ${analysisContext}
 
         function handleDragStart(event, index) {
             draggedIndex = index;
-            event.target.classList.add('dragging');
+            const card = event.target.closest('.monitor-card');
+            if (card) card.classList.add('dragging');
             event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', index);
+            event.dataTransfer.setData('text/plain', index.toString());
         }
 
         function handleDragEnd(event) {
-            event.target.classList.remove('dragging');
-            // 移除所有 drag-over 樣式
-            document.querySelectorAll('.monitor-card.drag-over').forEach(card => {
-                card.classList.remove('drag-over');
-            });
+            const card = event.target.closest('.monitor-card');
+            if (card) card.classList.remove('dragging');
+            document.querySelectorAll('.monitor-card.drag-over').forEach(c => c.classList.remove('drag-over'));
             draggedIndex = null;
         }
 
@@ -18924,30 +18925,24 @@ ${analysisContext}
 
         function handleDragLeave(event) {
             const card = event.target.closest('.monitor-card');
-            if (card) {
-                card.classList.remove('drag-over');
-            }
+            if (card) card.classList.remove('drag-over');
         }
 
         function handleDrop(event, dropIndex) {
             event.preventDefault();
             const card = event.target.closest('.monitor-card');
-            if (card) {
-                card.classList.remove('drag-over');
-            }
+            if (card) card.classList.remove('drag-over');
             
             if (draggedIndex === null || draggedIndex === dropIndex) return;
             
-            // 交換陣列中的元素
-            const draggedItem = monitorStocks[draggedIndex];
-            monitorStocks.splice(draggedIndex, 1);
-            monitorStocks.splice(dropIndex, 0, draggedItem);
+            // 移動陣列元素
+            const item = monitorStocks.splice(draggedIndex, 1)[0];
+            monitorStocks.splice(dropIndex, 0, item);
             
-            // 儲存並重新渲染
             saveMonitorList();
             renderMonitorGrid();
             
-            console.log(`📦 多股監控：已將 ${draggedItem.code} 從位置 ${draggedIndex} 移動到位置 ${dropIndex}`);
+            console.log(`📦 多股：${item.code} 從 ${draggedIndex} → ${dropIndex}`);
         }
 
         // ===== 零股監控拖曳排序 =====
@@ -18955,16 +18950,16 @@ ${analysisContext}
 
         function handleOddDragStart(event, index) {
             oddDraggedIndex = index;
-            event.target.classList.add('dragging');
+            const card = event.target.closest('.monitor-card');
+            if (card) card.classList.add('dragging');
             event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', index);
+            event.dataTransfer.setData('text/plain', index.toString());
         }
 
         function handleOddDragEnd(event) {
-            event.target.classList.remove('dragging');
-            document.querySelectorAll('.monitor-card.drag-over').forEach(card => {
-                card.classList.remove('drag-over');
-            });
+            const card = event.target.closest('.monitor-card');
+            if (card) card.classList.remove('dragging');
+            document.querySelectorAll('.monitor-card.drag-over').forEach(c => c.classList.remove('drag-over'));
             oddDraggedIndex = null;
         }
 
@@ -18979,30 +18974,24 @@ ${analysisContext}
 
         function handleOddDragLeave(event) {
             const card = event.target.closest('.monitor-card');
-            if (card) {
-                card.classList.remove('drag-over');
-            }
+            if (card) card.classList.remove('drag-over');
         }
 
         function handleOddDrop(event, dropIndex) {
             event.preventDefault();
             const card = event.target.closest('.monitor-card');
-            if (card) {
-                card.classList.remove('drag-over');
-            }
+            if (card) card.classList.remove('drag-over');
             
             if (oddDraggedIndex === null || oddDraggedIndex === dropIndex) return;
             
-            // 交換陣列中的元素
-            const draggedItem = oddLotStocks[oddDraggedIndex];
-            oddLotStocks.splice(oddDraggedIndex, 1);
-            oddLotStocks.splice(dropIndex, 0, draggedItem);
+            // 移動陣列元素
+            const item = oddLotStocks.splice(oddDraggedIndex, 1)[0];
+            oddLotStocks.splice(dropIndex, 0, item);
             
-            // 儲存並重新渲染
             saveOddLotList();
             renderOddLotGrid();
             
-            console.log(`📦 零股監控：已將 ${draggedItem.code} 從位置 ${oddDraggedIndex} 移動到位置 ${dropIndex}`);
+            console.log(`📦 零股：${item.code} 從 ${oddDraggedIndex} → ${dropIndex}`);
         }
     </script>
 
