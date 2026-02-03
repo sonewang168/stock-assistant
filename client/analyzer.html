@@ -2452,8 +2452,80 @@
             gap: 15px;
         }
 
+        /* 🆕 宮格布局選項 */
+        .multi-monitor-grid.grid-4 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .multi-monitor-grid.grid-6 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .multi-monitor-grid.grid-9 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .multi-monitor-grid.grid-12 {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        /* 宮格模式下的卡片縮小 */
+        .multi-monitor-grid.grid-6 .monitor-card,
+        .multi-monitor-grid.grid-9 .monitor-card,
+        .multi-monitor-grid.grid-12 .monitor-card {
+            padding: 10px;
+        }
+
+        .multi-monitor-grid.grid-6 .monitor-stock-code,
+        .multi-monitor-grid.grid-9 .monitor-stock-code,
+        .multi-monitor-grid.grid-12 .monitor-stock-code {
+            font-size: 1.1rem;
+        }
+
+        .multi-monitor-grid.grid-6 .monitor-current-price,
+        .multi-monitor-grid.grid-9 .monitor-current-price,
+        .multi-monitor-grid.grid-12 .monitor-current-price {
+            font-size: 1.4rem !important;
+        }
+
+        .multi-monitor-grid.grid-9 .monitor-details,
+        .multi-monitor-grid.grid-12 .monitor-details {
+            font-size: 0.75rem;
+        }
+
+        .multi-monitor-grid.grid-12 .monitor-card-actions {
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .multi-monitor-grid.grid-12 .monitor-wave-btn {
+            font-size: 0.7rem;
+            padding: 5px 8px;
+        }
+
+        @media (max-width: 1200px) {
+            .multi-monitor-grid.grid-12 {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
         @media (max-width: 900px) {
             .multi-monitor-grid {
+                grid-template-columns: 1fr;
+            }
+            .multi-monitor-grid.grid-4,
+            .multi-monitor-grid.grid-6,
+            .multi-monitor-grid.grid-9,
+            .multi-monitor-grid.grid-12 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .multi-monitor-grid.grid-4,
+            .multi-monitor-grid.grid-6,
+            .multi-monitor-grid.grid-9,
+            .multi-monitor-grid.grid-12 {
                 grid-template-columns: 1fr;
             }
         }
@@ -4076,6 +4148,12 @@
                         <option value="backend" selected>🔄 自動（後端代理）</option>
                         <option value="twse">🏛️ 台灣證交所</option>
                         <option value="yahoo">📊 Yahoo 奇摩</option>
+                    </select>
+                    <select id="gridLayoutSelect" onchange="updateGridLayout()" style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem;" title="宮格布局">
+                        <option value="4" selected>📱 4宮格</option>
+                        <option value="6">📊 6宮格</option>
+                        <option value="9">🖥️ 9宮格</option>
+                        <option value="12">🎯 12宮格</option>
                     </select>
                     <label style="display: flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--text-secondary);" title="手動開啟自動更新">
                         <input type="checkbox" id="monitorAutoRefresh" onchange="toggleMonitorAutoRefresh()">
@@ -6784,6 +6862,7 @@
             initRealtimeQuickSearch(); // 初始化即時報價快速查詢
             loadMonitorList(); // 載入多股監控清單
             loadOddLotList(); // 載入零股監控清單
+            loadGridLayout(); // 🆕 載入宮格布局設定
             updateOddTradingStatus(); // 初始化零股交易狀態
             setInterval(updateOddTradingStatus, 60000); // 每分鐘更新零股交易狀態
             
@@ -11458,6 +11537,47 @@
                 'yahoo': '📊 Yahoo 奇摩'
             };
             showToast(`📡 報價來源已改為 ${sourceNames[dataSource]}`);
+        }
+
+        // 🆕 更新宮格布局
+        function updateGridLayout() {
+            const layout = document.getElementById('gridLayoutSelect').value;
+            const grid = document.getElementById('monitorGrid');
+            const oddGrid = document.getElementById('oddMonitorGrid');
+            
+            // 移除所有布局 class
+            const layouts = ['grid-4', 'grid-6', 'grid-9', 'grid-12'];
+            layouts.forEach(l => {
+                grid?.classList.remove(l);
+                oddGrid?.classList.remove(l);
+            });
+            
+            // 加入選擇的布局
+            grid?.classList.add(`grid-${layout}`);
+            oddGrid?.classList.add(`grid-${layout}`);
+            
+            localStorage.setItem('monitorGridLayout', layout);
+            
+            const layoutNames = {
+                '4': '📱 4宮格 (2×2)',
+                '6': '📊 6宮格 (3×2)',
+                '9': '🖥️ 9宮格 (3×3)',
+                '12': '🎯 12宮格 (4×3)'
+            };
+            showToast(`🎛️ 布局已切換為 ${layoutNames[layout]}`);
+        }
+
+        // 載入宮格布局設定
+        function loadGridLayout() {
+            const savedLayout = localStorage.getItem('monitorGridLayout') || '4';
+            const select = document.getElementById('gridLayoutSelect');
+            if (select) select.value = savedLayout;
+            
+            const grid = document.getElementById('monitorGrid');
+            const oddGrid = document.getElementById('oddMonitorGrid');
+            
+            grid?.classList.add(`grid-${savedLayout}`);
+            oddGrid?.classList.add(`grid-${savedLayout}`);
         }
 
         // 新增監控股票
