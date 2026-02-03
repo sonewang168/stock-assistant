@@ -3647,6 +3647,76 @@ async function fetchTaiexHistory(days) {
     console.log(`❌ 加權指數 Yahoo 備援失敗: ${e.message}`);
   }
   
+  // 🆕 備援 3: TWSE 加權指數歷史 API
+  try {
+    console.log(`📊 嘗試 TWSE 加權指數歷史 API`);
+    const history = [];
+    const now = new Date();
+    const monthsNeeded = Math.ceil(days / 18) + 2;
+    const maxMonths = Math.min(monthsNeeded, 6);
+    
+    for (let m = 0; m < maxMonths; m++) {
+      const targetDate = new Date(now.getFullYear(), now.getMonth() - m, 1);
+      const dateStr = `${targetDate.getFullYear()}${String(targetDate.getMonth() + 1).padStart(2, '0')}01`;
+      
+      // TWSE 加權指數歷史 API
+      const twseUrl = `https://www.twse.com.tw/indicesReport/MI_5MINS_HIST?response=json&date=${dateStr}`;
+      
+      try {
+        const response = await axios.get(twseUrl, {
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0',
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (response.data?.data && Array.isArray(response.data.data)) {
+          for (const row of response.data.data) {
+            // 格式: [日期, 開盤, 最高, 最低, 收盤]
+            if (row.length >= 5) {
+              const dateStr = row[0].replace(/\//g, '-');
+              // 將民國年轉西元年
+              const parts = dateStr.split('-');
+              if (parts.length === 3) {
+                const year = parseInt(parts[0]) + 1911;
+                const month = parts[1];
+                const day = parts[2];
+                
+                history.push({
+                  date: `${year}-${month}-${day}`,
+                  open: parseFloat(row[1].replace(/,/g, '')) || 0,
+                  high: parseFloat(row[2].replace(/,/g, '')) || 0,
+                  low: parseFloat(row[3].replace(/,/g, '')) || 0,
+                  close: parseFloat(row[4].replace(/,/g, '')) || 0,
+                  volume: 0
+                });
+              }
+            }
+          }
+        }
+        
+        // 避免請求過快
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+      } catch (monthErr) {
+        console.log(`TWSE 加權指數 ${dateStr} 失敗: ${monthErr.message}`);
+      }
+      
+      // 如果已經有足夠資料就停止
+      if (history.length >= days) break;
+    }
+    
+    if (history.length > 0) {
+      // 按日期排序（舊到新）
+      history.sort((a, b) => new Date(a.date) - new Date(b.date));
+      console.log(`✅ TWSE 加權指數歷史: ${history.length} 筆`);
+      return history;
+    }
+  } catch (e) {
+    console.log(`❌ TWSE 加權指數歷史失敗: ${e.message}`);
+  }
+  
   return [];
 }
 
