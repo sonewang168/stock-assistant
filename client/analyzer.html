@@ -4042,7 +4042,7 @@
         <!-- 多股即時監控 -->
         <div class="multi-monitor-section" id="multiMonitorSection">
             <div class="multi-monitor-header">
-                <h3>📊 多股即時監控 <span style="font-size: 0.8rem; color: var(--text-muted);">(最多8檔)</span>
+                <h3>📊 多股即時監控 <span style="font-size: 0.8rem; color: var(--text-muted);">(最多12檔)</span>
                     <span id="tradingStatusText" style="font-size: 0.8rem; margin-left: 10px;">🟢 交易中</span>
                 </h3>
                 <div class="multi-monitor-controls">
@@ -11175,7 +11175,7 @@
         let monitorInterval = null;
         let monitorIntervalSeconds = 30; // 預設30秒
         let tradingTimeChecker = null; // 交易時間檢查器
-        const MAX_MONITOR = 8;
+        const MAX_MONITOR = 12;
         let staggerDelay = 2000; // 🆕 每檔間隔（可調整：1000/1500/2000/2500/3000 毫秒）
         let oddStaggerDelay = 2000; // 🆕 零股每檔間隔
         let dataSource = 'backend'; // 🆕 報價資料來源（backend/twse/yahoo）
