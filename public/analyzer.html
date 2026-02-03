@@ -6688,12 +6688,68 @@
                     return data;
                 }
                 
+                // 🆕 TWSE 全部失敗時，fallback 到後端代理
+                try {
+                    const backendUrl = `/api/stock/realtime/${code}?market=${market || 'twse'}`;
+                    const backendRes = await fetch(backendUrl);
+                    if (backendRes.ok) {
+                        const result = await backendRes.json();
+                        if (result.success && result.data?.price > 0) {
+                            console.log(`✅ ${code} 從後端代理取得 (TWSE fallback): ${result.data.price}`);
+                            return {
+                                code: result.data.code || code,
+                                name: result.data.name || getStockChineseName(code, null),
+                                price: result.data.price,
+                                prevClose: result.data.prevClose,
+                                open: result.data.open,
+                                high: result.data.high,
+                                low: result.data.low,
+                                change: result.data.change,
+                                changePercent: result.data.changePercent,
+                                volume: result.data.volume,
+                                tradeTime: result.data.time || new Date().toLocaleTimeString('zh-TW'),
+                                source: 'backend-fallback'
+                            };
+                        }
+                    }
+                } catch (e) {
+                    console.log(`⚠️ 後端代理 fallback 失敗: ${e.message}`);
+                }
+                
             } else if (dataSource === 'yahoo') {
                 // Yahoo 奇摩模式
                 data = await fetchFromYahoo(code, market);
                 if (data && data.price > 0) {
                     console.log(`✅ ${code} 從 Yahoo 取得: ${data.price}`);
                     return data;
+                }
+                
+                // 🆕 Yahoo 失敗時，fallback 到後端代理
+                try {
+                    const backendUrl = `/api/stock/realtime/${code}?market=${market || 'twse'}`;
+                    const backendRes = await fetch(backendUrl);
+                    if (backendRes.ok) {
+                        const result = await backendRes.json();
+                        if (result.success && result.data?.price > 0) {
+                            console.log(`✅ ${code} 從後端代理取得 (Yahoo fallback): ${result.data.price}`);
+                            return {
+                                code: result.data.code || code,
+                                name: result.data.name || getStockChineseName(code, null),
+                                price: result.data.price,
+                                prevClose: result.data.prevClose,
+                                open: result.data.open,
+                                high: result.data.high,
+                                low: result.data.low,
+                                change: result.data.change,
+                                changePercent: result.data.changePercent,
+                                volume: result.data.volume,
+                                tradeTime: result.data.time || new Date().toLocaleTimeString('zh-TW'),
+                                source: 'backend-fallback'
+                            };
+                        }
+                    }
+                } catch (e) {
+                    console.log(`⚠️ 後端代理 fallback 失敗: ${e.message}`);
                 }
             }
             
