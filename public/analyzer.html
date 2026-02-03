@@ -2458,6 +2458,31 @@
             }
         }
 
+        /* 拖曳相關樣式 */
+        .monitor-card.dragging {
+            opacity: 0.5;
+            transform: scale(1.02);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .monitor-card.drag-over {
+            border: 2px dashed var(--accent-blue);
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .drag-handle {
+            cursor: grab;
+            padding: 5px;
+            color: var(--text-muted);
+            font-size: 1rem;
+            user-select: none;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
         .monitor-card {
             background: var(--bg-secondary);
             border-radius: 12px;
@@ -2465,6 +2490,7 @@
             border: 2px solid var(--border-color);
             position: relative;
             transition: all 0.3s;
+            cursor: default;
         }
 
         .monitor-card:hover {
@@ -6628,6 +6654,7 @@
                                 change: result.data.change,
                                 changePercent: result.data.changePercent,
                                 volume: result.data.volume,
+                                tradeTime: result.data.time || new Date().toLocaleTimeString('zh-TW'),
                                 source: 'backend-' + result.source
                             };
                         }
@@ -11506,9 +11533,15 @@
             }
             
             return `
-                <div class="monitor-card ${cardClass}" id="monitorCard${index}">
+                <div class="monitor-card ${cardClass}" id="monitorCard${index}" draggable="true" data-index="${index}"
+                    ondragstart="handleDragStart(event, ${index})"
+                    ondragend="handleDragEnd(event)"
+                    ondragover="handleDragOver(event)"
+                    ondragleave="handleDragLeave(event)"
+                    ondrop="handleDrop(event, ${index})">
                     <div class="monitor-card-header">
                         <div class="monitor-stock-info">
+                            <span class="drag-handle" title="拖曳排序">☰</span>
                             <span class="monitor-stock-code">${stock.code}</span>
                             <span class="monitor-stock-name">${name}</span>
                             <span class="monitor-market-tag ${stock.market === 'tpex' ? 'tpex' : ''}">${stock.market === 'twse' ? '上市' : '上櫃'}</span>
@@ -12013,9 +12046,15 @@
                 }
                 
                 html += `
-                    <div class="monitor-card ${cardClass}" id="oddMonitorCard${index}">
+                    <div class="monitor-card ${cardClass}" id="oddMonitorCard${index}" draggable="true" data-index="${index}" data-type="odd"
+                        ondragstart="handleOddDragStart(event, ${index})"
+                        ondragend="handleOddDragEnd(event)"
+                        ondragover="handleOddDragOver(event)"
+                        ondragleave="handleOddDragLeave(event)"
+                        ondrop="handleOddDrop(event, ${index})">
                         <div class="monitor-card-header">
                             <div class="monitor-stock-info">
+                                <span class="drag-handle" title="拖曳排序">☰</span>
                                 <span class="monitor-stock-code">${stock.code}</span>
                                 <span class="monitor-stock-name">${name}</span>
                                 <span class="monitor-market-tag ${stock.market === 'tpex' ? 'tpex' : ''}">${stock.market === 'twse' ? '上市' : '上櫃'}</span>
@@ -18853,6 +18892,117 @@ ${analysisContext}
             startAnalysis();
             // 滾動到分析區域
             document.querySelector('.analysis-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // ===== 多股監控拖曳排序 =====
+        let draggedIndex = null;
+
+        function handleDragStart(event, index) {
+            draggedIndex = index;
+            event.target.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', index);
+        }
+
+        function handleDragEnd(event) {
+            event.target.classList.remove('dragging');
+            // 移除所有 drag-over 樣式
+            document.querySelectorAll('.monitor-card.drag-over').forEach(card => {
+                card.classList.remove('drag-over');
+            });
+            draggedIndex = null;
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            const card = event.target.closest('.monitor-card');
+            if (card && !card.classList.contains('dragging')) {
+                card.classList.add('drag-over');
+            }
+        }
+
+        function handleDragLeave(event) {
+            const card = event.target.closest('.monitor-card');
+            if (card) {
+                card.classList.remove('drag-over');
+            }
+        }
+
+        function handleDrop(event, dropIndex) {
+            event.preventDefault();
+            const card = event.target.closest('.monitor-card');
+            if (card) {
+                card.classList.remove('drag-over');
+            }
+            
+            if (draggedIndex === null || draggedIndex === dropIndex) return;
+            
+            // 交換陣列中的元素
+            const draggedItem = monitorStocks[draggedIndex];
+            monitorStocks.splice(draggedIndex, 1);
+            monitorStocks.splice(dropIndex, 0, draggedItem);
+            
+            // 儲存並重新渲染
+            saveMonitorList();
+            renderMonitorGrid();
+            
+            console.log(`📦 多股監控：已將 ${draggedItem.code} 從位置 ${draggedIndex} 移動到位置 ${dropIndex}`);
+        }
+
+        // ===== 零股監控拖曳排序 =====
+        let oddDraggedIndex = null;
+
+        function handleOddDragStart(event, index) {
+            oddDraggedIndex = index;
+            event.target.classList.add('dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', index);
+        }
+
+        function handleOddDragEnd(event) {
+            event.target.classList.remove('dragging');
+            document.querySelectorAll('.monitor-card.drag-over').forEach(card => {
+                card.classList.remove('drag-over');
+            });
+            oddDraggedIndex = null;
+        }
+
+        function handleOddDragOver(event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            const card = event.target.closest('.monitor-card');
+            if (card && !card.classList.contains('dragging')) {
+                card.classList.add('drag-over');
+            }
+        }
+
+        function handleOddDragLeave(event) {
+            const card = event.target.closest('.monitor-card');
+            if (card) {
+                card.classList.remove('drag-over');
+            }
+        }
+
+        function handleOddDrop(event, dropIndex) {
+            event.preventDefault();
+            const card = event.target.closest('.monitor-card');
+            if (card) {
+                card.classList.remove('drag-over');
+            }
+            
+            if (oddDraggedIndex === null || oddDraggedIndex === dropIndex) return;
+            
+            // 交換陣列中的元素
+            const draggedItem = oddLotStocks[oddDraggedIndex];
+            oddLotStocks.splice(oddDraggedIndex, 1);
+            oddLotStocks.splice(dropIndex, 0, draggedItem);
+            
+            // 儲存並重新渲染
+            saveOddLotList();
+            renderOddLotGrid();
+            
+            console.log(`📦 零股監控：已將 ${draggedItem.code} 從位置 ${oddDraggedIndex} 移動到位置 ${dropIndex}`);
         }
     </script>
 
