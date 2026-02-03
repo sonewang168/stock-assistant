@@ -852,7 +852,8 @@
       showLoading();
       
       try {
-        const res = await fetch(`/api/line/wave/analyze/TAIEX`);
+        // 🆕 加入時間戳記防止快取
+        const res = await fetch(`/api/line/wave/analyze/TAIEX?_t=${Date.now()}`);
         
         const contentType = res.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
