@@ -1666,12 +1666,12 @@ async function markAsSold(message) {
     
     // 查詢該股票的持股
     const result = await pool.query(
-      `SELECT * FROM holdings WHERE stock_id = $1 AND user_id = 'default' AND is_won = true AND (is_sold = false OR is_sold IS NULL) LIMIT 1`,
+      `SELECT * FROM holdings WHERE stock_id = $1 AND user_id = 'default' AND (is_sold = false OR is_sold IS NULL) LIMIT 1`,
       [stockId]
     );
     
     if (result.rows.length === 0) {
-      return { type: 'text', text: `❌ 找不到 ${stockId} 的持股紀錄\n\n請確認該股票是否已得標且尚未賣出` };
+      return { type: 'text', text: `❌ 找不到 ${stockId} 的持股紀錄\n\n請確認該股票是否已新增且尚未賣出` };
     }
     
     const holding = result.rows[0];
@@ -2101,9 +2101,9 @@ async function getSoldHoldingsFlex() {
  */
 async function getHoldingsSummaryFlex() {
   try {
-    // 取得持股
+    // 取得持股（移除 is_won 限制，讓所有持股都能顯示）
     const holdingsResult = await pool.query(
-      "SELECT * FROM holdings WHERE user_id = 'default' AND is_won = true AND (is_sold = false OR is_sold IS NULL)"
+      "SELECT * FROM holdings WHERE user_id = 'default' AND (is_sold = false OR is_sold IS NULL)"
     );
 
     if (holdingsResult.rows.length === 0) {
@@ -2116,31 +2116,41 @@ async function getHoldingsSummaryFlex() {
 
     for (const row of holdingsResult.rows) {
       const stockData = await stockService.getRealtimePrice(row.stock_id);
-      if (stockData) {
-        const lots = parseInt(row.lots) || 0;
-        const oddShares = parseInt(row.odd_shares) || 0;
-        const totalShares = lots * 1000 + oddShares;
-        const costPrice = parseFloat(row.won_price) || 0;
-        const cost = costPrice * totalShares;
-        const value = stockData.price * totalShares;
-        const profit = value - cost;
-        const profitPercent = cost > 0 ? ((profit / cost) * 100).toFixed(2) : 0;
+      
+      // 🆕 即使取得報價失敗，也要加入清單（顯示為 0 或上次價格）
+      const lots = parseInt(row.lots) || 0;
+      const oddShares = parseInt(row.odd_shares) || 0;
+      const totalShares = lots * 1000 + oddShares;
+      const costPrice = parseFloat(row.won_price) || 0;
+      
+      // 如果取得報價失敗，使用成本價作為現價（避免遺漏）
+      const currentPrice = stockData?.price || costPrice || 0;
+      const cost = costPrice * totalShares;
+      const value = currentPrice * totalShares;
+      const profit = value - cost;
+      const profitPercent = cost > 0 ? ((profit / cost) * 100).toFixed(2) : 0;
 
+      if (totalShares > 0) {  // 只要有持股就加入
         holdings.push({
           stockId: row.stock_id,
-          stockName: row.stock_name || stockData.name || row.stock_id,
-          currentPrice: stockData.price,
-          change: stockData.change || 0,
-          changePercent: stockData.changePercent || 0,
+          stockName: row.stock_name || stockData?.name || row.stock_id,
+          currentPrice: currentPrice,
+          change: stockData?.change || 0,
+          changePercent: stockData?.changePercent || 0,
           costPrice,
           profit,
           profitPercent,
           lots,
-          oddShares
+          oddShares,
+          priceError: !stockData  // 🆕 標記報價是否失敗
         });
 
         totalCost += cost;
         totalValue += value;
+        
+        if (!stockData) {
+          console.log(`⚠️ 收盤摘要：${row.stock_id} 取得報價失敗，使用成本價 ${costPrice}`);
+        }
       }
       await new Promise(r => setTimeout(r, 300));
     }
@@ -2257,7 +2267,6 @@ async function checkStopLossTargetsFlex() {
     const result = await pool.query(`
       SELECT * FROM holdings 
       WHERE user_id = 'default' 
-      AND is_won = true 
       AND (is_sold = false OR is_sold IS NULL)
       AND (target_price_high IS NOT NULL OR target_price_low IS NOT NULL)
     `);
@@ -2855,7 +2864,7 @@ async function getEarningsCalendarFlex() {
   try {
     // 取得持股的財報日期
     const holdingsResult = await pool.query(
-      "SELECT DISTINCT stock_id, stock_name FROM holdings WHERE user_id = 'default' AND is_won = true AND (is_sold = false OR is_sold IS NULL)"
+      "SELECT DISTINCT stock_id, stock_name FROM holdings WHERE user_id = 'default' AND (is_sold = false OR is_sold IS NULL)"
     );
     
     if (holdingsResult.rows.length === 0) {
@@ -4333,7 +4342,7 @@ async function setStopLossTarget(msg) {
     
     // 檢查是否為持股
     const holdingResult = await pool.query(
-      "SELECT * FROM holdings WHERE stock_id = $1 AND user_id = 'default' AND is_won = true AND (is_sold = false OR is_sold IS NULL)",
+      "SELECT * FROM holdings WHERE stock_id = $1 AND user_id = 'default' AND (is_sold = false OR is_sold IS NULL)",
       [stockId]
     );
     
@@ -4460,7 +4469,7 @@ async function setStopLossTarget(msg) {
 async function getStopLossTargetFlex(stockId) {
   try {
     const holdingResult = await pool.query(
-      "SELECT * FROM holdings WHERE stock_id = $1 AND user_id = 'default' AND is_won = true AND (is_sold = false OR is_sold IS NULL)",
+      "SELECT * FROM holdings WHERE stock_id = $1 AND user_id = 'default' AND (is_sold = false OR is_sold IS NULL)",
       [stockId]
     );
     
@@ -4580,7 +4589,7 @@ async function getDividendFlex(stockId) {
     let estimatedDividend = 0;
     try {
       const holdingResult = await pool.query(
-        "SELECT COALESCE(SUM(lots), 0) as total_lots FROM holdings WHERE stock_id = $1 AND user_id = 'default' AND is_won = true AND (is_sold = false OR is_sold IS NULL)",
+        "SELECT COALESCE(SUM(lots), 0) as total_lots FROM holdings WHERE stock_id = $1 AND user_id = 'default' AND (is_sold = false OR is_sold IS NULL)",
         [stockId]
       );
       if (holdingResult.rows.length > 0) {
@@ -4721,7 +4730,7 @@ async function getHoldingsDividendFlex() {
               MAX(stock_name) as stock_name, 
               SUM(COALESCE(lots, 0)) as total_lots
        FROM holdings 
-       WHERE user_id = 'default' AND is_won = true AND (is_sold = false OR is_sold IS NULL)
+       WHERE user_id = 'default' AND (is_sold = false OR is_sold IS NULL)
        GROUP BY stock_id
        ORDER BY total_lots DESC`
     );
@@ -5362,7 +5371,7 @@ async function getDividendCalendar() {
     let holdingStocks = [];
     try {
       const result = await pool.query(
-        "SELECT stock_id FROM holdings WHERE user_id = 'default' AND is_won = true AND (is_sold = false OR is_sold IS NULL)"
+        "SELECT stock_id FROM holdings WHERE user_id = 'default' AND (is_sold = false OR is_sold IS NULL)"
       );
       holdingStocks = result.rows.map(r => r.stock_id);
     } catch (e) {}
@@ -5437,7 +5446,7 @@ async function getPortfolioHealthCheck() {
       `SELECT stock_id, MAX(stock_name) as stock_name, SUM(COALESCE(lots, 0)) as total_lots,
               AVG(won_price) as avg_cost
        FROM holdings 
-       WHERE user_id = 'default' AND is_won = true AND (is_sold = false OR is_sold IS NULL)
+       WHERE user_id = 'default' AND (is_sold = false OR is_sold IS NULL)
        GROUP BY stock_id`
     );
     
@@ -5610,7 +5619,7 @@ async function getPortfolioAnalysis() {
       `SELECT stock_id, MAX(stock_name) as stock_name, SUM(COALESCE(lots, 0)) as total_lots,
               AVG(won_price) as avg_cost
        FROM holdings 
-       WHERE user_id = 'default' AND is_won = true AND (is_sold = false OR is_sold IS NULL)
+       WHERE user_id = 'default' AND (is_sold = false OR is_sold IS NULL)
        GROUP BY stock_id`
     );
     
@@ -8669,7 +8678,7 @@ async function getAIAnalysisFlex(stockId) {
     let holdingData = null;
     try {
       const holdingResult = await pool.query(
-        'SELECT * FROM holdings WHERE stock_id = $1 AND user_id = $2 AND is_won = true LIMIT 1',
+        'SELECT * FROM holdings WHERE stock_id = $1 AND user_id = $2 AND (is_sold = false OR is_sold IS NULL) LIMIT 1',
         [stockId, 'default']
       );
       if (holdingResult.rows.length > 0) {
@@ -8976,9 +8985,9 @@ async function analyzeAllHoldingsFlex() {
   const technicalService = require('../services/technicalService');
   
   try {
-    // 取得所有已得標持股
+    // 取得所有持股
     const holdingsResult = await pool.query(
-      'SELECT * FROM holdings WHERE user_id = $1 AND is_won = true ORDER BY created_at DESC LIMIT 5',
+      'SELECT * FROM holdings WHERE user_id = $1 AND (is_sold = false OR is_sold IS NULL) ORDER BY created_at DESC LIMIT 5',
       ['default']
     );
 
@@ -9170,7 +9179,7 @@ async function getWatchlistFlex() {
   // 取得持股清單（用於標記）
   let holdingIds = [];
   try {
-    const holdingsSql = `SELECT stock_id FROM holdings WHERE user_id = 'default' AND is_won = true`;
+    const holdingsSql = `SELECT stock_id FROM holdings WHERE user_id = 'default' AND (is_sold = false OR is_sold IS NULL)`;
     const holdingsResult = await pool.query(holdingsSql);
     holdingIds = holdingsResult.rows.map(r => r.stock_id);
   } catch (e) {}
