@@ -1203,7 +1203,7 @@ async function getPortfolioFlex() {
     SELECT * FROM holdings
     WHERE user_id = 'default' AND (is_sold = false OR is_sold IS NULL)
     ORDER BY created_at DESC
-    LIMIT 10
+    LIMIT 20
   `;
   
   const result = await pool.query(sql);
@@ -8981,7 +8981,7 @@ async function analyzeAllHoldingsFlex() {
   try {
     // 取得所有已得標持股
     const holdingsResult = await pool.query(
-      'SELECT * FROM holdings WHERE user_id = $1 AND is_won = true ORDER BY created_at DESC LIMIT 12',
+      'SELECT * FROM holdings WHERE user_id = $1 AND is_won = true ORDER BY created_at DESC LIMIT 20',
       ['default']
     );
 
