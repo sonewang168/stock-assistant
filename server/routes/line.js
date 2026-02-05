@@ -2116,31 +2116,34 @@ async function getHoldingsSummaryFlex() {
 
     for (const row of holdingsResult.rows) {
       const stockData = await stockService.getRealtimePrice(row.stock_id);
-      if (stockData) {
-        const lots = parseInt(row.lots) || 0;
-        const oddShares = parseInt(row.odd_shares) || 0;
-        const totalShares = lots * 1000 + oddShares;
-        const costPrice = parseFloat(row.won_price) || 0;
-        const cost = costPrice * totalShares;
-        const value = stockData.price * totalShares;
-        const profit = value - cost;
-        const profitPercent = cost > 0 ? ((profit / cost) * 100).toFixed(2) : 0;
+      const lots = parseInt(row.lots) || 0;
+      const oddShares = parseInt(row.odd_shares) || 0;
+      const totalShares = lots * 1000 + oddShares;
+      const costPrice = parseFloat(row.won_price) || 0;
+      const currentPrice = stockData?.price || costPrice || 0;
+      const cost = costPrice * totalShares;
+      const value = currentPrice * totalShares;
+      const profit = value - cost;
+      const profitPercent = cost > 0 ? ((profit / cost) * 100).toFixed(2) : 0;
 
-        holdings.push({
-          stockId: row.stock_id,
-          stockName: row.stock_name || stockData.name || row.stock_id,
-          currentPrice: stockData.price,
-          change: stockData.change || 0,
-          changePercent: stockData.changePercent || 0,
-          costPrice,
-          profit,
-          profitPercent,
-          lots,
-          oddShares
-        });
+      holdings.push({
+        stockId: row.stock_id,
+        stockName: row.stock_name || stockData?.name || row.stock_id,
+        currentPrice: currentPrice,
+        change: stockData?.change || 0,
+        changePercent: stockData?.changePercent || 0,
+        costPrice,
+        profit,
+        profitPercent,
+        lots,
+        oddShares
+      });
 
-        totalCost += cost;
-        totalValue += value;
+      totalCost += cost;
+      totalValue += value;
+
+      if (!stockData) {
+        console.log(`⚠️ 收盤摘要：${row.stock_id} 報價失敗，使用成本價 ${costPrice}`);
       }
       await new Promise(r => setTimeout(r, 300));
     }
