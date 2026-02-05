@@ -1064,26 +1064,99 @@ class Scheduler {
       const downCount = holdings.filter(h => parseFloat(h.changePercent) < 0).length;
       const isProfit = totalProfit >= 0;
 
-      const stockRows = holdings.slice(0, 8).map(h => {
-        const dayUp = parseFloat(h.changePercent) >= 0;
-        const holdUp = parseFloat(h.profitPercent) >= 0;
-        return {
-          type: 'box',
-          layout: 'horizontal',
-          contents: [
-            { type: 'text', text: h.stockName, size: 'sm', flex: 3 },
-            { type: 'text', text: '$' + h.currentPrice, size: 'sm', flex: 2, align: 'end' },
-            { type: 'text', text: (dayUp ? '▲' : '▼') + h.changePercent + '%', size: 'sm', flex: 2, align: 'end', color: dayUp ? '#D32F2F' : '#388E3C' },
-            { type: 'text', text: (holdUp ? '+' : '') + h.profitPercent + '%', size: 'sm', flex: 2, align: 'end', color: holdUp ? '#D32F2F' : '#388E3C' }
-          ],
-          margin: 'sm'
-        };
-      });
+      // 🔀 雙軌設計：讀取閾值（預設 8）
+      const cardThreshold = parseInt(settings.holdings_card_threshold) || 8;
+      console.log(`   🔀 持股 ${holdings.length} 檔, 閾值 ${cardThreshold} → ${holdings.length <= cardThreshold ? '單卡模式' : '輪播模式'}`);
 
-      const flexMessage = {
-        type: 'flex',
-        altText: '💼 持股收盤摘要 ' + (isProfit ? '📈' : '📉') + ' ' + totalProfitPercent + '%',
-        contents: {
+      let flexMessage;
+
+      if (holdings.length <= cardThreshold) {
+        // ========================================
+        // ✅ 原設計：單一 bubble（持股 ≤ 閾值）
+        // ========================================
+        const stockRows = holdings.map(h => {
+          const dayUp = parseFloat(h.changePercent) >= 0;
+          const holdUp = parseFloat(h.profitPercent) >= 0;
+          return {
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: h.stockName, size: 'sm', flex: 3 },
+              { type: 'text', text: '$' + h.currentPrice, size: 'sm', flex: 2, align: 'end' },
+              { type: 'text', text: (dayUp ? '▲' : '▼') + h.changePercent + '%', size: 'sm', flex: 2, align: 'end', color: dayUp ? '#D32F2F' : '#388E3C' },
+              { type: 'text', text: (holdUp ? '+' : '') + h.profitPercent + '%', size: 'sm', flex: 2, align: 'end', color: holdUp ? '#D32F2F' : '#388E3C' }
+            ],
+            margin: 'sm'
+          };
+        });
+
+        flexMessage = {
+          type: 'flex',
+          altText: '💼 持股收盤摘要 ' + (isProfit ? '📈' : '📉') + ' ' + totalProfitPercent + '%',
+          contents: {
+            type: 'bubble',
+            size: 'mega',
+            header: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                { type: 'text', text: '💼 持股收盤摘要', size: 'lg', weight: 'bold', color: '#ffffff' },
+                { type: 'text', text: new Date().toLocaleDateString('zh-TW') + ' 收盤', size: 'sm', color: '#ffffffaa', margin: 'sm' }
+              ],
+              backgroundColor: isProfit ? '#D32F2F' : '#388E3C',
+              paddingAll: '20px'
+            },
+            body: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  contents: [
+                    { type: 'text', text: '總損益', size: 'sm', color: '#666666' },
+                    { type: 'text', text: (isProfit ? '+' : '') + '$' + Math.round(totalProfit).toLocaleString() + ' (' + totalProfitPercent + '%)', size: 'lg', weight: 'bold', color: isProfit ? '#D32F2F' : '#388E3C', align: 'end' }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'md',
+                  contents: [
+                    { type: 'text', text: '📈 ' + upCount + ' 漲', size: 'sm', color: '#D32F2F' },
+                    { type: 'text', text: '📉 ' + downCount + ' 跌', size: 'sm', color: '#388E3C', margin: 'lg' }
+                  ]
+                },
+                { type: 'separator', margin: 'lg' },
+                {
+                  type: 'box',
+                  layout: 'horizontal',
+                  margin: 'lg',
+                  contents: [
+                    { type: 'text', text: '股票', size: 'xs', color: '#888888', flex: 3 },
+                    { type: 'text', text: '現價', size: 'xs', color: '#888888', flex: 2, align: 'end' },
+                    { type: 'text', text: '今日', size: 'xs', color: '#888888', flex: 2, align: 'end' },
+                    { type: 'text', text: '持股', size: 'xs', color: '#888888', flex: 2, align: 'end' }
+                  ]
+                },
+                ...stockRows
+              ],
+              paddingAll: '20px'
+            }
+          }
+        };
+
+      } else {
+        // ========================================
+        // 🔀 輪播模式：carousel（持股 > 閾值）
+        // ========================================
+        const STOCKS_PER_PAGE = 5;
+        const MAX_BUBBLES = 12; // LINE carousel 上限
+        const totalPages = Math.min(Math.ceil(holdings.length / STOCKS_PER_PAGE), MAX_BUBBLES - 1);
+        const bubbles = [];
+
+        // 📊 第 1 頁：總覽摘要
+        bubbles.push({
           type: 'bubble',
           size: 'mega',
           header: {
@@ -1120,21 +1193,93 @@ class Scheduler {
               { type: 'separator', margin: 'lg' },
               {
                 type: 'box',
-                layout: 'horizontal',
+                layout: 'vertical',
                 margin: 'lg',
                 contents: [
-                  { type: 'text', text: '股票', size: 'xs', color: '#888888', flex: 3 },
-                  { type: 'text', text: '現價', size: 'xs', color: '#888888', flex: 2, align: 'end' },
-                  { type: 'text', text: '今日', size: 'xs', color: '#888888', flex: 2, align: 'end' },
-                  { type: 'text', text: '持股', size: 'xs', color: '#888888', flex: 2, align: 'end' }
+                  { type: 'text', text: '📋 共 ' + holdings.length + ' 檔持股', size: 'md', weight: 'bold', color: '#333333' },
+                  { type: 'text', text: '📊 總成本 $' + Math.round(totalCost).toLocaleString(), size: 'sm', color: '#666666', margin: 'sm' },
+                  { type: 'text', text: '💰 總市值 $' + Math.round(totalValue).toLocaleString(), size: 'sm', color: '#666666', margin: 'sm' },
+                  { type: 'text', text: '👉 左滑查看個股明細', size: 'sm', color: '#2196F3', margin: 'lg' }
                 ]
-              },
-              ...stockRows
+              }
             ],
             paddingAll: '20px'
           }
+        });
+
+        // 📄 第 2~N 頁：每頁 5 檔個股
+        for (let page = 0; page < totalPages; page++) {
+          const startIdx = page * STOCKS_PER_PAGE;
+          const endIdx = Math.min(startIdx + STOCKS_PER_PAGE, holdings.length);
+          const pageHoldings = holdings.slice(startIdx, endIdx);
+
+          const pageRows = [];
+          // 表頭
+          pageRows.push({
+            type: 'box',
+            layout: 'horizontal',
+            contents: [
+              { type: 'text', text: '股票', size: 'xs', color: '#888888', flex: 3 },
+              { type: 'text', text: '現價', size: 'xs', color: '#888888', flex: 2, align: 'end' },
+              { type: 'text', text: '今日', size: 'xs', color: '#888888', flex: 2, align: 'end' },
+              { type: 'text', text: '持股', size: 'xs', color: '#888888', flex: 2, align: 'end' }
+            ]
+          });
+
+          // 個股資料
+          for (const h of pageHoldings) {
+            const dayUp = parseFloat(h.changePercent) >= 0;
+            const holdUp = parseFloat(h.profitPercent) >= 0;
+            pageRows.push({
+              type: 'box',
+              layout: 'horizontal',
+              contents: [
+                { type: 'text', text: h.stockName, size: 'sm', flex: 3 },
+                { type: 'text', text: '$' + h.currentPrice, size: 'sm', flex: 2, align: 'end' },
+                { type: 'text', text: (dayUp ? '▲' : '▼') + h.changePercent + '%', size: 'sm', flex: 2, align: 'end', color: dayUp ? '#D32F2F' : '#388E3C' },
+                { type: 'text', text: (holdUp ? '+' : '') + h.profitPercent + '%', size: 'sm', flex: 2, align: 'end', color: holdUp ? '#D32F2F' : '#388E3C' }
+              ],
+              margin: 'sm'
+            });
+          }
+
+          bubbles.push({
+            type: 'bubble',
+            size: 'mega',
+            header: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                { type: 'text', text: '📄 第 ' + (page + 1) + '/' + totalPages + ' 頁', size: 'md', weight: 'bold', color: '#ffffff' },
+                { type: 'text', text: (startIdx + 1) + '~' + endIdx + ' / ' + holdings.length + ' 檔', size: 'sm', color: '#ffffffaa', margin: 'sm' }
+              ],
+              backgroundColor: '#37474F',
+              paddingAll: '15px'
+            },
+            body: {
+              type: 'box',
+              layout: 'vertical',
+              contents: pageRows,
+              paddingAll: '15px'
+            }
+          });
         }
-      };
+
+        // 限制 carousel 最多 12 個 bubble
+        const finalBubbles = bubbles.slice(0, 12);
+
+        flexMessage = {
+          type: 'flex',
+          altText: '💼 持股收盤摘要 ' + (isProfit ? '📈' : '📉') + ' ' + totalProfitPercent + '% (' + holdings.length + '檔)',
+          contents: {
+            type: 'carousel',
+            contents: finalBubbles
+          }
+        };
+
+        console.log(`   📄 輪播模式：${finalBubbles.length} 頁 (${holdings.length} 檔持股)`);
+      }
+
 
       // 發送
       const result = await pool.query("SELECT value FROM settings WHERE key = 'line_user_id'");
