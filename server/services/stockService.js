@@ -163,8 +163,25 @@ class StockService {
    */
   async fetchClosingPrice(stockId) {
     try {
-      // 方法1: Yahoo Finance 台股
-      const yahooData = await this.fetchTWStockFromYahoo(stockId);
+      // 🔀 根據對照表決定優先嘗試的市場
+      const stockInfo = twStocks ? twStocks.getStockInfo(stockId) : null;
+      const isOTC = stockInfo && stockInfo.market === 'OTC';
+      
+      console.log(`📊 fetchClosingPrice ${stockId}: ${isOTC ? '上櫃優先' : '上市優先'}`);
+      
+      // 方法1: Yahoo Finance 台股（根據市場類型優先嘗試）
+      let yahooData = null;
+      if (isOTC) {
+        // 上櫃股票：先嘗試 .TWO，失敗再嘗試 .TW
+        yahooData = await this.fetchTWStockFromYahooOTC(stockId);
+        if (!yahooData || yahooData.price <= 0) {
+          yahooData = await this.fetchTWStockFromYahoo(stockId);
+        }
+      } else {
+        // 上市股票：先嘗試 .TW，失敗再嘗試 .TWO
+        yahooData = await this.fetchTWStockFromYahoo(stockId);
+      }
+      
       if (yahooData && yahooData.price > 0) {
         return yahooData;
       }
