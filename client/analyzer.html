@@ -6839,14 +6839,21 @@
             
             console.log(`❌ ${code} 取得報價失敗`);
             
-            // 返回僅有名稱的空資料
+            // 返回僅有名稱的空資料（補齊所有欄位避免渲染錯誤）
             return {
                 code: code,
                 name: getStockChineseName(code, null),
                 price: 0,
                 prevClose: 0,
+                open: 0,
+                high: 0,
+                low: 0,
                 change: 0,
                 changePercent: 0,
+                volume: 0,
+                limitUp: 0,
+                limitDown: 0,
+                tradeTime: '---',
                 source: 'none'
             };
         }
@@ -11847,12 +11854,23 @@
                 }
             } catch (e) {
                 console.error(`刷新 ${stock.code} 失敗:`, e);
-                // 確保至少有名稱
+                // 確保至少有名稱（補齊所有欄位避免渲染錯誤）
                 if (!monitorStocks[index].data) {
                     monitorStocks[index].data = {
                         code: stock.code,
                         name: getStockChineseName(stock.code, null),
-                        price: 0
+                        price: 0,
+                        prevClose: 0,
+                        open: 0,
+                        high: 0,
+                        low: 0,
+                        change: 0,
+                        changePercent: 0,
+                        volume: 0,
+                        limitUp: 0,
+                        limitDown: 0,
+                        tradeTime: '---',
+                        source: 'none'
                     };
                     renderMonitorCard(index);
                 }
