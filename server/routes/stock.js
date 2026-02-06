@@ -32,98 +32,106 @@ router.get('/realtime/:code', async (req, res) => {
   try {
     const code = req.params.code;
     const market = req.query.market || 'twse';
-    const ex = market === 'tpex' ? 'otc' : 'tse';
     
     console.log(`📊 [後端代理] 獲取 ${code} 報價 (${market})`);
     
-    // 1. 先嘗試 TWSE/OTC API
-    try {
-      const twseUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${ex}_${code}.tw&json=1&delay=0&_=${Date.now()}`;
-      const twseRes = await axios.get(twseUrl, { headers: TWSE_HEADERS, timeout: 5000 });
-      
-      if (twseRes.data?.msgArray?.[0]) {
-        const d = twseRes.data.msgArray[0];
-        const prevClose = parseFloat(d.y) || 0;
+    // 🔀 自動嘗試兩種市場（上市/上櫃）
+    const markets = market === 'tpex' ? ['otc', 'tse'] : ['tse', 'otc'];
+    
+    // 1. 嘗試 TWSE/OTC API（自動切換市場）
+    for (const ex of markets) {
+      try {
+        const twseUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${ex}_${code}.tw&json=1&delay=0&_=${Date.now()}`;
+        const twseRes = await axios.get(twseUrl, { headers: TWSE_HEADERS, timeout: 5000 });
         
-        // 🔧 修正：正確取得最新價格
-        // z: 最新成交價（可能是 "-" 表示尚未成交）
-        // b: 買價（五檔）, a: 賣價（五檔）
-        let price = 0;
-        if (d.z && d.z !== '-' && !isNaN(parseFloat(d.z))) {
-          price = parseFloat(d.z);
-        } else {
-          // 成交價無效時，用買價或賣價
-          const buyPrice = d.b ? parseFloat(d.b.split('_')[0]) : 0;
-          const sellPrice = d.a ? parseFloat(d.a.split('_')[0]) : 0;
-          price = buyPrice || sellPrice || prevClose;
-        }
-        
-        const change = price - prevClose;
-        const changePercent = prevClose > 0 ? (change / prevClose * 100) : 0;
-        
-        return res.json({
-          success: true,
-          source: 'twse',
-          data: {
-            code: d.c,
-            name: d.n,
-            price: price,
-            prevClose: prevClose,
-            open: parseFloat(d.o) || 0,
-            high: parseFloat(d.h) || 0,
-            low: parseFloat(d.l) || 0,
-            change: change,
-            changePercent: changePercent,
-            volume: parseInt(d.v) || 0,
-            time: d.t || new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
-            limitUp: parseFloat(d.u) || 0,    // 🆕 漲停價
-            limitDown: parseFloat(d.w) || 0,  // 🆕 跌停價
-            buyPrice: d.b?.split('_')?.[0] || '',
-            sellPrice: d.a?.split('_')?.[0] || ''
+        if (twseRes.data?.msgArray?.[0]) {
+          const d = twseRes.data.msgArray[0];
+          const prevClose = parseFloat(d.y) || 0;
+          
+          // 🔧 修正：正確取得最新價格
+          let price = 0;
+          if (d.z && d.z !== '-' && !isNaN(parseFloat(d.z))) {
+            price = parseFloat(d.z);
+          } else {
+            const buyPrice = d.b ? parseFloat(d.b.split('_')[0]) : 0;
+            const sellPrice = d.a ? parseFloat(d.a.split('_')[0]) : 0;
+            price = buyPrice || sellPrice || prevClose;
           }
-        });
+          
+          const change = price - prevClose;
+          const changePercent = prevClose > 0 ? (change / prevClose * 100) : 0;
+          
+          console.log(`✅ ${code} 從 ${ex === 'tse' ? '上市' : '上櫃'} API 取得: ${price}`);
+          
+          return res.json({
+            success: true,
+            source: ex === 'tse' ? 'twse' : 'tpex',
+            data: {
+              code: d.c,
+              name: d.n,
+              price: price,
+              prevClose: prevClose,
+              open: parseFloat(d.o) || 0,
+              high: parseFloat(d.h) || 0,
+              low: parseFloat(d.l) || 0,
+              change: change,
+              changePercent: changePercent,
+              volume: parseInt(d.v) || 0,
+              time: d.t || new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+              limitUp: parseFloat(d.u) || 0,
+              limitDown: parseFloat(d.w) || 0,
+              buyPrice: d.b?.split('_')?.[0] || '',
+              sellPrice: d.a?.split('_')?.[0] || ''
+            }
+          });
+        }
+      } catch (err) {
+        console.log(`⚠️ ${ex === 'tse' ? '上市' : '上櫃'} API 失敗: ${err.message}`);
       }
-    } catch (twseErr) {
-      console.log(`⚠️ TWSE API 失敗: ${twseErr.message}`);
     }
     
-    // 2. 備援：Yahoo Finance
-    try {
-      const suffix = market === 'tpex' ? '.TWO' : '.TW';
-      const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${code}${suffix}?interval=1d&range=5d&_=${Date.now()}`;
-      const yahooRes = await axios.get(yahooUrl, { headers: YAHOO_HEADERS, timeout: 8000 });
-      
-      const result = yahooRes.data?.chart?.result?.[0];
-      if (result) {
-        const meta = result.meta;
-        const quotes = result.indicators?.quote?.[0];
-        const lastIdx = (quotes?.close?.length || 1) - 1;
+    // 2. 備援：Yahoo Finance（也嘗試兩種後綴）
+    const suffixes = market === 'tpex' ? ['.TWO', '.TW'] : ['.TW', '.TWO'];
+    
+    for (const suffix of suffixes) {
+      try {
+        const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${code}${suffix}?interval=1d&range=5d&_=${Date.now()}`;
+        const yahooRes = await axios.get(yahooUrl, { headers: YAHOO_HEADERS, timeout: 8000 });
         
-        const price = meta.regularMarketPrice || quotes?.close?.[lastIdx] || 0;
-        const prevClose = meta.chartPreviousClose || meta.previousClose || price;
-        const change = price - prevClose;
-        const changePercent = prevClose > 0 ? (change / prevClose * 100) : 0;
-        
-        return res.json({
-          success: true,
-          source: 'yahoo',
-          data: {
-            code: code,
-            name: meta.shortName || meta.symbol || code,
-            price: price,
-            prevClose: prevClose,
-            open: quotes?.open?.[lastIdx] || 0,
-            high: quotes?.high?.[lastIdx] || 0,
-            low: quotes?.low?.[lastIdx] || 0,
-            change: change,
-            changePercent: changePercent,
-            volume: quotes?.volume?.[lastIdx] || 0,
-            time: new Date().toLocaleTimeString('zh-TW')
-          }
-        });
+        const result = yahooRes.data?.chart?.result?.[0];
+        if (result) {
+          const meta = result.meta;
+          const quotes = result.indicators?.quote?.[0];
+          const lastIdx = (quotes?.close?.length || 1) - 1;
+          
+          const price = meta.regularMarketPrice || quotes?.close?.[lastIdx] || 0;
+          const prevClose = meta.chartPreviousClose || meta.previousClose || price;
+          const change = price - prevClose;
+          const changePercent = prevClose > 0 ? (change / prevClose * 100) : 0;
+          
+          console.log(`✅ ${code} 從 Yahoo (${suffix}) 取得: ${price}`);
+          
+          return res.json({
+            success: true,
+            source: 'yahoo',
+            data: {
+              code: code,
+              name: meta.shortName || meta.symbol || code,
+              price: price,
+              prevClose: prevClose,
+              open: quotes?.open?.[lastIdx] || 0,
+              high: quotes?.high?.[lastIdx] || 0,
+              low: quotes?.low?.[lastIdx] || 0,
+              change: change,
+              changePercent: changePercent,
+              volume: quotes?.volume?.[lastIdx] || 0,
+              time: new Date().toLocaleTimeString('zh-TW')
+            }
+          });
+        }
+      } catch (yahooErr) {
+        console.log(`⚠️ Yahoo (${suffix}) 失敗: ${yahooErr.message}`);
       }
-    } catch (yahooErr) {
-      console.log(`⚠️ Yahoo API 失敗: ${yahooErr.message}`);
     }
     
     res.status(404).json({ success: false, error: '無法取得報價' });
