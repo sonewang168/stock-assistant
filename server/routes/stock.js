@@ -507,11 +507,12 @@ router.post('/batch', async (req, res) => {
 });
 
 /**
- * 🇺🇸 美股數據 API（供網頁版使用）
+ * 🇺🇸 美股數據 API（供網頁版使用）- Finnhub
  * GET /api/stock/us-dashboard
  */
 router.get('/us-dashboard', async (req, res) => {
   try {
+    const FINNHUB_KEY = process.env.FINNHUB_API_KEY || 'd63hnppr01qnpqg154e0d63hnppr01qnpqg154eg';
     const symbols = [
       { id: 'DIA', label: '道瓊 DIA' },
       { id: 'SPY', label: 'S&P SPY' },
@@ -525,22 +526,27 @@ router.get('/us-dashboard', async (req, res) => {
     const results = [];
     for (const sym of symbols) {
       try {
-        const data = await stockService.getUSStockPrice(sym.id);
-        results.push({
-          id: sym.id,
-          label: sym.label,
-          price: data ? parseFloat(data.price) : null,
-          change: data ? parseFloat(data.change) : null,
-          changePercent: data ? parseFloat(data.changePercent) : null,
-          market: 'US'
-        });
+        const url = `https://finnhub.io/api/v1/quote?symbol=${sym.id}&token=${FINNHUB_KEY}`;
+        const resp = await axios.get(url, { timeout: 8000 });
+        const data = resp.data;
+        if (data && data.c > 0) {
+          results.push({
+            id: sym.id, label: sym.label,
+            price: data.c,
+            change: data.d || 0,
+            changePercent: data.dp || 0,
+            market: 'US'
+          });
+        } else {
+          results.push({ id: sym.id, label: sym.label, price: null, change: null, changePercent: null, market: 'US' });
+        }
       } catch (e) {
         results.push({ id: sym.id, label: sym.label, price: null, change: null, changePercent: null, market: 'US' });
       }
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 200));
     }
 
-    // VIX 用 Yahoo ^VIX
+    // VIX 用 Yahoo Finance（Finnhub 不直接支援 ^VIX 指數）
     try {
       const vixUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent('^VIX')}?interval=1d&range=5d`;
       const vixRes = await axios.get(vixUrl, {

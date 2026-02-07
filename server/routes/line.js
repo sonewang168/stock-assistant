@@ -9363,7 +9363,8 @@ async function getWatchlistFlex() {
  */
 async function getUSStockDashboardFlex() {
   try {
-    console.log('🇺🇸 取得美股數據卡片...');
+    console.log('🇺🇸 取得美股數據卡片（Finnhub）...');
+    const FINNHUB_KEY = process.env.FINNHUB_API_KEY || 'd63hnppr01qnpqg154e0d63hnppr01qnpqg154eg';
     
     // 8大關鍵美股/ETF
     const symbols = [
@@ -9382,7 +9383,7 @@ async function getUSStockDashboardFlex() {
       try {
         let data = null;
         if (sym.id === 'VIX') {
-          // VIX 用 Yahoo ^VIX
+          // VIX 用 Yahoo Finance（Finnhub 不支援 ^VIX）
           const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent('^VIX')}?interval=1d&range=5d`;
           const res = await axios.get(url, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
@@ -9397,13 +9398,27 @@ async function getUSStockDashboardFlex() {
             data = { id: 'VIX', name: 'VIX', price: parseFloat(price.toFixed(2)), change: parseFloat(change.toFixed(2)), changePercent, market: 'US' };
           }
         } else {
-          data = await stockService.getUSStockPrice(sym.id);
+          // 其他美股用 Finnhub API
+          const url = `https://finnhub.io/api/v1/quote?symbol=${sym.id}&token=${FINNHUB_KEY}`;
+          const res = await axios.get(url, { timeout: 8000 });
+          const q = res.data;
+          if (q && q.c > 0) {
+            data = {
+              id: sym.id,
+              name: sym.label.split(' ')[0], // 取中文名
+              price: q.c,
+              change: q.d || 0,
+              changePercent: (q.dp || 0).toFixed(2),
+              market: 'US'
+            };
+          }
         }
         stocksData.push({ ...sym, data });
       } catch (e) {
+        console.log(`⚠️ ${sym.id} 抓取失敗: ${e.message}`);
         stocksData.push({ ...sym, data: null });
       }
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 200));
     }
 
     // 建立 4x2 格子卡片（LINE Flex 用 horizontal boxes）
@@ -9448,7 +9463,7 @@ async function getUSStockDashboardFlex() {
           { type: 'box', layout: 'vertical', flex: 0, backgroundColor: '#00C851', cornerRadius: 'sm', paddingAll: '4px', paddingStart: '8px', paddingEnd: '8px',
             contents: [{ type: 'text', text: 'LIVE', size: 'xxs', color: '#ffffff', weight: 'bold' }]
           },
-          { type: 'text', text: '  美股數據（即時）', color: '#58a6ff', size: 'md', weight: 'bold', gravity: 'center' }
+          { type: 'text', text: '  美股數據（Finnhub）', color: '#58a6ff', size: 'md', weight: 'bold', gravity: 'center' }
         ]
       },
       body: {

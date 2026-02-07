@@ -4475,7 +4475,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <span style="background: #00C851; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; animation: livePulse 2s infinite;">LIVE</span>
-                        <span style="color: #58a6ff; font-size: 1.1rem; font-weight: bold;">美股數據（Yahoo Finance 自動更新）</span>
+                        <span style="color: #58a6ff; font-size: 1.1rem; font-weight: bold;">美股數據（Finnhub 自動更新）</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span id="usStockTime" style="font-size: 0.8rem; color: var(--text-muted);">● 即時數據</span>
@@ -12019,6 +12019,7 @@
         let usStockIntervalSec = 30;
         let usStockCountdownTimer = null;
         let usStockCountdownVal = 0;
+        const FINNHUB_KEY = 'd63hnppr01qnpqg154e0d63hnppr01qnpqg154eg';
 
         function initUSStockDashboard() {
             fetchUSStockDashboard();
@@ -12032,23 +12033,71 @@
                 const timeEl = document.getElementById('usStockTime');
                 if (timeEl) timeEl.textContent = '⏳ 更新中...';
 
-                const response = await fetch(`${API_BASE}/api/stock/us-dashboard`);
-                const result = await response.json();
+                // 8大美股 + VIX，使用 Finnhub API 直接抓取
+                const symbols = [
+                    { id: 'DIA', label: '道瓊 DIA' },
+                    { id: 'SPY', label: 'S&P SPY' },
+                    { id: 'SOXX', label: '費半 SOXX' },
+                    { id: 'NVDA', label: '輝達 NVDA' },
+                    { id: 'TSM', label: '台積ADR' },
+                    { id: 'AVGO', label: '博通 AVGO' },
+                    { id: 'MU', label: '美光 MU' }
+                ];
 
-                if (result.success && result.data) {
-                    renderUSStockGrid(result.data);
-                    renderUSTrendIndicators(result.data);
-                    if (timeEl) timeEl.textContent = `● 即時數據｜${result.time}`;
-                    // 重設倒數
-                    usStockCountdownVal = usStockIntervalSec;
-                    startUSCountdown();
-                } else {
-                    if (timeEl) timeEl.textContent = '❌ 更新失敗';
+                const results = [];
+                
+                // 並發抓取所有股票
+                const promises = symbols.map(sym => 
+                    fetch(`https://finnhub.io/api/v1/quote?symbol=${sym.id}&token=${FINNHUB_KEY}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data && data.c > 0) {
+                                return {
+                                    id: sym.id, label: sym.label,
+                                    price: data.c,
+                                    change: data.d || 0,
+                                    changePercent: data.dp || 0,
+                                    market: 'US'
+                                };
+                            }
+                            return { id: sym.id, label: sym.label, price: null, change: null, changePercent: null, market: 'US' };
+                        })
+                        .catch(() => ({ id: sym.id, label: sym.label, price: null, change: null, changePercent: null, market: 'US' }))
+                );
+
+                const stockResults = await Promise.all(promises);
+                results.push(...stockResults);
+
+                // VIX 恐慌指數（用 Yahoo Finance，Finnhub 不直接支援 ^VIX）
+                try {
+                    const vixRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent('^VIX')}?interval=1d&range=5d`);
+                    const vixData = await vixRes.json();
+                    const meta = vixData?.chart?.result?.[0]?.meta;
+                    if (meta) {
+                        const price = meta.regularMarketPrice || 0;
+                        const prevClose = meta.chartPreviousClose || meta.previousClose || price;
+                        const change = price - prevClose;
+                        const changePercent = prevClose > 0 ? ((change / prevClose) * 100) : 0;
+                        results.push({ id: 'VIX', label: 'VIX 恐慌', price: parseFloat(price.toFixed(2)), change: parseFloat(change.toFixed(2)), changePercent: parseFloat(changePercent.toFixed(2)), market: 'US' });
+                    } else {
+                        results.push({ id: 'VIX', label: 'VIX 恐慌', price: null, change: null, changePercent: null, market: 'US' });
+                    }
+                } catch(e) {
+                    // VIX 抓不到就跳過
+                    results.push({ id: 'VIX', label: 'VIX 恐慌', price: null, change: null, changePercent: null, market: 'US' });
                 }
+
+                const now = new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                renderUSStockGrid(results);
+                renderUSTrendIndicators(results);
+                if (timeEl) timeEl.textContent = `● 即時數據｜${now}`;
+                usStockCountdownVal = usStockIntervalSec;
+                startUSCountdown();
+
             } catch (e) {
                 console.error('美股數據更新失敗:', e);
                 const timeEl = document.getElementById('usStockTime');
-                if (timeEl) timeEl.textContent = '❌ 網路錯誤';
+                if (timeEl) timeEl.textContent = '❌ 更新失敗，稍後重試';
             }
         }
 
