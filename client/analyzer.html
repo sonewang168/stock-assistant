@@ -12097,7 +12097,6 @@
         let usStockIntervalSec = 30;
         let usStockCountdownTimer = null;
         let usStockCountdownVal = 0;
-        const FINNHUB_KEY = 'd63hnppr01qnpqg154e0d63hnppr01qnpqg154eg';
 
         function initUSStockDashboard() {
             fetchUSStockDashboard();
@@ -12111,94 +12110,23 @@
                 const timeEl = document.getElementById('usStockTime');
                 if (timeEl) timeEl.textContent = '⏳ 更新中...';
 
-                // ===== 第一組：三大指數（Yahoo Finance 取真實指數點數）=====
-                const indexSymbols = [
-                    { id: '^DJI', label: '道瓊工業', displayId: 'DJI' },
-                    { id: '^GSPC', label: 'S&P 500', displayId: 'SPX' },
-                    { id: '^SOX', label: '費城半導體', displayId: 'SOX' }
-                ];
+                // 全部由後端抓取（避免瀏覽器 CORS 問題）
+                const response = await fetch('/api/stock/us-dashboard');
+                const result = await response.json();
 
-                const indexPromises = indexSymbols.map(sym =>
-                    fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym.id)}?interval=1d&range=5d`)
-                        .then(r => r.json())
-                        .then(data => {
-                            const meta = data?.chart?.result?.[0]?.meta;
-                            if (meta && meta.regularMarketPrice > 0) {
-                                const price = meta.regularMarketPrice;
-                                const prevClose = meta.chartPreviousClose || meta.previousClose || price;
-                                const change = price - prevClose;
-                                const changePercent = prevClose > 0 ? (change / prevClose * 100) : 0;
-                                return {
-                                    id: sym.displayId, label: sym.label,
-                                    price, change, changePercent,
-                                    isIndex: true, market: 'US'
-                                };
-                            }
-                            return { id: sym.displayId, label: sym.label, price: null, change: null, changePercent: null, isIndex: true, market: 'US' };
-                        })
-                        .catch(() => ({ id: sym.displayId, label: sym.label, price: null, change: null, changePercent: null, isIndex: true, market: 'US' }))
-                );
-
-                // ===== 第二組：VIX 恐慌指數（Yahoo）=====
-                const vixPromise = fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent('^VIX')}?interval=1d&range=5d`)
-                    .then(r => r.json())
-                    .then(data => {
-                        const meta = data?.chart?.result?.[0]?.meta;
-                        if (meta && meta.regularMarketPrice > 0) {
-                            const price = meta.regularMarketPrice;
-                            const prevClose = meta.chartPreviousClose || meta.previousClose || price;
-                            const change = price - prevClose;
-                            const changePercent = prevClose > 0 ? (change / prevClose * 100) : 0;
-                            return { id: 'VIX', label: 'VIX 恐慌', price, change, changePercent, isIndex: true, market: 'US' };
-                        }
-                        return { id: 'VIX', label: 'VIX 恐慌', price: null, change: null, changePercent: null, isIndex: true, market: 'US' };
-                    })
-                    .catch(() => ({ id: 'VIX', label: 'VIX 恐慌', price: null, change: null, changePercent: null, isIndex: true, market: 'US' }));
-
-                // ===== 第三組：個股（Finnhub API）=====
-                const stockSymbols = [
-                    { id: 'NVDA', label: '輝達 NVDA' },
-                    { id: 'TSM', label: '台積ADR' },
-                    { id: 'AVGO', label: '博通 AVGO' },
-                    { id: 'MU', label: '美光 MU' }
-                ];
-
-                const stockPromises = stockSymbols.map(sym =>
-                    fetch(`https://finnhub.io/api/v1/quote?symbol=${sym.id}&token=${FINNHUB_KEY}`)
-                        .then(r => r.json())
-                        .then(data => {
-                            if (data && data.c > 0) {
-                                return {
-                                    id: sym.id, label: sym.label,
-                                    price: data.c, change: data.d || 0, changePercent: data.dp || 0,
-                                    isIndex: false, market: 'US'
-                                };
-                            }
-                            return { id: sym.id, label: sym.label, price: null, change: null, changePercent: null, isIndex: false, market: 'US' };
-                        })
-                        .catch(() => ({ id: sym.id, label: sym.label, price: null, change: null, changePercent: null, isIndex: false, market: 'US' }))
-                );
-
-                // 並發全部
-                const [indexResults, vixResult, stockResults] = await Promise.all([
-                    Promise.all(indexPromises),
-                    vixPromise,
-                    Promise.all(stockPromises)
-                ]);
-
-                const results = [...indexResults, vixResult, ...stockResults];
-
-                const now = new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                renderUSStockGrid(results);
-                renderUSTrendIndicators(results);
-                if (timeEl) timeEl.textContent = `● 即時數據｜${now}`;
-                usStockCountdownVal = usStockIntervalSec;
-                startUSCountdown();
-
+                if (result.success && result.data && result.data.length > 0) {
+                    renderUSStockGrid(result.data);
+                    renderUSTrendIndicators(result.data);
+                    if (timeEl) timeEl.textContent = `● 即時數據｜${result.time}`;
+                    usStockCountdownVal = usStockIntervalSec;
+                    startUSCountdown();
+                } else {
+                    if (timeEl) timeEl.textContent = '❌ 無資料';
+                }
             } catch (e) {
                 console.error('美股數據更新失敗:', e);
                 const timeEl = document.getElementById('usStockTime');
-                if (timeEl) timeEl.textContent = '❌ 更新失敗，稍後重試';
+                if (timeEl) timeEl.textContent = '❌ 網路錯誤，稍後重試';
             }
         }
 
