@@ -3936,6 +3936,19 @@
             <h1>🏆 台股專業分析系統【索尼王三AI分析版】</h1>
             <p>整合技術分析、籌碼面、AI 三方票決 | 支援上市 (TWSE) 及上櫃 (TPEx) 股票</p>
             <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;">📌 證交所/櫃買中心資料約於每日 18:00 後更新，當日資料請於盤後查詢</p>
+            <div id="dualTimeDisplay" style="display: flex; justify-content: center; gap: 30px; margin-top: 10px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);">
+                    <span style="font-size: 1.2rem;">🇹🇼</span>
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">台灣</span>
+                    <span id="twTimeDisplay" style="font-size: 1rem; font-weight: bold; color: #ff6b6b; font-family: 'Courier New', monospace;">--:--:--</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);">
+                    <span style="font-size: 1.2rem;">🇺🇸</span>
+                    <span id="usTimezoneLabel" style="font-size: 0.8rem; color: var(--text-muted);">美東</span>
+                    <span id="usTimeDisplay" style="font-size: 1rem; font-weight: bold; color: #58a6ff; font-family: 'Courier New', monospace;">--:--:--</span>
+                    <span id="usMarketStatus" style="font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; font-weight: bold;">--</span>
+                </div>
+            </div>
         </header>
 
         <div class="input-section">
@@ -4475,7 +4488,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <span style="background: #00C851; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; animation: livePulse 2s infinite;">LIVE</span>
-                        <span style="color: #58a6ff; font-size: 1.1rem; font-weight: bold;">美股數據（Finnhub 自動更新）</span>
+                        <span style="color: #58a6ff; font-size: 1.1rem; font-weight: bold;">美股數據（Finnhub + Yahoo 自動更新）</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span id="usStockTime" style="font-size: 0.8rem; color: var(--text-muted);">● 即時數據</span>
@@ -6913,6 +6926,7 @@
             updateOddTradingStatus(); // 初始化零股交易狀態
             setInterval(updateOddTradingStatus, 60000); // 每分鐘更新零股交易狀態
             initUSStockDashboard(); // 🇺🇸 初始化美股數據面板
+            initDualClock(); // 🕐 初始化台美雙時鐘
             
             document.getElementById('stockCode').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') quickFetchRealtime(); // 按Enter先查即時報價
@@ -12014,6 +12028,70 @@
             showToast('✅ 測試完成！');
         }
 
+        // ===== 🕐 台灣 / 美國 雙時鐘 =====
+        function initDualClock() {
+            updateDualClock();
+            setInterval(updateDualClock, 1000);
+        }
+
+        function updateDualClock() {
+            const now = new Date();
+
+            // 🇹🇼 台灣時間
+            const twEl = document.getElementById('twTimeDisplay');
+            if (twEl) {
+                twEl.textContent = now.toLocaleTimeString('zh-TW', { 
+                    timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
+                });
+            }
+
+            // 🇺🇸 美東時間（紐約）
+            const usEl = document.getElementById('usTimeDisplay');
+            const usLabelEl = document.getElementById('usTimezoneLabel');
+            const usStatusEl = document.getElementById('usMarketStatus');
+            if (usEl) {
+                // 判斷 EST / EDT
+                const nyOptions = { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+                const nyDateOptions = { timeZone: 'America/New_York', weekday: 'short' };
+                const nyTime = now.toLocaleTimeString('en-US', nyOptions);
+                const nyDay = now.toLocaleDateString('en-US', nyDateOptions);
+                
+                // 判斷 DST（簡易：3月第2個週日~11月第1個週日）
+                const nyMonth = parseInt(now.toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'numeric' }));
+                const isDST = nyMonth >= 3 && nyMonth <= 10; // 粗略判斷
+                
+                usEl.textContent = nyTime;
+                if (usLabelEl) usLabelEl.textContent = isDST ? '美東EDT' : '美東EST';
+
+                // 美股盤市狀態
+                if (usStatusEl) {
+                    const nyHour = parseInt(now.toLocaleString('en-US', { timeZone: 'America/New_York', hour: '2-digit', hour12: false }));
+                    const nyMinute = parseInt(now.toLocaleString('en-US', { timeZone: 'America/New_York', minute: '2-digit' }));
+                    const totalMin = nyHour * 60 + nyMinute;
+                    const isWeekend = ['Sat','Sun'].includes(nyDay);
+                    
+                    let statusText, statusBg, statusColor;
+                    if (isWeekend) {
+                        statusText = '🌙 休市'; statusBg = '#333'; statusColor = '#999';
+                    } else if (totalMin >= 240 && totalMin < 570) {
+                        // 4:00 AM - 9:30 AM = 盤前
+                        statusText = '🌅 盤前'; statusBg = 'rgba(255,170,0,0.2)'; statusColor = '#ffaa00';
+                    } else if (totalMin >= 570 && totalMin < 960) {
+                        // 9:30 AM - 4:00 PM = 開盤中
+                        statusText = '🟢 開盤中'; statusBg = 'rgba(0,200,81,0.2)'; statusColor = '#00C851';
+                    } else if (totalMin >= 960 && totalMin < 1200) {
+                        // 4:00 PM - 8:00 PM = 盤後
+                        statusText = '🌆 盤後'; statusBg = 'rgba(88,166,255,0.2)'; statusColor = '#58a6ff';
+                    } else {
+                        statusText = '🌙 休市'; statusBg = '#333'; statusColor = '#999';
+                    }
+                    usStatusEl.textContent = statusText;
+                    usStatusEl.style.background = statusBg;
+                    usStatusEl.style.color = statusColor;
+                }
+            }
+        }
+
         // ===== 🇺🇸 美股即時數據面板 =====
         let usStockTimer = null;
         let usStockIntervalSec = 30;
@@ -12033,59 +12111,82 @@
                 const timeEl = document.getElementById('usStockTime');
                 if (timeEl) timeEl.textContent = '⏳ 更新中...';
 
-                // 8大美股 + VIX，使用 Finnhub API 直接抓取
-                const symbols = [
-                    { id: 'DIA', label: '道瓊 DIA' },
-                    { id: 'SPY', label: 'S&P SPY' },
-                    { id: 'SOXX', label: '費半 SOXX' },
+                // ===== 第一組：三大指數（Yahoo Finance 取真實指數點數）=====
+                const indexSymbols = [
+                    { id: '^DJI', label: '道瓊工業', displayId: 'DJI' },
+                    { id: '^GSPC', label: 'S&P 500', displayId: 'SPX' },
+                    { id: '^SOX', label: '費城半導體', displayId: 'SOX' }
+                ];
+
+                const indexPromises = indexSymbols.map(sym =>
+                    fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym.id)}?interval=1d&range=5d`)
+                        .then(r => r.json())
+                        .then(data => {
+                            const meta = data?.chart?.result?.[0]?.meta;
+                            if (meta && meta.regularMarketPrice > 0) {
+                                const price = meta.regularMarketPrice;
+                                const prevClose = meta.chartPreviousClose || meta.previousClose || price;
+                                const change = price - prevClose;
+                                const changePercent = prevClose > 0 ? (change / prevClose * 100) : 0;
+                                return {
+                                    id: sym.displayId, label: sym.label,
+                                    price, change, changePercent,
+                                    isIndex: true, market: 'US'
+                                };
+                            }
+                            return { id: sym.displayId, label: sym.label, price: null, change: null, changePercent: null, isIndex: true, market: 'US' };
+                        })
+                        .catch(() => ({ id: sym.displayId, label: sym.label, price: null, change: null, changePercent: null, isIndex: true, market: 'US' }))
+                );
+
+                // ===== 第二組：VIX 恐慌指數（Yahoo）=====
+                const vixPromise = fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent('^VIX')}?interval=1d&range=5d`)
+                    .then(r => r.json())
+                    .then(data => {
+                        const meta = data?.chart?.result?.[0]?.meta;
+                        if (meta && meta.regularMarketPrice > 0) {
+                            const price = meta.regularMarketPrice;
+                            const prevClose = meta.chartPreviousClose || meta.previousClose || price;
+                            const change = price - prevClose;
+                            const changePercent = prevClose > 0 ? (change / prevClose * 100) : 0;
+                            return { id: 'VIX', label: 'VIX 恐慌', price, change, changePercent, isIndex: true, market: 'US' };
+                        }
+                        return { id: 'VIX', label: 'VIX 恐慌', price: null, change: null, changePercent: null, isIndex: true, market: 'US' };
+                    })
+                    .catch(() => ({ id: 'VIX', label: 'VIX 恐慌', price: null, change: null, changePercent: null, isIndex: true, market: 'US' }));
+
+                // ===== 第三組：個股（Finnhub API）=====
+                const stockSymbols = [
                     { id: 'NVDA', label: '輝達 NVDA' },
                     { id: 'TSM', label: '台積ADR' },
                     { id: 'AVGO', label: '博通 AVGO' },
                     { id: 'MU', label: '美光 MU' }
                 ];
 
-                const results = [];
-                
-                // 並發抓取所有股票
-                const promises = symbols.map(sym => 
+                const stockPromises = stockSymbols.map(sym =>
                     fetch(`https://finnhub.io/api/v1/quote?symbol=${sym.id}&token=${FINNHUB_KEY}`)
                         .then(r => r.json())
                         .then(data => {
                             if (data && data.c > 0) {
                                 return {
                                     id: sym.id, label: sym.label,
-                                    price: data.c,
-                                    change: data.d || 0,
-                                    changePercent: data.dp || 0,
-                                    market: 'US'
+                                    price: data.c, change: data.d || 0, changePercent: data.dp || 0,
+                                    isIndex: false, market: 'US'
                                 };
                             }
-                            return { id: sym.id, label: sym.label, price: null, change: null, changePercent: null, market: 'US' };
+                            return { id: sym.id, label: sym.label, price: null, change: null, changePercent: null, isIndex: false, market: 'US' };
                         })
-                        .catch(() => ({ id: sym.id, label: sym.label, price: null, change: null, changePercent: null, market: 'US' }))
+                        .catch(() => ({ id: sym.id, label: sym.label, price: null, change: null, changePercent: null, isIndex: false, market: 'US' }))
                 );
 
-                const stockResults = await Promise.all(promises);
-                results.push(...stockResults);
+                // 並發全部
+                const [indexResults, vixResult, stockResults] = await Promise.all([
+                    Promise.all(indexPromises),
+                    vixPromise,
+                    Promise.all(stockPromises)
+                ]);
 
-                // VIX 恐慌指數（用 Yahoo Finance，Finnhub 不直接支援 ^VIX）
-                try {
-                    const vixRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent('^VIX')}?interval=1d&range=5d`);
-                    const vixData = await vixRes.json();
-                    const meta = vixData?.chart?.result?.[0]?.meta;
-                    if (meta) {
-                        const price = meta.regularMarketPrice || 0;
-                        const prevClose = meta.chartPreviousClose || meta.previousClose || price;
-                        const change = price - prevClose;
-                        const changePercent = prevClose > 0 ? ((change / prevClose) * 100) : 0;
-                        results.push({ id: 'VIX', label: 'VIX 恐慌', price: parseFloat(price.toFixed(2)), change: parseFloat(change.toFixed(2)), changePercent: parseFloat(changePercent.toFixed(2)), market: 'US' });
-                    } else {
-                        results.push({ id: 'VIX', label: 'VIX 恐慌', price: null, change: null, changePercent: null, market: 'US' });
-                    }
-                } catch(e) {
-                    // VIX 抓不到就跳過
-                    results.push({ id: 'VIX', label: 'VIX 恐慌', price: null, change: null, changePercent: null, market: 'US' });
-                }
+                const results = [...indexResults, vixResult, ...stockResults];
 
                 const now = new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 renderUSStockGrid(results);
@@ -12105,23 +12206,54 @@
             const grid = document.getElementById('usStockGrid');
             if (!grid) return;
 
-            // 排序：先 DIA SPY SOXX VIX，再 NVDA TSM AVGO MU
-            const order = ['DIA','SPY','SOXX','VIX','NVDA','TSM','AVGO','MU'];
+            // 排序：指數在前，個股在後
+            const order = ['DJI','SPX','SOX','VIX','NVDA','TSM','AVGO','MU'];
             const sorted = order.map(id => stocks.find(s => s.id === id)).filter(Boolean);
 
             grid.innerHTML = sorted.map(s => {
-                const price = s.price !== null ? (s.id === 'VIX' ? s.price.toFixed(2) : '$' + s.price.toFixed(2)) : 'N/A';
-                const pct = s.changePercent !== null ? `${s.changePercent >= 0 ? '+' : ''}${s.changePercent.toFixed(2)}%` : '--';
+                if (s.price === null) {
+                    return `<div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px 8px; text-align: center;">
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">${s.label || s.id}</div>
+                        <div style="font-size: 1rem; color: var(--text-muted); margin: 6px 0;">N/A</div>
+                    </div>`;
+                }
+
                 const isVIX = s.id === 'VIX';
-                const isUp = s.changePercent >= 0;
+                const isIndex = s.isIndex;
+                const isUp = s.change >= 0;
                 // VIX漲=紅(危險) 跌=綠(好), 其他美股綠漲紅跌
                 const color = isVIX ? (isUp ? '#ff4444' : '#00C851') : (isUp ? '#00C851' : '#ff4444');
-                const borderColor = isVIX ? (isUp ? 'rgba(255,68,68,0.4)' : 'rgba(0,200,81,0.4)') : (isUp ? 'rgba(0,200,81,0.3)' : 'rgba(255,68,68,0.3)');
+                const borderColor = isVIX 
+                    ? (isUp ? 'rgba(255,68,68,0.4)' : 'rgba(0,200,81,0.4)') 
+                    : (isUp ? 'rgba(0,200,81,0.3)' : 'rgba(255,68,68,0.3)');
+                const arrow = isUp ? '▲' : '▼';
+                
+                // 指數用千分位顯示，個股用 $ 顯示
+                let priceText;
+                if (isIndex && !isVIX) {
+                    priceText = s.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                } else if (isVIX) {
+                    priceText = s.price.toFixed(2);
+                } else {
+                    priceText = '$' + s.price.toFixed(2);
+                }
 
-                return `<div style="background: var(--bg-secondary); border: 1px solid ${borderColor}; border-radius: 10px; padding: 12px 8px; text-align: center; cursor: pointer;" onclick="window.open('https://finance.yahoo.com/quote/${s.id}','_blank')">
-                    <div style="font-size: 0.8rem; color: var(--text-muted);">${s.label || s.id}</div>
-                    <div style="font-size: 1.1rem; font-weight: bold; color: ${color}; margin: 6px 0;">${price}</div>
-                    <div style="font-size: 0.8rem; color: ${color};">${pct}</div>
+                // 漲跌金額
+                const changeAmt = s.change !== null ? `${isUp ? '+' : ''}${s.change.toFixed(2)}` : '';
+                // 漲跌百分比
+                const changePct = s.changePercent !== null ? `${isUp ? '+' : ''}${s.changePercent.toFixed(2)}%` : '';
+
+                // Yahoo 查詢連結
+                const yahooSym = isIndex ? (s.id === 'DJI' ? '%5EDJI' : s.id === 'SPX' ? '%5EGSPC' : '%5ESOX') : s.id;
+
+                return `<div style="background: var(--bg-secondary); border: 1px solid ${borderColor}; border-radius: 10px; padding: 12px 8px; text-align: center; cursor: pointer; transition: all 0.3s;" 
+                    onclick="window.open('https://finance.yahoo.com/quote/${isVIX ? '%5EVIX' : yahooSym}','_blank')"
+                    onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.3)'"
+                    onmouseleave="this.style.transform='';this.style.boxShadow=''">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden;">${s.label}</div>
+                    <div style="font-size: ${isIndex ? '1.05rem' : '1.1rem'}; font-weight: bold; color: ${color}; margin: 4px 0;">${priceText}</div>
+                    <div style="font-size: 0.78rem; color: ${color}; font-weight: bold;">${arrow} ${changeAmt}</div>
+                    <div style="font-size: 0.72rem; color: ${color}; opacity: 0.85;">${changePct}</div>
                 </div>`;
             }).join('');
         }
@@ -12130,37 +12262,57 @@
             const container = document.getElementById('usTrendContent');
             if (!container) return;
 
-            const dia = stocks.find(s => s.id === 'DIA');
-            const soxx = stocks.find(s => s.id === 'SOXX');
+            const dji = stocks.find(s => s.id === 'DJI');
+            const sox = stocks.find(s => s.id === 'SOX');
             const tsm = stocks.find(s => s.id === 'TSM');
             const vix = stocks.find(s => s.id === 'VIX');
 
             let html = '';
 
-            if (dia && dia.price) {
-                const isUp = dia.changePercent >= 0;
+            if (dji && dji.price) {
+                const isUp = dji.change >= 0;
                 const color = isUp ? '#00C851' : '#ff4444';
-                html += `<div style="margin-bottom: 8px;">🔥 <span style="color:${color};font-weight:bold;">道瓊 DIA $${dia.price.toFixed(2)}</span> | <span style="color:${color}">${isUp?'+':''}${dia.changePercent.toFixed(2)}%</span></div>`;
+                const arrow = isUp ? '▲' : '▼';
+                html += `<div style="margin-bottom: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${color};">
+                    🔥 <span style="color:${color};font-weight:bold;">道瓊指數 ${dji.price.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span><br>
+                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}${dji.change.toFixed(2)} (${isUp?'+':''}${dji.changePercent.toFixed(2)}%)</span>
+                </div>`;
             }
 
-            if (soxx && soxx.price) {
-                const isUp = soxx.changePercent >= 0;
+            if (sox && sox.price) {
+                const isUp = sox.change >= 0;
                 const color = isUp ? '#00C851' : '#ff4444';
+                const arrow = isUp ? '▲' : '▼';
                 const hint = isUp ? '半導體反攻 → 台股科技跟漲' : '半導體回落 → 台股科技承壓';
-                html += `<div style="margin-bottom: 8px;">🔥 <span style="color:${color};font-weight:bold;">費半 SOXX ${isUp?'+':''}${soxx.changePercent.toFixed(2)}%</span> | <span style="color:#8b949e;font-size:0.85rem;">${hint}</span></div>`;
+                html += `<div style="margin-bottom: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${color};">
+                    🔥 <span style="color:${color};font-weight:bold;">費半指數 ${sox.price.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span><br>
+                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}${sox.change.toFixed(2)} (${isUp?'+':''}${sox.changePercent.toFixed(2)}%)</span>
+                    <span style="color:#8b949e;font-size:0.8rem;margin-left:8px;">${hint}</span>
+                </div>`;
             }
 
             if (tsm && tsm.price) {
-                const isUp = tsm.changePercent >= 0;
+                const isUp = tsm.change >= 0;
                 const color = isUp ? '#00C851' : '#ff4444';
+                const arrow = isUp ? '▲' : '▼';
                 const twPrice = (tsm.price * 6.5).toFixed(0);
-                html += `<div style="margin-bottom: 8px;">🔥 <span style="color:${color};font-weight:bold;">台積ADR $${tsm.price.toFixed(2)}</span> | <span style="color:#8b949e;font-size:0.85rem;">${isUp?'+':''}${tsm.changePercent.toFixed(2)}% | 換算約 ${twPrice} 元</span></div>`;
+                html += `<div style="margin-bottom: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${color};">
+                    🔥 <span style="color:${color};font-weight:bold;">台積ADR $${tsm.price.toFixed(2)}</span><br>
+                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}$${tsm.change.toFixed(2)} (${isUp?'+':''}${tsm.changePercent.toFixed(2)}%)</span>
+                    <span style="color:#8b949e;font-size:0.8rem;margin-left:8px;">換算約 ${twPrice} 元</span>
+                </div>`;
             }
 
             if (vix && vix.price) {
-                const level = vix.price > 30 ? '⚠️ 極度恐慌' : vix.price > 20 ? '😰 偏高警戒' : '😌 正常偏低';
-                const color = vix.price > 25 ? '#ff4444' : '#00C851';
-                html += `<div>📊 <span style="color:${color};font-weight:bold;">VIX ${vix.price.toFixed(2)}</span> | <span style="color:#8b949e;font-size:0.85rem;">${level}</span></div>`;
+                const level = vix.price > 30 ? '⚠️ 極度恐慌' : vix.price > 20 ? '😰 偏高警戒' : vix.price > 15 ? '😐 正常範圍' : '😌 極度樂觀';
+                const vColor = vix.price > 25 ? '#ff4444' : vix.price > 20 ? '#ffaa00' : '#00C851';
+                const isUp = vix.change >= 0;
+                const arrow = isUp ? '▲' : '▼';
+                html += `<div style="padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${vColor};">
+                    📊 <span style="color:${vColor};font-weight:bold;">VIX 恐慌指數 ${vix.price.toFixed(2)}</span>
+                    <span style="color:${isUp ? '#ff4444' : '#00C851'};font-size:0.85rem;margin-left:6px;">${arrow}${isUp?'+':''}${vix.change.toFixed(2)}</span>
+                    <span style="color:#8b949e;font-size:0.85rem;margin-left:8px;">${level}</span>
+                </div>`;
             }
 
             container.innerHTML = html || '⏳ 資料載入中...';
