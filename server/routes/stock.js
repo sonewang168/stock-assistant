@@ -506,4 +506,67 @@ router.post('/batch', async (req, res) => {
   }
 });
 
+/**
+ * 🇺🇸 美股數據 API（供網頁版使用）
+ * GET /api/stock/us-dashboard
+ */
+router.get('/us-dashboard', async (req, res) => {
+  try {
+    const symbols = [
+      { id: 'DIA', label: '道瓊 DIA' },
+      { id: 'SPY', label: 'S&P SPY' },
+      { id: 'SOXX', label: '費半 SOXX' },
+      { id: 'NVDA', label: '輝達 NVDA' },
+      { id: 'TSM', label: '台積ADR' },
+      { id: 'AVGO', label: '博通 AVGO' },
+      { id: 'MU', label: '美光 MU' }
+    ];
+
+    const results = [];
+    for (const sym of symbols) {
+      try {
+        const data = await stockService.getUSStockPrice(sym.id);
+        results.push({
+          id: sym.id,
+          label: sym.label,
+          price: data ? parseFloat(data.price) : null,
+          change: data ? parseFloat(data.change) : null,
+          changePercent: data ? parseFloat(data.changePercent) : null,
+          market: 'US'
+        });
+      } catch (e) {
+        results.push({ id: sym.id, label: sym.label, price: null, change: null, changePercent: null, market: 'US' });
+      }
+      await new Promise(r => setTimeout(r, 300));
+    }
+
+    // VIX 用 Yahoo ^VIX
+    try {
+      const vixUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent('^VIX')}?interval=1d&range=5d`;
+      const vixRes = await axios.get(vixUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        timeout: 8000
+      });
+      const meta = vixRes.data?.chart?.result?.[0]?.meta;
+      if (meta) {
+        const price = meta.regularMarketPrice || 0;
+        const prevClose = meta.chartPreviousClose || meta.previousClose || price;
+        const change = price - prevClose;
+        const changePercent = prevClose > 0 ? ((change / prevClose) * 100) : 0;
+        results.push({
+          id: 'VIX', label: 'VIX 恐慌', price: parseFloat(price.toFixed(2)),
+          change: parseFloat(change.toFixed(2)), changePercent: parseFloat(changePercent.toFixed(2)), market: 'US'
+        });
+      }
+    } catch (e) {
+      results.push({ id: 'VIX', label: 'VIX 恐慌', price: null, change: null, changePercent: null, market: 'US' });
+    }
+
+    res.json({ success: true, data: results, time: new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei' }) });
+  } catch (error) {
+    console.error('美股數據 API 錯誤:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

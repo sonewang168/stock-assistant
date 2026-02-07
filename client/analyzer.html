@@ -4469,6 +4469,46 @@
                     <div>點擊新增零股監控</div>
                 </div>
             </div>
+
+            <!-- 🇺🇸 美股即時數據面板 -->
+            <div id="usStockDashboard" style="margin-top: 20px; border-top: 2px solid #58a6ff; padding-top: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="background: #00C851; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; animation: livePulse 2s infinite;">LIVE</span>
+                        <span style="color: #58a6ff; font-size: 1.1rem; font-weight: bold;">美股數據（Yahoo Finance 自動更新）</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span id="usStockTime" style="font-size: 0.8rem; color: var(--text-muted);">● 即時數據</span>
+                        <select id="usStockInterval" onchange="updateUSStockInterval()" style="padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.8rem;">
+                            <option value="15">15秒</option>
+                            <option value="30" selected>30秒</option>
+                            <option value="60">60秒</option>
+                            <option value="120">2分鐘</option>
+                        </select>
+                        <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--text-secondary); cursor: pointer;">
+                            <input type="checkbox" id="usStockAutoRefresh" onchange="toggleUSStockAutoRefresh()" checked>
+                            自動
+                        </label>
+                        <button class="quick-btn" style="background: #1a1a2e; color: #58a6ff; font-size: 0.85rem; padding: 5px 12px;" onclick="fetchUSStockDashboard()">🔄 更新</button>
+                    </div>
+                </div>
+                <div id="usStockGrid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px;">
+                    <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; text-align: center;">
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">載入中...</div>
+                    </div>
+                </div>
+                <div id="usStockCountdown" style="text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;"></div>
+                <!-- 🔥 趨勢指標 -->
+                <div id="usTrendIndicators" style="background: linear-gradient(135deg, #1a1a2e, #16213e); border: 1px solid #30363d; border-radius: 10px; padding: 15px; margin-top: 8px;">
+                    <div style="color: #f0883e; font-weight: bold; margin-bottom: 10px;">🔥 趨勢指標（即時）</div>
+                    <div id="usTrendContent" style="font-size: 0.9rem;">⏳ 載入中...</div>
+                </div>
+            </div>
+            <style>
+                @keyframes livePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+                #usStockGrid > div { transition: all 0.3s ease; }
+                #usStockGrid > div:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+            </style>
             
             <!-- 🪙 零股波浪分析面板 -->
             <div class="wave-analysis-panel" id="oddWaveAnalysisPanel" style="display: none;">
@@ -6872,6 +6912,7 @@
             loadGridLayout(); // 🆕 載入宮格布局設定
             updateOddTradingStatus(); // 初始化零股交易狀態
             setInterval(updateOddTradingStatus, 60000); // 每分鐘更新零股交易狀態
+            initUSStockDashboard(); // 🇺🇸 初始化美股數據面板
             
             document.getElementById('stockCode').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') quickFetchRealtime(); // 按Enter先查即時報價
@@ -11971,6 +12012,151 @@
             
             if (statusEl) statusEl.style.display = 'none';
             showToast('✅ 測試完成！');
+        }
+
+        // ===== 🇺🇸 美股即時數據面板 =====
+        let usStockTimer = null;
+        let usStockIntervalSec = 30;
+        let usStockCountdownTimer = null;
+        let usStockCountdownVal = 0;
+
+        function initUSStockDashboard() {
+            fetchUSStockDashboard();
+            if (document.getElementById('usStockAutoRefresh')?.checked) {
+                startUSStockAutoRefresh();
+            }
+        }
+
+        async function fetchUSStockDashboard() {
+            try {
+                const timeEl = document.getElementById('usStockTime');
+                if (timeEl) timeEl.textContent = '⏳ 更新中...';
+
+                const response = await fetch(`${API_BASE}/api/stock/us-dashboard`);
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    renderUSStockGrid(result.data);
+                    renderUSTrendIndicators(result.data);
+                    if (timeEl) timeEl.textContent = `● 即時數據｜${result.time}`;
+                    // 重設倒數
+                    usStockCountdownVal = usStockIntervalSec;
+                    startUSCountdown();
+                } else {
+                    if (timeEl) timeEl.textContent = '❌ 更新失敗';
+                }
+            } catch (e) {
+                console.error('美股數據更新失敗:', e);
+                const timeEl = document.getElementById('usStockTime');
+                if (timeEl) timeEl.textContent = '❌ 網路錯誤';
+            }
+        }
+
+        function renderUSStockGrid(stocks) {
+            const grid = document.getElementById('usStockGrid');
+            if (!grid) return;
+
+            // 排序：先 DIA SPY SOXX VIX，再 NVDA TSM AVGO MU
+            const order = ['DIA','SPY','SOXX','VIX','NVDA','TSM','AVGO','MU'];
+            const sorted = order.map(id => stocks.find(s => s.id === id)).filter(Boolean);
+
+            grid.innerHTML = sorted.map(s => {
+                const price = s.price !== null ? (s.id === 'VIX' ? s.price.toFixed(2) : '$' + s.price.toFixed(2)) : 'N/A';
+                const pct = s.changePercent !== null ? `${s.changePercent >= 0 ? '+' : ''}${s.changePercent.toFixed(2)}%` : '--';
+                const isVIX = s.id === 'VIX';
+                const isUp = s.changePercent >= 0;
+                // VIX漲=紅(危險) 跌=綠(好), 其他美股綠漲紅跌
+                const color = isVIX ? (isUp ? '#ff4444' : '#00C851') : (isUp ? '#00C851' : '#ff4444');
+                const borderColor = isVIX ? (isUp ? 'rgba(255,68,68,0.4)' : 'rgba(0,200,81,0.4)') : (isUp ? 'rgba(0,200,81,0.3)' : 'rgba(255,68,68,0.3)');
+
+                return `<div style="background: var(--bg-secondary); border: 1px solid ${borderColor}; border-radius: 10px; padding: 12px 8px; text-align: center; cursor: pointer;" onclick="window.open('https://finance.yahoo.com/quote/${s.id}','_blank')">
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">${s.label || s.id}</div>
+                    <div style="font-size: 1.1rem; font-weight: bold; color: ${color}; margin: 6px 0;">${price}</div>
+                    <div style="font-size: 0.8rem; color: ${color};">${pct}</div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderUSTrendIndicators(stocks) {
+            const container = document.getElementById('usTrendContent');
+            if (!container) return;
+
+            const dia = stocks.find(s => s.id === 'DIA');
+            const soxx = stocks.find(s => s.id === 'SOXX');
+            const tsm = stocks.find(s => s.id === 'TSM');
+            const vix = stocks.find(s => s.id === 'VIX');
+
+            let html = '';
+
+            if (dia && dia.price) {
+                const isUp = dia.changePercent >= 0;
+                const color = isUp ? '#00C851' : '#ff4444';
+                html += `<div style="margin-bottom: 8px;">🔥 <span style="color:${color};font-weight:bold;">道瓊 DIA $${dia.price.toFixed(2)}</span> | <span style="color:${color}">${isUp?'+':''}${dia.changePercent.toFixed(2)}%</span></div>`;
+            }
+
+            if (soxx && soxx.price) {
+                const isUp = soxx.changePercent >= 0;
+                const color = isUp ? '#00C851' : '#ff4444';
+                const hint = isUp ? '半導體反攻 → 台股科技跟漲' : '半導體回落 → 台股科技承壓';
+                html += `<div style="margin-bottom: 8px;">🔥 <span style="color:${color};font-weight:bold;">費半 SOXX ${isUp?'+':''}${soxx.changePercent.toFixed(2)}%</span> | <span style="color:#8b949e;font-size:0.85rem;">${hint}</span></div>`;
+            }
+
+            if (tsm && tsm.price) {
+                const isUp = tsm.changePercent >= 0;
+                const color = isUp ? '#00C851' : '#ff4444';
+                const twPrice = (tsm.price * 6.5).toFixed(0);
+                html += `<div style="margin-bottom: 8px;">🔥 <span style="color:${color};font-weight:bold;">台積ADR $${tsm.price.toFixed(2)}</span> | <span style="color:#8b949e;font-size:0.85rem;">${isUp?'+':''}${tsm.changePercent.toFixed(2)}% | 換算約 ${twPrice} 元</span></div>`;
+            }
+
+            if (vix && vix.price) {
+                const level = vix.price > 30 ? '⚠️ 極度恐慌' : vix.price > 20 ? '😰 偏高警戒' : '😌 正常偏低';
+                const color = vix.price > 25 ? '#ff4444' : '#00C851';
+                html += `<div>📊 <span style="color:${color};font-weight:bold;">VIX ${vix.price.toFixed(2)}</span> | <span style="color:#8b949e;font-size:0.85rem;">${level}</span></div>`;
+            }
+
+            container.innerHTML = html || '⏳ 資料載入中...';
+        }
+
+        function startUSStockAutoRefresh() {
+            stopUSStockAutoRefresh();
+            usStockTimer = setInterval(fetchUSStockDashboard, usStockIntervalSec * 1000);
+            usStockCountdownVal = usStockIntervalSec;
+            startUSCountdown();
+        }
+
+        function stopUSStockAutoRefresh() {
+            if (usStockTimer) { clearInterval(usStockTimer); usStockTimer = null; }
+            if (usStockCountdownTimer) { clearInterval(usStockCountdownTimer); usStockCountdownTimer = null; }
+            const cdEl = document.getElementById('usStockCountdown');
+            if (cdEl) cdEl.textContent = '';
+        }
+
+        function toggleUSStockAutoRefresh() {
+            const checked = document.getElementById('usStockAutoRefresh')?.checked;
+            if (checked) {
+                startUSStockAutoRefresh();
+            } else {
+                stopUSStockAutoRefresh();
+            }
+        }
+
+        function updateUSStockInterval() {
+            usStockIntervalSec = parseInt(document.getElementById('usStockInterval')?.value) || 30;
+            if (document.getElementById('usStockAutoRefresh')?.checked) {
+                startUSStockAutoRefresh();
+            }
+        }
+
+        function startUSCountdown() {
+            if (usStockCountdownTimer) clearInterval(usStockCountdownTimer);
+            const cdEl = document.getElementById('usStockCountdown');
+            usStockCountdownTimer = setInterval(() => {
+                usStockCountdownVal--;
+                if (cdEl) cdEl.textContent = usStockCountdownVal > 0 ? `下次自動更新：${usStockCountdownVal}` : '';
+                if (usStockCountdownVal <= 0) {
+                    clearInterval(usStockCountdownTimer);
+                }
+            }, 1000);
         }
 
         // ===== 零股即時監控功能 =====
