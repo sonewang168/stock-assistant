@@ -4488,7 +4488,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <span style="background: #00C851; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; animation: livePulse 2s infinite;">LIVE</span>
-                        <span style="color: #58a6ff; font-size: 1.1rem; font-weight: bold;">美股數據（Finnhub + Yahoo 自動更新）</span>
+                        <span style="color: #58a6ff; font-size: 1.1rem; font-weight: bold;">美股數據（Finnhub 自動更新）</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span id="usStockTime" style="font-size: 0.8rem; color: var(--text-muted);">● 即時數據</span>
@@ -12134,8 +12134,7 @@
             const grid = document.getElementById('usStockGrid');
             if (!grid) return;
 
-            // 排序：指數在前，個股在後
-            const order = ['DJI','SPX','SOX','VIX','NVDA','TSM','AVGO','MU'];
+            const order = ['DIA','SPY','SOXX','UVXY','NVDA','TSM','AVGO','MU'];
             const sorted = order.map(id => stocks.find(s => s.id === id)).filter(Boolean);
 
             grid.innerHTML = sorted.map(s => {
@@ -12146,8 +12145,7 @@
                     </div>`;
                 }
 
-                const isVIX = s.id === 'VIX';
-                const isIndex = s.isIndex;
+                const isVIX = s.isVIX || s.id === 'UVXY';
                 const isUp = s.change >= 0;
                 // VIX漲=紅(危險) 跌=綠(好), 其他美股綠漲紅跌
                 const color = isVIX ? (isUp ? '#ff4444' : '#00C851') : (isUp ? '#00C851' : '#ff4444');
@@ -12156,30 +12154,16 @@
                     : (isUp ? 'rgba(0,200,81,0.3)' : 'rgba(255,68,68,0.3)');
                 const arrow = isUp ? '▲' : '▼';
                 
-                // 指數用千分位顯示，個股用 $ 顯示
-                let priceText;
-                if (isIndex && !isVIX) {
-                    priceText = s.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                } else if (isVIX) {
-                    priceText = s.price.toFixed(2);
-                } else {
-                    priceText = '$' + s.price.toFixed(2);
-                }
-
-                // 漲跌金額
-                const changeAmt = s.change !== null ? `${isUp ? '+' : ''}${s.change.toFixed(2)}` : '';
-                // 漲跌百分比
-                const changePct = s.changePercent !== null ? `${isUp ? '+' : ''}${s.changePercent.toFixed(2)}%` : '';
-
-                // Yahoo 查詢連結
-                const yahooSym = isIndex ? (s.id === 'DJI' ? '%5EDJI' : s.id === 'SPX' ? '%5EGSPC' : '%5ESOX') : s.id;
+                const priceText = '$' + s.price.toFixed(2);
+                const changeAmt = `${isUp ? '+' : ''}${s.change.toFixed(2)}`;
+                const changePct = `${isUp ? '+' : ''}${s.changePercent.toFixed(2)}%`;
 
                 return `<div style="background: var(--bg-secondary); border: 1px solid ${borderColor}; border-radius: 10px; padding: 12px 8px; text-align: center; cursor: pointer; transition: all 0.3s;" 
-                    onclick="window.open('https://finance.yahoo.com/quote/${isVIX ? '%5EVIX' : yahooSym}','_blank')"
+                    onclick="window.open('https://finance.yahoo.com/quote/${s.id}','_blank')"
                     onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,0.3)'"
                     onmouseleave="this.style.transform='';this.style.boxShadow=''">
-                    <div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden;">${s.label}</div>
-                    <div style="font-size: ${isIndex ? '1.05rem' : '1.1rem'}; font-weight: bold; color: ${color}; margin: 4px 0;">${priceText}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;">${s.label}</div>
+                    <div style="font-size: 1.1rem; font-weight: bold; color: ${color}; margin: 4px 0;">${priceText}</div>
                     <div style="font-size: 0.78rem; color: ${color}; font-weight: bold;">${arrow} ${changeAmt}</div>
                     <div style="font-size: 0.72rem; color: ${color}; opacity: 0.85;">${changePct}</div>
                 </div>`;
@@ -12190,31 +12174,31 @@
             const container = document.getElementById('usTrendContent');
             if (!container) return;
 
-            const dji = stocks.find(s => s.id === 'DJI');
-            const sox = stocks.find(s => s.id === 'SOX');
+            const dia = stocks.find(s => s.id === 'DIA');
+            const soxx = stocks.find(s => s.id === 'SOXX');
             const tsm = stocks.find(s => s.id === 'TSM');
-            const vix = stocks.find(s => s.id === 'VIX');
+            const vix = stocks.find(s => s.id === 'UVXY');
 
             let html = '';
 
-            if (dji && dji.price) {
-                const isUp = dji.change >= 0;
+            if (dia && dia.price) {
+                const isUp = dia.change >= 0;
                 const color = isUp ? '#00C851' : '#ff4444';
                 const arrow = isUp ? '▲' : '▼';
                 html += `<div style="margin-bottom: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${color};">
-                    🔥 <span style="color:${color};font-weight:bold;">道瓊指數 ${dji.price.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span><br>
-                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}${dji.change.toFixed(2)} (${isUp?'+':''}${dji.changePercent.toFixed(2)}%)</span>
+                    🔥 <span style="color:${color};font-weight:bold;">道瓊 DIA $${dia.price.toFixed(2)}</span><br>
+                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}$${Math.abs(dia.change).toFixed(2)} (${isUp?'+':''}${dia.changePercent.toFixed(2)}%)</span>
                 </div>`;
             }
 
-            if (sox && sox.price) {
-                const isUp = sox.change >= 0;
+            if (soxx && soxx.price) {
+                const isUp = soxx.change >= 0;
                 const color = isUp ? '#00C851' : '#ff4444';
                 const arrow = isUp ? '▲' : '▼';
                 const hint = isUp ? '半導體反攻 → 台股科技跟漲' : '半導體回落 → 台股科技承壓';
                 html += `<div style="margin-bottom: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${color};">
-                    🔥 <span style="color:${color};font-weight:bold;">費半指數 ${sox.price.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</span><br>
-                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}${sox.change.toFixed(2)} (${isUp?'+':''}${sox.changePercent.toFixed(2)}%)</span>
+                    🔥 <span style="color:${color};font-weight:bold;">費半 SOXX $${soxx.price.toFixed(2)}</span><br>
+                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}$${Math.abs(soxx.change).toFixed(2)} (${isUp?'+':''}${soxx.changePercent.toFixed(2)}%)</span>
                     <span style="color:#8b949e;font-size:0.8rem;margin-left:8px;">${hint}</span>
                 </div>`;
             }
@@ -12226,19 +12210,19 @@
                 const twPrice = (tsm.price * 6.5).toFixed(0);
                 html += `<div style="margin-bottom: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${color};">
                     🔥 <span style="color:${color};font-weight:bold;">台積ADR $${tsm.price.toFixed(2)}</span><br>
-                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}$${tsm.change.toFixed(2)} (${isUp?'+':''}${tsm.changePercent.toFixed(2)}%)</span>
+                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}$${Math.abs(tsm.change).toFixed(2)} (${isUp?'+':''}${tsm.changePercent.toFixed(2)}%)</span>
                     <span style="color:#8b949e;font-size:0.8rem;margin-left:8px;">換算約 ${twPrice} 元</span>
                 </div>`;
             }
 
             if (vix && vix.price) {
-                const level = vix.price > 30 ? '⚠️ 極度恐慌' : vix.price > 20 ? '😰 偏高警戒' : vix.price > 15 ? '😐 正常範圍' : '😌 極度樂觀';
-                const vColor = vix.price > 25 ? '#ff4444' : vix.price > 20 ? '#ffaa00' : '#00C851';
+                const level = vix.price > 80 ? '⚠️ 極度恐慌' : vix.price > 40 ? '😰 偏高警戒' : vix.price > 20 ? '😐 正常範圍' : '😌 極度樂觀';
+                const vColor = vix.price > 60 ? '#ff4444' : vix.price > 40 ? '#ffaa00' : '#00C851';
                 const isUp = vix.change >= 0;
                 const arrow = isUp ? '▲' : '▼';
                 html += `<div style="padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${vColor};">
-                    📊 <span style="color:${vColor};font-weight:bold;">VIX 恐慌指數 ${vix.price.toFixed(2)}</span>
-                    <span style="color:${isUp ? '#ff4444' : '#00C851'};font-size:0.85rem;margin-left:6px;">${arrow}${isUp?'+':''}${vix.change.toFixed(2)}</span>
+                    📊 <span style="color:${vColor};font-weight:bold;">VIX 恐慌 $${vix.price.toFixed(2)}</span>
+                    <span style="color:${isUp ? '#ff4444' : '#00C851'};font-size:0.85rem;margin-left:6px;">${arrow}${isUp?'+':''}$${Math.abs(vix.change).toFixed(2)} (${isUp?'+':''}${vix.changePercent.toFixed(2)}%)</span>
                     <span style="color:#8b949e;font-size:0.85rem;margin-left:8px;">${level}</span>
                 </div>`;
             }
