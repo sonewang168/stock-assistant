@@ -722,47 +722,12 @@ class StockService {
   async getUSIndices() {
     try {
       const indices = [
-        { symbol: '^DJI', name: '道瓊工業', twelveSymbol: 'DJI', finageSymbol: 'DJI' },
-        { symbol: '^GSPC', name: 'S&P 500', twelveSymbol: 'GSPC', finageSymbol: 'SPX' },
-        { symbol: '^IXIC', name: '納斯達克', twelveSymbol: 'IXIC', finageSymbol: 'IXIC' },
-        { symbol: '^VIX', name: 'VIX 恐慌', twelveSymbol: 'VIX', finageSymbol: 'VIX' }
+        { symbol: '^DJI', name: '道瓊工業', finageSymbol: 'DJI' },
+        { symbol: '^GSPC', name: 'S&P 500', finageSymbol: 'SPX' },
+        { symbol: '^IXIC', name: '納斯達克', finageSymbol: 'IXIC' },
+        { symbol: '^SOX', name: '費城半導體', finageSymbol: 'SOX' }
       ];
 
-      // ===== 方法 0: Twelve Data 批次查詢（首選）=====
-      const TWELVE_KEY = process.env.TWELVE_DATA_API_KEY || '3c99ea8c9acb407aa0aab293c18e8d9a';
-      try {
-        const symbolStr = indices.map(i => i.twelveSymbol).join(',');
-        const url = `https://api.twelvedata.com/quote?symbol=${symbolStr}&apikey=${TWELVE_KEY}`;
-        console.log(`📊 [Twelve Data] 批次查詢四大指數: ${symbolStr}`);
-        const resp = await axios.get(url, { timeout: 10000 });
-        const raw = resp.data;
-        
-        const results = [];
-        for (const idx of indices) {
-          const d = raw[idx.twelveSymbol];
-          if (d && d.close && !d.code) {
-            const price = parseFloat(d.close);
-            const prevClose = parseFloat(d.previous_close) || price;
-            const change = parseFloat(d.change) || (price - prevClose);
-            const changePercent = parseFloat(d.percent_change) || (prevClose > 0 ? (change / prevClose * 100) : 0);
-            results.push({
-              symbol: idx.symbol, name: idx.name,
-              price, change: parseFloat(change.toFixed(2)),
-              changePercent: parseFloat(changePercent.toFixed(2))
-            });
-            console.log(`  ✅ ${idx.twelveSymbol}: ${price.toLocaleString()} (${change >= 0 ? '+' : ''}${change.toFixed(2)})`);
-          }
-        }
-        if (results.length >= 3) {
-          console.log(`📊 [Twelve Data] 成功取得 ${results.length} 個指數`);
-          return results;
-        }
-        console.log(`⚠️ [Twelve Data] 只取得 ${results.length} 個，降級到 Yahoo`);
-      } catch (e) {
-        console.log(`❌ [Twelve Data] 失敗: ${e.message}，降級到 Yahoo`);
-      }
-
-      // ===== 降級：Yahoo Finance =====
       const results = [];
       for (const index of indices) {
         let data = null;

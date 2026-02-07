@@ -4507,14 +4507,14 @@
                 </div>
                 <!-- 📊 四大指數（Twelve Data 真實點數）-->
                 <div style="margin-bottom: 12px;">
-                    <div style="font-size: 0.85rem; color: #f0883e; font-weight: bold; margin-bottom: 8px;">📊 四大指數（Twelve Data）</div>
+                <div style="font-size: 0.85rem; color: #f0883e; font-weight: bold; margin-bottom: 8px;">📊 指數 ETF（即時報價）</div>
                     <div id="usIndicesGrid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
                         <div style="background: var(--bg-secondary); border-radius: 8px; padding: 10px; text-align: center;"><span style="color: var(--text-muted); font-size: 0.8rem;">載入中...</span></div>
                     </div>
                 </div>
                 <!-- 📈 個股 ETF（Finnhub）-->
-                <div style="font-size: 0.85rem; color: #58a6ff; font-weight: bold; margin-bottom: 8px;">📈 個股 / ETF（Finnhub）</div>
-                <div id="usStockGrid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px;">
+                <div style="font-size: 0.85rem; color: #58a6ff; font-weight: bold; margin-bottom: 8px;">📈 關鍵個股（Finnhub）</div>
+                <div id="usStockGrid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;">
                     <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; text-align: center;">
                         <div style="font-size: 0.8rem; color: var(--text-muted);">載入中...</div>
                     </div>
@@ -12141,25 +12141,19 @@
                 }
 
                 const isUp = s.change >= 0;
-                const isVIX = s.isVIX || s.id === 'VIX';
-                // VIX漲=紅(危險), 其他綠漲紅跌
-                const color = isVIX ? (isUp ? '#ff4444' : '#00C851') : (isUp ? '#00C851' : '#ff4444');
-                const borderColor = isVIX 
-                    ? (isUp ? 'rgba(255,68,68,0.4)' : 'rgba(0,200,81,0.4)')
-                    : (isUp ? 'rgba(0,200,81,0.4)' : 'rgba(255,68,68,0.4)');
+                const color = isUp ? '#00C851' : '#ff4444';
+                const borderColor = isUp ? 'rgba(0,200,81,0.4)' : 'rgba(255,68,68,0.4)';
                 const arrow = isUp ? '▲' : '▼';
-                const priceText = s.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const priceText = '$' + s.price.toFixed(2);
                 const changeAmt = `${isUp ? '+' : ''}${s.change.toFixed(2)}`;
-                const changePct = `${isUp ? '+' : ''}${s.changePercent.toFixed(2)}%`;
-
-                const yahooMap = { DJI: '%5EDJI', GSPC: '%5EGSPC', IXIC: '%5EIXIC', VIX: '%5EVIX' };
-                const yahooSym = yahooMap[s.id] || s.id;
+                const changePct = `${isUp ? '+' : ''}${(typeof s.changePercent === 'number' ? s.changePercent : parseFloat(s.changePercent)).toFixed(2)}%`;
 
                 return `<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border: 1px solid ${borderColor}; border-radius: 10px; padding: 10px 6px; text-align: center; cursor: pointer; transition: all 0.3s;"
-                    onclick="window.open('https://finance.yahoo.com/quote/${yahooSym}','_blank')"
+                    onclick="window.open('https://finance.yahoo.com/quote/${s.id}','_blank')"
                     onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 15px rgba(0,0,0,0.4)'"
                     onmouseleave="this.style.transform='';this.style.boxShadow=''">
-                    <div style="font-size: 0.75rem; color: #f0883e; font-weight: bold;">${s.label}</div>
+                    <div style="font-size: 0.7rem; color: #8b949e;">${s.index || ''}</div>
+                    <div style="font-size: 0.78rem; color: #f0883e; font-weight: bold;">${s.label}</div>
                     <div style="font-size: 1.05rem; font-weight: bold; color: ${color}; margin: 3px 0;">${priceText}</div>
                     <div style="font-size: 0.75rem; color: ${color}; font-weight: bold;">${arrow} ${changeAmt}</div>
                     <div style="font-size: 0.7rem; color: ${color}; opacity: 0.85;">${changePct}</div>
@@ -12248,43 +12242,33 @@
 
             let html = '';
 
-            // 道瓊：優先用真實指數，否則用 DIA ETF
-            const djiIdx = indices?.find(s => s.id === 'DJI');
-            const dia = stocks.find(s => s.id === 'DIA');
-            const djiData = (djiIdx && djiIdx.price) ? djiIdx : dia;
-            if (djiData && djiData.price) {
-                const isUp = djiData.change >= 0;
+            // 道瓊 DIA（from indices）
+            const dia = indices?.find(s => s.id === 'DIA');
+            if (dia && dia.price) {
+                const isUp = dia.change >= 0;
                 const color = isUp ? '#00C851' : '#ff4444';
                 const arrow = isUp ? '▲' : '▼';
-                const isDirect = djiData === djiIdx;
-                const priceText = isDirect ? djiData.price.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : `$${djiData.price.toFixed(2)}`;
-                const label = isDirect ? '道瓊工業' : '道瓊 DIA';
                 html += `<div style="margin-bottom: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${color};">
-                    🔥 <span style="color:${color};font-weight:bold;">${label} ${priceText}</span><br>
-                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}${Math.abs(djiData.change).toFixed(2)} (${isUp?'+':''}${djiData.changePercent.toFixed(2)}%)</span>
+                    🔥 <span style="color:${color};font-weight:bold;">道瓊 DIA $${dia.price.toFixed(2)}</span><br>
+                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}$${Math.abs(dia.change).toFixed(2)} (${isUp?'+':''}${parseFloat(dia.changePercent).toFixed(2)}%)</span>
                 </div>`;
             }
 
-            // 費半：優先用真實指數
-            const soxIdx = null; // 費半用 Finnhub SOXX ETF
-            const soxx = stocks.find(s => s.id === 'SOXX');
-            const soxData = (soxIdx && soxIdx.price) ? soxIdx : soxx;
-            if (soxData && soxData.price) {
-                const isUp = soxData.change >= 0;
+            // 費半 SOXX（from indices）
+            const soxx = indices?.find(s => s.id === 'SOXX');
+            if (soxx && soxx.price) {
+                const isUp = soxx.change >= 0;
                 const color = isUp ? '#00C851' : '#ff4444';
                 const arrow = isUp ? '▲' : '▼';
-                const isDirect = soxData === soxIdx;
-                const priceText = isDirect ? soxData.price.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : `$${soxData.price.toFixed(2)}`;
-                const label = isDirect ? '費城半導體' : '費半 SOXX';
                 const hint = isUp ? '半導體反攻 → 台股科技跟漲' : '半導體回落 → 台股科技承壓';
                 html += `<div style="margin-bottom: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${color};">
-                    🔥 <span style="color:${color};font-weight:bold;">${label} ${priceText}</span><br>
-                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}${Math.abs(soxData.change).toFixed(2)} (${isUp?'+':''}${soxData.changePercent.toFixed(2)}%)</span>
+                    🔥 <span style="color:${color};font-weight:bold;">費半 SOXX $${soxx.price.toFixed(2)}</span><br>
+                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}$${Math.abs(soxx.change).toFixed(2)} (${isUp?'+':''}${parseFloat(soxx.changePercent).toFixed(2)}%)</span>
                     <span style="color:#8b949e;font-size:0.8rem;margin-left:8px;">${hint}</span>
                 </div>`;
             }
 
-            // 台積ADR
+            // 台積ADR（from stocks）
             const tsm = stocks.find(s => s.id === 'TSM');
             if (tsm && tsm.price) {
                 const isUp = tsm.change >= 0;
@@ -12293,12 +12277,12 @@
                 const twPrice = (tsm.price * 6.5).toFixed(0);
                 html += `<div style="margin-bottom: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${color};">
                     🔥 <span style="color:${color};font-weight:bold;">台積ADR $${tsm.price.toFixed(2)}</span><br>
-                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}$${Math.abs(tsm.change).toFixed(2)} (${isUp?'+':''}${tsm.changePercent.toFixed(2)}%)</span>
+                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}$${Math.abs(tsm.change).toFixed(2)} (${isUp?'+':''}${parseFloat(tsm.changePercent).toFixed(2)}%)</span>
                     <span style="color:#8b949e;font-size:0.8rem;margin-left:8px;">換算約 ${twPrice} 元</span>
                 </div>`;
             }
 
-            // VIX
+            // VIX（from stocks）
             const vix = stocks.find(s => s.id === 'UVXY');
             if (vix && vix.price) {
                 const level = vix.price > 80 ? '⚠️ 極度恐慌' : vix.price > 40 ? '😰 偏高警戒' : vix.price > 20 ? '😐 正常範圍' : '😌 極度樂觀';
@@ -12307,7 +12291,7 @@
                 const arrow = isUp ? '▲' : '▼';
                 html += `<div style="padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${vColor};">
                     📊 <span style="color:${vColor};font-weight:bold;">VIX 恐慌 $${vix.price.toFixed(2)}</span>
-                    <span style="color:${isUp ? '#ff4444' : '#00C851'};font-size:0.85rem;margin-left:6px;">${arrow}${isUp?'+':''}$${Math.abs(vix.change).toFixed(2)} (${isUp?'+':''}${vix.changePercent.toFixed(2)}%)</span>
+                    <span style="color:${isUp ? '#ff4444' : '#00C851'};font-size:0.85rem;margin-left:6px;">${arrow}${isUp?'+':''}$${Math.abs(vix.change).toFixed(2)} (${isUp?'+':''}${parseFloat(vix.changePercent).toFixed(2)}%)</span>
                     <span style="color:#8b949e;font-size:0.85rem;margin-left:8px;">${level}</span>
                 </div>`;
             }
