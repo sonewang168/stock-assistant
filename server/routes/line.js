@@ -9372,9 +9372,9 @@ async function getUSStockDashboardFlex() {
     try {
       const idxSymbols = [
         { symbol: 'DJI',  label: '道瓊工業' },
-        { symbol: 'SPX',  label: 'S&P 500' },
+        { symbol: 'GSPC', label: 'S&P 500' },
         { symbol: 'IXIC', label: '那斯達克' },
-        { symbol: 'SOX',  label: '費城半導體' }
+        { symbol: 'VIX',  label: 'VIX 恐慌', isVIX: true }
       ];
       const symbolStr = idxSymbols.map(i => i.symbol).join(',');
       const idxResp = await axios.get(`https://api.twelvedata.com/quote?symbol=${symbolStr}&apikey=${TWELVE_KEY}`, { timeout: 10000 });
@@ -9556,7 +9556,7 @@ async function getUSStockDashboardFlex() {
     }
     
     // 費半：優先真實指數
-    const soxIdx = indicesData.find(s => s.symbol === 'SOX');
+    const soxIdx = null; // SOX 改用 Finnhub SOXX ETF
     const soxx = stocksData.find(s => s.id === 'SOXX')?.data;
     const soxData = (soxIdx && soxIdx.price) ? { price: soxIdx.price, change: soxIdx.change, changePercent: soxIdx.changePercent, isDirect: true } : soxx;
     if (soxData) {

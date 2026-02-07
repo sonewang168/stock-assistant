@@ -337,21 +337,30 @@ router.get('/us-indices', async (req, res) => {
     const TWELVE_KEY = process.env.TWELVE_DATA_API_KEY || '3c99ea8c9acb407aa0aab293c18e8d9a';
     const indices = [
       { symbol: 'DJI',  label: '道瓊工業' },
-      { symbol: 'SPX',  label: 'S&P 500' },
+      { symbol: 'GSPC', label: 'S&P 500' },
       { symbol: 'IXIC', label: '那斯達克' },
-      { symbol: 'SOX',  label: '費城半導體' }
+      { symbol: 'VIX',  label: 'VIX 恐慌', isVIX: true }
     ];
 
-    // Twelve Data 批次查詢
+    // Twelve Data 批次查詢（用逗號分隔）
     const symbolStr = indices.map(i => i.symbol).join(',');
     const url = `https://api.twelvedata.com/quote?symbol=${symbolStr}&apikey=${TWELVE_KEY}`;
-    console.log(`📊 [Twelve Data] 四大指數: ${symbolStr}`);
+    console.log(`📊 [Twelve Data] 查詢: ${symbolStr}`);
     const resp = await axios.get(url, { timeout: 10000 });
     const raw = resp.data;
+    
+    // Debug 印出原始回應
+    console.log(`📊 [Twelve Data] 回應 keys:`, Object.keys(raw));
+    for (const key of Object.keys(raw)) {
+      const v = raw[key];
+      if (v && typeof v === 'object') {
+        console.log(`  📊 ${key}: close=${v.close||'N/A'}, change=${v.change||'N/A'}, code=${v.code||'OK'}, msg=${v.message||''}`);
+      }
+    }
 
     const results = indices.map(idx => {
       const d = raw[idx.symbol];
-      if (d && d.close && !d.code) {
+      if (d && d.close && parseFloat(d.close) > 0 && !d.code) {
         const price = parseFloat(d.close);
         const prevClose = parseFloat(d.previous_close) || price;
         const change = parseFloat(d.change) || (price - prevClose);
@@ -361,16 +370,19 @@ router.get('/us-indices', async (req, res) => {
           id: idx.symbol, label: idx.label,
           price, change: parseFloat(change.toFixed(2)),
           changePercent: parseFloat(pct.toFixed(2)),
-          prevClose, isIndex: true, market: 'US'
+          prevClose, isIndex: true, isVIX: idx.isVIX || false, market: 'US'
         };
       }
-      console.log(`  ⚠️ ${idx.symbol}: 無資料`);
-      return { id: idx.symbol, label: idx.label, price: null, change: null, changePercent: null, isIndex: true, market: 'US' };
+      console.log(`  ⚠️ ${idx.symbol}: 無有效資料`);
+      return { id: idx.symbol, label: idx.label, price: null, change: null, changePercent: null, isIndex: true, isVIX: idx.isVIX || false, market: 'US' };
     });
 
     res.json({ success: true, data: results, time: new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei' }) });
   } catch (error) {
-    console.error('四大指數 API 錯誤:', error.message);
+    console.error('📊 四大指數 API 錯誤:', error.message);
+    if (error.response) {
+      console.error('📊 HTTP:', error.response.status, JSON.stringify(error.response.data).substring(0, 300));
+    }
     res.status(500).json({ success: false, error: error.message });
   }
 });

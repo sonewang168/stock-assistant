@@ -723,9 +723,9 @@ class StockService {
     try {
       const indices = [
         { symbol: '^DJI', name: '道瓊工業', twelveSymbol: 'DJI', finageSymbol: 'DJI' },
-        { symbol: '^GSPC', name: 'S&P 500', twelveSymbol: 'SPX', finageSymbol: 'SPX' },
+        { symbol: '^GSPC', name: 'S&P 500', twelveSymbol: 'GSPC', finageSymbol: 'SPX' },
         { symbol: '^IXIC', name: '納斯達克', twelveSymbol: 'IXIC', finageSymbol: 'IXIC' },
-        { symbol: '^SOX', name: '費城半導體', twelveSymbol: 'SOX', finageSymbol: 'SOX' }
+        { symbol: '^VIX', name: 'VIX 恐慌', twelveSymbol: 'VIX', finageSymbol: 'VIX' }
       ];
 
       // ===== 方法 0: Twelve Data 批次查詢（首選）=====

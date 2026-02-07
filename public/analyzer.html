@@ -12141,14 +12141,18 @@
                 }
 
                 const isUp = s.change >= 0;
-                const color = isUp ? '#00C851' : '#ff4444';
-                const borderColor = isUp ? 'rgba(0,200,81,0.4)' : 'rgba(255,68,68,0.4)';
+                const isVIX = s.isVIX || s.id === 'VIX';
+                // VIX漲=紅(危險), 其他綠漲紅跌
+                const color = isVIX ? (isUp ? '#ff4444' : '#00C851') : (isUp ? '#00C851' : '#ff4444');
+                const borderColor = isVIX 
+                    ? (isUp ? 'rgba(255,68,68,0.4)' : 'rgba(0,200,81,0.4)')
+                    : (isUp ? 'rgba(0,200,81,0.4)' : 'rgba(255,68,68,0.4)');
                 const arrow = isUp ? '▲' : '▼';
                 const priceText = s.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 const changeAmt = `${isUp ? '+' : ''}${s.change.toFixed(2)}`;
                 const changePct = `${isUp ? '+' : ''}${s.changePercent.toFixed(2)}%`;
 
-                const yahooMap = { DJI: '%5EDJI', SPX: '%5EGSPC', IXIC: '%5EIXIC', SOX: '%5ESOX' };
+                const yahooMap = { DJI: '%5EDJI', GSPC: '%5EGSPC', IXIC: '%5EIXIC', VIX: '%5EVIX' };
                 const yahooSym = yahooMap[s.id] || s.id;
 
                 return `<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border: 1px solid ${borderColor}; border-radius: 10px; padding: 10px 6px; text-align: center; cursor: pointer; transition: all 0.3s;"
@@ -12262,7 +12266,7 @@
             }
 
             // 費半：優先用真實指數
-            const soxIdx = indices?.find(s => s.id === 'SOX');
+            const soxIdx = null; // 費半用 Finnhub SOXX ETF
             const soxx = stocks.find(s => s.id === 'SOXX');
             const soxData = (soxIdx && soxIdx.price) ? soxIdx : soxx;
             if (soxData && soxData.price) {
