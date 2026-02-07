@@ -212,22 +212,22 @@ async function handleCommand(message, userId) {
     return await getStockInfoFlex(msg);
   }
   
-  // 加監控指令：+2330 或 加2330 或 監控2330
-  if (/^[+＋加監控]\s*\d{4,6}$/.test(msg)) {
+  // 加監控指令：+2330 或 加2330 或 監控2330 或 +AAPL 或 加TSLA
+  if (/^[+＋加監控]\s*(\d{4,6}|[A-Za-z]{1,5})$/.test(msg)) {
     const stockId = msg.replace(/^[+＋加監控]\s*/, '').trim();
-    return await addToWatchlist(stockId);
+    return await addToWatchlist(/^[A-Za-z]+$/.test(stockId) ? stockId.toUpperCase() : stockId);
   }
   
   // 🔔 警報設定指令
-  // 格式：警報 2330 上1000 下900 漲5 跌3
-  if (/^警報\s*\d{4,6}/.test(msg)) {
+  // 格式：警報 2330 上1000 下900 漲5 跌3 或 警報 AAPL 上200 下150
+  if (/^警報\s*(\d{4,6}|[A-Za-z]{1,5})/.test(msg)) {
     return await setStockAlert(msg);
   }
   
-  // 移除監控：-2330 或 刪2330
-  if (/^[-－刪移除]\s*\d{4,6}$/.test(msg)) {
+  // 移除監控：-2330 或 刪2330 或 -AAPL 或 刪TSLA
+  if (/^[-－刪移除]\s*(\d{4,6}|[A-Za-z]{1,5})$/.test(msg)) {
     const stockId = msg.replace(/^[-－刪移除]\s*/, '').trim();
-    return await removeFromWatchlist(stockId);
+    return await removeFromWatchlist(/^[A-Za-z]+$/.test(stockId) ? stockId.toUpperCase() : stockId);
   }
   
   // 🆕 預約買賣功能
@@ -546,9 +546,9 @@ async function handleCommand(message, userId) {
   return {
     type: 'text',
     text: `🤔 不認識「${msg}」\n\n` +
-      `📍 查股價：輸入代碼如 2330\n` +
+      `📍 查股價：輸入代碼如 2330 或 AAPL\n` +
       `🔍 搜股票：查 台積電\n` +
-      `➕ 加監控：+2330\n` +
+      `➕ 加監控：+2330 或 +AAPL\n` +
       `📋 輸入「說明」看更多`
   };
 }
@@ -7813,16 +7813,16 @@ function getTutorialAlert() {
           { type: 'text', text: '📌 加入監控', weight: 'bold', size: 'md' },
           { type: 'box', layout: 'vertical', margin: 'md', backgroundColor: '#f5f5f5', cornerRadius: 'md', paddingAll: '10px',
             contents: [
-              { type: 'text', text: '+2330', size: 'sm', color: '#1DB446' },
-              { type: 'text', text: '→ 將 2330 加入監控清單', size: 'xs', color: '#888888' }
+              { type: 'text', text: '+2330 或 +AAPL', size: 'sm', color: '#1DB446' },
+              { type: 'text', text: '→ 台股/美股加入監控清單', size: 'xs', color: '#888888' }
             ]
           },
           { type: 'separator', margin: 'lg' },
           { type: 'text', text: '📌 移除監控', weight: 'bold', size: 'md', margin: 'lg' },
           { type: 'box', layout: 'vertical', margin: 'md', backgroundColor: '#f5f5f5', cornerRadius: 'md', paddingAll: '10px',
             contents: [
-              { type: 'text', text: '-2330', size: 'sm', color: '#1DB446' },
-              { type: 'text', text: '→ 將 2330 從監控清單移除', size: 'xs', color: '#888888' }
+              { type: 'text', text: '-2330 或 -AAPL', size: 'sm', color: '#1DB446' },
+              { type: 'text', text: '→ 將股票從監控清單移除', size: 'xs', color: '#888888' }
             ]
           },
           { type: 'separator', margin: 'lg' },
@@ -7830,7 +7830,8 @@ function getTutorialAlert() {
           { type: 'box', layout: 'vertical', margin: 'md', backgroundColor: '#f5f5f5', cornerRadius: 'md', paddingAll: '10px',
             contents: [
               { type: 'text', text: '警報 2330 上1000 下900', size: 'sm', color: '#1DB446' },
-              { type: 'text', text: '→ 超過 1000 或跌破 900 時通知', size: 'xs', color: '#888888' }
+              { type: 'text', text: '警報 AAPL 上200 下150', size: 'sm', color: '#1DB446', margin: 'xs' },
+              { type: 'text', text: '→ 超過目標價或跌破時通知', size: 'xs', color: '#888888' }
             ]
           },
           { type: 'separator', margin: 'lg' },
@@ -8047,6 +8048,15 @@ function getTutorialUS() {
             contents: [
               { type: 'text', text: '美股分析', size: 'sm', color: '#1DB446' },
               { type: 'text', text: '→ AI 分析美股對台股影響', size: 'xs', color: '#888888' }
+            ]
+          },
+          { type: 'separator', margin: 'lg' },
+          { type: 'text', text: '📌 美股監控', weight: 'bold', size: 'md', margin: 'lg' },
+          { type: 'box', layout: 'vertical', margin: 'md', backgroundColor: '#f5f5f5', cornerRadius: 'md', paddingAll: '10px',
+            contents: [
+              { type: 'text', text: '+AAPL → 加入監控', size: 'sm', color: '#1DB446' },
+              { type: 'text', text: '-AAPL → 移除監控', size: 'sm', color: '#1DB446', margin: 'xs' },
+              { type: 'text', text: '→ 美股也能加入監控清單', size: 'xs', color: '#888888' }
             ]
           }
         ],
@@ -9181,16 +9191,22 @@ async function getWatchlistFlex() {
   const result = await pool.query(watchlistSql);
   
   if (result.rows.length === 0) {
-    return { type: 'text', text: '📭 目前沒有監控股票\n\n輸入「+2330」加入監控' };
+    return { type: 'text', text: '📭 目前沒有監控股票\n\n輸入「+2330」加入台股監控\n輸入「+AAPL」加入美股監控' };
   }
   
   // 取得即時價格
   const stockRows = [];
   for (const row of result.rows) {
     const stockData = await stockService.getRealtimePrice(row.stock_id);
+    const isUS = stockData?.market === 'US' || /^[A-Za-z]{1,5}$/.test(row.stock_id);
     const isUp = stockData?.change >= 0;
-    const color = isUp ? '#ff4444' : '#00C851'; // 台灣：紅漲綠跌
+    // 台灣：紅漲綠跌 / 美股：綠漲紅跌
+    const color = isUS 
+      ? (isUp ? '#00C851' : '#ff4444')
+      : (isUp ? '#ff4444' : '#00C851');
     const arrow = isUp ? '▲' : '▼';
+    const pricePrefix = isUS ? '$' : '';
+    const flagIcon = isUS ? '🇺🇸' : '';
     
     // 🔧 如果 watchlist 或 stocks 缺少名稱，自動補上
     if (stockData?.name && stockData.name !== row.stock_id) {
@@ -9220,8 +9236,13 @@ async function getWatchlistFlex() {
     
     // 格式：有名稱時「名稱(代碼)」，無名稱時只顯示「代碼」
     const displayText = stockName 
-      ? `${holdingIcon}${stockName}(${row.stock_id})`
-      : `${holdingIcon}${row.stock_id}`;
+      ? `${holdingIcon}${flagIcon}${stockName}(${row.stock_id})`
+      : `${holdingIcon}${flagIcon}${row.stock_id}`;
+    
+    // 價格格式化
+    const priceText = stockData?.price 
+      ? `${pricePrefix}${isUS ? parseFloat(stockData.price).toFixed(2) : stockData.price}` 
+      : 'N/A';
     
     stockRows.push({
       type: 'box',
@@ -9235,7 +9256,7 @@ async function getWatchlistFlex() {
           color: isHolding ? '#D4AF37' : '#333333',
           weight: isHolding ? 'bold' : 'regular'
         },
-        { type: 'text', text: `${stockData?.price || 'N/A'}`, size: 'sm', align: 'end', flex: 2, color: '#333333' },
+        { type: 'text', text: priceText, size: 'sm', align: 'end', flex: 2, color: '#333333' },
         { type: 'text', text: stockData ? `${arrow}${stockData.changePercent}%` : 'N/A', size: 'sm', color: color, align: 'end', flex: 3 }
       ],
       margin: 'sm',
@@ -9247,8 +9268,14 @@ async function getWatchlistFlex() {
     await new Promise(r => setTimeout(r, 200));
   }
   
-  // 計算持股數量
+  // 計算持股數量和美股數量
   const holdingCount = result.rows.filter(r => holdingIds.includes(r.stock_id)).length;
+  const usCount = result.rows.filter(r => /^[A-Za-z]{1,5}$/.test(r.stock_id)).length;
+  const subText = [
+    `共 ${result.rows.length} 支股票`,
+    holdingCount > 0 ? `💼 ${holdingCount} 支持股中` : '',
+    usCount > 0 ? `🇺🇸 ${usCount} 支美股` : ''
+  ].filter(Boolean).join(' | ');
   
   return {
     type: 'flex',
@@ -9263,7 +9290,7 @@ async function getWatchlistFlex() {
           { type: 'text', text: '📋 監控清單', size: 'xl', weight: 'bold', color: '#ffffff' },
           { 
             type: 'text', 
-            text: `共 ${result.rows.length} 支股票${holdingCount > 0 ? ` | 💼 ${holdingCount} 支持股中` : ''}`, 
+            text: subText, 
             size: 'sm', 
             color: '#ffffffaa', 
             margin: 'sm' 
@@ -9302,7 +9329,15 @@ async function getWatchlistFlex() {
               },
               { 
                 type: 'text', 
-                text: '💼 = 持股中的股票', 
+                text: '🇺🇸 支援美股：+AAPL 或 -TSLA', 
+                size: 'xs', 
+                color: '#888888',
+                align: 'center',
+                margin: 'xs'
+              },
+              { 
+                type: 'text', 
+                text: '💼 = 持股中　🇺🇸 = 美股（綠漲紅跌）', 
                 size: 'xs', 
                 color: '#D4AF37',
                 align: 'center',
@@ -9469,9 +9504,12 @@ async function addToWatchlist(stockId) {
     `);
     const newCount = parseInt(newCountResult.rows[0].count) || 0;
     
+    const isUS = stockData.market === 'US';
+    const flag = isUS ? '🇺🇸 ' : '';
+    
     return { 
       type: 'text', 
-      text: `✅ 已加入監控：${stockData.name}（${stockId}）\n📊 目前監控 ${newCount}/20 支\n\n輸入「監控」查看清單` 
+      text: `✅ 已加入監控：${flag}${stockData.name}（${stockId}）\n📊 目前監控 ${newCount}/20 支\n\n輸入「監控」查看清單` 
     };
     
   } catch (error) {
@@ -9512,12 +9550,12 @@ async function removeFromWatchlist(stockId) {
 async function setStockAlert(msg) {
   try {
     // 解析指令
-    const stockMatch = msg.match(/警報\s*(\d{4,6})/);
+    const stockMatch = msg.match(/警報\s*(\d{4,6}|[A-Za-z]{1,5})/);
     if (!stockMatch) {
-      return { type: 'text', text: '⚠️ 請輸入股票代碼\n例如：警報 2330 上1000 下900' };
+      return { type: 'text', text: '⚠️ 請輸入股票代碼\n例如：警報 2330 上1000 下900\n或：警報 AAPL 上200 下150' };
     }
     
-    const stockId = stockMatch[1];
+    const stockId = /^[A-Za-z]+$/.test(stockMatch[1]) ? stockMatch[1].toUpperCase() : stockMatch[1];
     
     // 取得股票資料
     const stockData = await stockService.getRealtimePrice(stockId);
@@ -10992,12 +11030,13 @@ async function getSettingsPageFlex() {
 function getHelpReply() {
   const help = `📱 股海秘書指令說明\n` +
     `━━━━━━━━━━━━━━\n` +
-    `🔍 查詢：2330、台積電現在多少\n` +
+    `🔍 查詢：2330、AAPL、台積電現在多少\n` +
     `📈 大盤：大盤、美股、熱門\n` +
     `📊 分析：分析 2330、綜合分析\n` +
     `🏦 籌碼：籌碼 2330、外資買超\n` +
     `💼 持股：持股、收盤摘要\n` +
-    `🎯 停損：停利 2330 1100\n\n` +
+    `🎯 停損：停利 2330 1100\n` +
+    `👁️ 監控：+2330 或 +AAPL 加入\n\n` +
     `🆕 買賣預約\n` +
     `━━━━━━━━━━━━━━\n` +
     `📋 預約買 2330 550 2張\n` +
