@@ -328,6 +328,100 @@ router.get('/taiex', async (req, res) => {
 });
 
 /**
+ * 🇺🇸 美股數據 API（後端統一抓取，避免前端 CORS）
+ * Yahoo Finance: 三大指數 + VIX（真實指數點數）
+ * Finnhub: 個股即時報價
+ * GET /api/stock/us-dashboard
+ * ⚠️ 必須放在 /:id 之前，否則會被萬用路由攔截
+ */
+router.get('/us-dashboard', async (req, res) => {
+  try {
+    const FINNHUB_KEY = process.env.FINNHUB_API_KEY || 'd63hnppr01qnpqg154e0d63hnppr01qnpqg154eg';
+    const YAHOO_HEADERS = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      'Accept': 'application/json',
+      'Accept-Language': 'en-US,en;q=0.9'
+    };
+
+    const results = [];
+
+    // ===== 第一組：三大指數 + VIX（Yahoo Finance，真實指數點數）=====
+    const indexSymbols = [
+      { yahoo: '^DJI', id: 'DJI', label: '道瓊工業' },
+      { yahoo: '^GSPC', id: 'SPX', label: 'S&P 500' },
+      { yahoo: '^SOX', id: 'SOX', label: '費城半導體' },
+      { yahoo: '^VIX', id: 'VIX', label: 'VIX 恐慌' }
+    ];
+
+    for (const sym of indexSymbols) {
+      try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym.yahoo)}?interval=1d&range=5d`;
+        const resp = await axios.get(url, { headers: YAHOO_HEADERS, timeout: 8000 });
+        const meta = resp.data?.chart?.result?.[0]?.meta;
+        if (meta && meta.regularMarketPrice > 0) {
+          const price = meta.regularMarketPrice;
+          const prevClose = meta.chartPreviousClose || meta.previousClose || price;
+          const change = price - prevClose;
+          const changePercent = prevClose > 0 ? (change / prevClose * 100) : 0;
+          results.push({
+            id: sym.id, label: sym.label,
+            price: parseFloat(price.toFixed(2)),
+            change: parseFloat(change.toFixed(2)),
+            changePercent: parseFloat(changePercent.toFixed(2)),
+            isIndex: true, market: 'US'
+          });
+          console.log(`✅ ${sym.id}: ${price.toFixed(2)} (${change >= 0 ? '+' : ''}${change.toFixed(2)})`);
+        } else {
+          console.log(`⚠️ ${sym.id}: Yahoo 無資料`);
+          results.push({ id: sym.id, label: sym.label, price: null, change: null, changePercent: null, isIndex: true, market: 'US' });
+        }
+      } catch (e) {
+        console.log(`❌ ${sym.id}: ${e.message}`);
+        results.push({ id: sym.id, label: sym.label, price: null, change: null, changePercent: null, isIndex: true, market: 'US' });
+      }
+      await new Promise(r => setTimeout(r, 200));
+    }
+
+    // ===== 第二組：個股（Finnhub API）=====
+    const stockSymbols = [
+      { id: 'NVDA', label: '輝達 NVDA' },
+      { id: 'TSM', label: '台積ADR' },
+      { id: 'AVGO', label: '博通 AVGO' },
+      { id: 'MU', label: '美光 MU' }
+    ];
+
+    for (const sym of stockSymbols) {
+      try {
+        const url = `https://finnhub.io/api/v1/quote?symbol=${sym.id}&token=${FINNHUB_KEY}`;
+        const resp = await axios.get(url, { timeout: 8000 });
+        const q = resp.data;
+        if (q && q.c > 0) {
+          results.push({
+            id: sym.id, label: sym.label,
+            price: q.c,
+            change: q.d || 0,
+            changePercent: q.dp || 0,
+            isIndex: false, market: 'US'
+          });
+          console.log(`✅ ${sym.id}: $${q.c} (${q.d >= 0 ? '+' : ''}${q.d})`);
+        } else {
+          results.push({ id: sym.id, label: sym.label, price: null, change: null, changePercent: null, isIndex: false, market: 'US' });
+        }
+      } catch (e) {
+        console.log(`❌ ${sym.id}: ${e.message}`);
+        results.push({ id: sym.id, label: sym.label, price: null, change: null, changePercent: null, isIndex: false, market: 'US' });
+      }
+      await new Promise(r => setTimeout(r, 150));
+    }
+
+    res.json({ success: true, data: results, time: new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei' }) });
+  } catch (error) {
+    console.error('美股數據 API 錯誤:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * GET /api/stock/:id
  * 取得單一股票即時報價
  */
@@ -503,99 +597,6 @@ router.post('/batch', async (req, res) => {
     res.json(results);
   } catch (error) {
     res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * 🇺🇸 美股數據 API（後端統一抓取，避免前端 CORS）
- * Yahoo Finance: 三大指數 + VIX（真實指數點數）
- * Finnhub: 個股即時報價
- * GET /api/stock/us-dashboard
- */
-router.get('/us-dashboard', async (req, res) => {
-  try {
-    const FINNHUB_KEY = process.env.FINNHUB_API_KEY || 'd63hnppr01qnpqg154e0d63hnppr01qnpqg154eg';
-    const YAHOO_HEADERS = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      'Accept': 'application/json',
-      'Accept-Language': 'en-US,en;q=0.9'
-    };
-
-    const results = [];
-
-    // ===== 第一組：三大指數 + VIX（Yahoo Finance，真實指數點數）=====
-    const indexSymbols = [
-      { yahoo: '^DJI', id: 'DJI', label: '道瓊工業' },
-      { yahoo: '^GSPC', id: 'SPX', label: 'S&P 500' },
-      { yahoo: '^SOX', id: 'SOX', label: '費城半導體' },
-      { yahoo: '^VIX', id: 'VIX', label: 'VIX 恐慌' }
-    ];
-
-    for (const sym of indexSymbols) {
-      try {
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym.yahoo)}?interval=1d&range=5d`;
-        const resp = await axios.get(url, { headers: YAHOO_HEADERS, timeout: 8000 });
-        const meta = resp.data?.chart?.result?.[0]?.meta;
-        if (meta && meta.regularMarketPrice > 0) {
-          const price = meta.regularMarketPrice;
-          const prevClose = meta.chartPreviousClose || meta.previousClose || price;
-          const change = price - prevClose;
-          const changePercent = prevClose > 0 ? (change / prevClose * 100) : 0;
-          results.push({
-            id: sym.id, label: sym.label,
-            price: parseFloat(price.toFixed(2)),
-            change: parseFloat(change.toFixed(2)),
-            changePercent: parseFloat(changePercent.toFixed(2)),
-            isIndex: true, market: 'US'
-          });
-          console.log(`✅ ${sym.id}: ${price.toFixed(2)} (${change >= 0 ? '+' : ''}${change.toFixed(2)})`);
-        } else {
-          console.log(`⚠️ ${sym.id}: Yahoo 無資料`);
-          results.push({ id: sym.id, label: sym.label, price: null, change: null, changePercent: null, isIndex: true, market: 'US' });
-        }
-      } catch (e) {
-        console.log(`❌ ${sym.id}: ${e.message}`);
-        results.push({ id: sym.id, label: sym.label, price: null, change: null, changePercent: null, isIndex: true, market: 'US' });
-      }
-      await new Promise(r => setTimeout(r, 200));
-    }
-
-    // ===== 第二組：個股（Finnhub API）=====
-    const stockSymbols = [
-      { id: 'NVDA', label: '輝達 NVDA' },
-      { id: 'TSM', label: '台積ADR' },
-      { id: 'AVGO', label: '博通 AVGO' },
-      { id: 'MU', label: '美光 MU' }
-    ];
-
-    for (const sym of stockSymbols) {
-      try {
-        const url = `https://finnhub.io/api/v1/quote?symbol=${sym.id}&token=${FINNHUB_KEY}`;
-        const resp = await axios.get(url, { timeout: 8000 });
-        const q = resp.data;
-        if (q && q.c > 0) {
-          results.push({
-            id: sym.id, label: sym.label,
-            price: q.c,
-            change: q.d || 0,
-            changePercent: q.dp || 0,
-            isIndex: false, market: 'US'
-          });
-          console.log(`✅ ${sym.id}: $${q.c} (${q.d >= 0 ? '+' : ''}${q.d})`);
-        } else {
-          results.push({ id: sym.id, label: sym.label, price: null, change: null, changePercent: null, isIndex: false, market: 'US' });
-        }
-      } catch (e) {
-        console.log(`❌ ${sym.id}: ${e.message}`);
-        results.push({ id: sym.id, label: sym.label, price: null, change: null, changePercent: null, isIndex: false, market: 'US' });
-      }
-      await new Promise(r => setTimeout(r, 150));
-    }
-
-    res.json({ success: true, data: results, time: new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei' }) });
-  } catch (error) {
-    console.error('美股數據 API 錯誤:', error);
-    res.status(500).json({ success: false, error: error.message });
   }
 });
 
