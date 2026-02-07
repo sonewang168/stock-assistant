@@ -9363,62 +9363,46 @@ async function getWatchlistFlex() {
  */
 async function getUSStockDashboardFlex() {
   try {
-    console.log('🇺🇸 取得美股數據卡片（Finnhub）...');
+    console.log('🇺🇸 取得美股數據卡片（全 Finnhub）...');
     const FINNHUB_KEY = process.env.FINNHUB_API_KEY || 'd63hnppr01qnpqg154e0d63hnppr01qnpqg154eg';
     
-    // 8大關鍵美股/ETF
+    // 8大關鍵美股/ETF — 全部用 Finnhub
     const symbols = [
-      { id: 'DIA', label: '道瓊 DIA' },
-      { id: 'SPY', label: 'S&P SPY' },
+      { id: 'DIA',  label: '道瓊 DIA' },
+      { id: 'SPY',  label: 'S&P SPY' },
       { id: 'SOXX', label: '費半 SOXX' },
-      { id: 'VIX', label: 'VIX 恐慌' },
+      { id: 'UVXY', label: 'VIX 恐慌', isVIX: true },
       { id: 'NVDA', label: '輝達 NVDA' },
-      { id: 'TSM', label: '台積ADR' },
+      { id: 'TSM',  label: '台積ADR' },
       { id: 'AVGO', label: '博通 AVGO' },
-      { id: 'MU', label: '美光 MU' }
+      { id: 'MU',   label: '美光 MU' }
     ];
 
     const stocksData = [];
     for (const sym of symbols) {
       try {
-        let data = null;
-        if (sym.id === 'VIX') {
-          // VIX 用 Yahoo Finance（Finnhub 不支援 ^VIX）
-          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent('^VIX')}?interval=1d&range=5d`;
-          const res = await axios.get(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-            timeout: 8000
-          });
-          const meta = res.data?.chart?.result?.[0]?.meta;
-          if (meta) {
-            const price = meta.regularMarketPrice || 0;
-            const prevClose = meta.chartPreviousClose || meta.previousClose || price;
-            const change = price - prevClose;
-            const changePercent = prevClose > 0 ? ((change / prevClose) * 100).toFixed(2) : 0;
-            data = { id: 'VIX', name: 'VIX', price: parseFloat(price.toFixed(2)), change: parseFloat(change.toFixed(2)), changePercent, market: 'US' };
-          }
-        } else {
-          // 其他美股用 Finnhub API
-          const url = `https://finnhub.io/api/v1/quote?symbol=${sym.id}&token=${FINNHUB_KEY}`;
-          const res = await axios.get(url, { timeout: 8000 });
-          const q = res.data;
-          if (q && q.c > 0) {
-            data = {
-              id: sym.id,
-              name: sym.label.split(' ')[0], // 取中文名
-              price: q.c,
+        const url = `https://finnhub.io/api/v1/quote?symbol=${sym.id}&token=${FINNHUB_KEY}`;
+        const res = await axios.get(url, { timeout: 8000 });
+        const q = res.data;
+        if (q && q.c > 0) {
+          stocksData.push({
+            ...sym,
+            data: {
+              id: sym.id, price: q.c,
               change: q.d || 0,
               changePercent: (q.dp || 0).toFixed(2),
               market: 'US'
-            };
-          }
+            }
+          });
+          console.log(`✅ ${sym.id}: $${q.c} (${q.d >= 0 ? '+' : ''}${q.d})`);
+        } else {
+          stocksData.push({ ...sym, data: null });
         }
-        stocksData.push({ ...sym, data });
       } catch (e) {
         console.log(`⚠️ ${sym.id} 抓取失敗: ${e.message}`);
         stocksData.push({ ...sym, data: null });
       }
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 120));
     }
 
     // 建立 4x2 格子卡片（LINE Flex 用 horizontal boxes）
@@ -9426,14 +9410,14 @@ async function getUSStockDashboardFlex() {
       type: 'box', layout: 'horizontal', margin: 'md', spacing: 'sm',
       contents: items.map(item => {
         const d = item.data;
-        const price = d ? (d.id === 'VIX' ? d.price : `$${parseFloat(d.price).toFixed(2)}`) : 'N/A';
+        const price = d ? `$${parseFloat(d.price).toFixed(2)}` : 'N/A';
+        const changeAmt = d ? `${d.change >= 0 ? '+' : ''}${parseFloat(d.change).toFixed(2)}` : '--';
         const pct = d ? `${d.change >= 0 ? '+' : ''}${d.changePercent}%` : '--';
-        // 美股綠漲紅跌，VIX 反轉（VIX跌=好）
-        const isVIX = item.id === 'VIX';
+        const isVIX = item.isVIX;
         const isUp = d ? d.change >= 0 : false;
         const color = isVIX 
-          ? (isUp ? '#ff4444' : '#00C851')  // VIX漲=紅(危險), 跌=綠(好)
-          : (isUp ? '#00C851' : '#ff4444');  // 一般美股綠漲紅跌
+          ? (isUp ? '#ff4444' : '#00C851')
+          : (isUp ? '#00C851' : '#ff4444');
 
         return {
           type: 'box', layout: 'vertical', flex: 1,
@@ -9443,6 +9427,7 @@ async function getUSStockDashboardFlex() {
           contents: [
             { type: 'text', text: item.label, size: 'xxs', color: '#aaaaaa', align: 'center' },
             { type: 'text', text: `${price}`, size: 'sm', weight: 'bold', color: color, align: 'center', margin: 'xs' },
+            { type: 'text', text: changeAmt, size: 'xxs', color: color, align: 'center' },
             { type: 'text', text: pct, size: 'xxs', color: color, align: 'center' }
           ]
         };
@@ -9492,12 +9477,14 @@ async function getUSStockDashboardFlex() {
     const dia = stocksData.find(s => s.id === 'DIA')?.data;
     if (dia) {
       const isUp = dia.change >= 0;
+      const color = isUp ? '#00C851' : '#ff4444';
+      const arrow = isUp ? '▲' : '▼';
       trendItems.push({
         type: 'box', layout: 'horizontal', margin: 'md',
         contents: [
           { type: 'text', text: '🔥', size: 'sm', flex: 0 },
-          { type: 'text', text: `道瓊 DIA $${parseFloat(dia.price).toFixed(2)}`, size: 'sm', color: isUp ? '#00C851' : '#ff4444', weight: 'bold', flex: 4 },
-          { type: 'text', text: `${isUp?'+':''}${dia.changePercent}%`, size: 'sm', color: isUp ? '#00C851' : '#ff4444', align: 'end', flex: 2 }
+          { type: 'text', text: `道瓊 DIA $${parseFloat(dia.price).toFixed(2)}`, size: 'sm', color, weight: 'bold', flex: 5 },
+          { type: 'text', text: `${arrow}${isUp?'+':''}$${Math.abs(dia.change).toFixed(2)}`, size: 'xs', color, align: 'end', flex: 3 }
         ]
       });
     }
@@ -9506,6 +9493,7 @@ async function getUSStockDashboardFlex() {
     const soxx = stocksData.find(s => s.id === 'SOXX')?.data;
     if (soxx) {
       const isUp = soxx.change >= 0;
+      const color = isUp ? '#00C851' : '#ff4444';
       const hint = isUp ? '半導體反攻 → 台股科技跟漲' : '半導體回落 → 台股科技承壓';
       trendItems.push({
         type: 'box', layout: 'vertical', margin: 'md',
@@ -9513,7 +9501,8 @@ async function getUSStockDashboardFlex() {
           { type: 'box', layout: 'horizontal',
             contents: [
               { type: 'text', text: '🔥', size: 'sm', flex: 0 },
-              { type: 'text', text: `費半 SOXX ${isUp?'+':''}${soxx.changePercent}%`, size: 'sm', color: isUp ? '#00C851' : '#ff4444', weight: 'bold', flex: 5 }
+              { type: 'text', text: `費半 SOXX ${isUp?'+':''}${soxx.changePercent}%`, size: 'sm', color, weight: 'bold', flex: 4 },
+              { type: 'text', text: `${isUp?'+':''}$${Math.abs(soxx.change).toFixed(2)}`, size: 'xs', color, align: 'end', flex: 3 }
             ]
           },
           { type: 'text', text: hint, size: 'xs', color: '#8b949e', margin: 'xs' }
@@ -9525,14 +9514,16 @@ async function getUSStockDashboardFlex() {
     const tsm = stocksData.find(s => s.id === 'TSM')?.data;
     if (tsm) {
       const isUp = tsm.change >= 0;
-      const twPrice = (parseFloat(tsm.price) * 6.5).toFixed(0); // 估算台幣換算
+      const color = isUp ? '#00C851' : '#ff4444';
+      const twPrice = (parseFloat(tsm.price) * 6.5).toFixed(0);
       trendItems.push({
         type: 'box', layout: 'vertical', margin: 'md',
         contents: [
           { type: 'box', layout: 'horizontal',
             contents: [
               { type: 'text', text: '🔥', size: 'sm', flex: 0 },
-              { type: 'text', text: `台積ADR $${parseFloat(tsm.price).toFixed(2)}`, size: 'sm', color: isUp ? '#00C851' : '#ff4444', weight: 'bold', flex: 5 }
+              { type: 'text', text: `台積ADR $${parseFloat(tsm.price).toFixed(2)}`, size: 'sm', color, weight: 'bold', flex: 4 },
+              { type: 'text', text: `${isUp?'+':''}$${Math.abs(tsm.change).toFixed(2)}`, size: 'xs', color, align: 'end', flex: 3 }
             ]
           },
           { type: 'text', text: `${isUp?'+':''}${tsm.changePercent}%｜換算約 ${twPrice} 元`, size: 'xs', color: '#8b949e', margin: 'xs' }
@@ -9540,18 +9531,19 @@ async function getUSStockDashboardFlex() {
       });
     }
 
-    // VIX
-    const vix = stocksData.find(s => s.id === 'VIX')?.data;
+    // UVXY (VIX 恐慌)
+    const vix = stocksData.find(s => s.id === 'UVXY')?.data;
     if (vix) {
-      const level = vix.price > 30 ? '⚠️ 極度恐慌' : vix.price > 20 ? '😰 偏高警戒' : '😌 正常偏低';
+      const isUp = vix.change >= 0;
+      const vColor = isUp ? '#ff4444' : '#00C851'; // VIX漲=紅(危險)
       trendItems.push({
         type: 'box', layout: 'vertical', margin: 'md',
         contents: [
           { type: 'box', layout: 'horizontal',
             contents: [
               { type: 'text', text: '📊', size: 'sm', flex: 0 },
-              { type: 'text', text: `VIX ${vix.price}`, size: 'sm', color: vix.price > 25 ? '#ff4444' : '#00C851', weight: 'bold', flex: 3 },
-              { type: 'text', text: level, size: 'xs', color: '#8b949e', align: 'end', flex: 3 }
+              { type: 'text', text: `VIX $${parseFloat(vix.price).toFixed(2)}`, size: 'sm', color: vColor, weight: 'bold', flex: 3 },
+              { type: 'text', text: `${isUp?'+':''}${vix.changePercent}%`, size: 'xs', color: vColor, align: 'end', flex: 3 }
             ]
           }
         ]
