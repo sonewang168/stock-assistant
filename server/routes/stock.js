@@ -328,6 +328,54 @@ router.get('/taiex', async (req, res) => {
 });
 
 /**
+ * 🇺🇸 四大指數 API — Twelve Data（真實指數點數）
+ * GET /api/stock/us-indices
+ * ⚠️ 必須放在 /:id 之前
+ */
+router.get('/us-indices', async (req, res) => {
+  try {
+    const TWELVE_KEY = process.env.TWELVE_DATA_API_KEY || '3c99ea8c9acb407aa0aab293c18e8d9a';
+    const indices = [
+      { symbol: 'DJI',  label: '道瓊工業' },
+      { symbol: 'SPX',  label: 'S&P 500' },
+      { symbol: 'IXIC', label: '那斯達克' },
+      { symbol: 'SOX',  label: '費城半導體' }
+    ];
+
+    // Twelve Data 批次查詢
+    const symbolStr = indices.map(i => i.symbol).join(',');
+    const url = `https://api.twelvedata.com/quote?symbol=${symbolStr}&apikey=${TWELVE_KEY}`;
+    console.log(`📊 [Twelve Data] 四大指數: ${symbolStr}`);
+    const resp = await axios.get(url, { timeout: 10000 });
+    const raw = resp.data;
+
+    const results = indices.map(idx => {
+      const d = raw[idx.symbol];
+      if (d && d.close && !d.code) {
+        const price = parseFloat(d.close);
+        const prevClose = parseFloat(d.previous_close) || price;
+        const change = parseFloat(d.change) || (price - prevClose);
+        const pct = parseFloat(d.percent_change) || (prevClose > 0 ? (change / prevClose * 100) : 0);
+        console.log(`  ✅ ${idx.symbol}: ${price.toLocaleString()} (${change >= 0 ? '+' : ''}${change.toFixed(2)})`);
+        return {
+          id: idx.symbol, label: idx.label,
+          price, change: parseFloat(change.toFixed(2)),
+          changePercent: parseFloat(pct.toFixed(2)),
+          prevClose, isIndex: true, market: 'US'
+        };
+      }
+      console.log(`  ⚠️ ${idx.symbol}: 無資料`);
+      return { id: idx.symbol, label: idx.label, price: null, change: null, changePercent: null, isIndex: true, market: 'US' };
+    });
+
+    res.json({ success: true, data: results, time: new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei' }) });
+  } catch (error) {
+    console.error('四大指數 API 錯誤:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * 🇺🇸 美股數據 API — 全部使用 Finnhub（Yahoo 在 Railway 被擋）
  * GET /api/stock/us-dashboard
  * ⚠️ 必須放在 /:id 之前，否則會被萬用路由攔截

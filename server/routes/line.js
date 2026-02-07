@@ -9363,10 +9363,39 @@ async function getWatchlistFlex() {
  */
 async function getUSStockDashboardFlex() {
   try {
-    console.log('🇺🇸 取得美股數據卡片（全 Finnhub）...');
+    console.log('🇺🇸 取得美股數據卡片（Twelve Data 指數 + Finnhub 個股）...');
     const FINNHUB_KEY = process.env.FINNHUB_API_KEY || 'd63hnppr01qnpqg154e0d63hnppr01qnpqg154eg';
+    const TWELVE_KEY = process.env.TWELVE_DATA_API_KEY || '3c99ea8c9acb407aa0aab293c18e8d9a';
     
-    // 8大關鍵美股/ETF — 全部用 Finnhub
+    // ===== 1. 四大指數（Twelve Data）=====
+    let indicesData = [];
+    try {
+      const idxSymbols = [
+        { symbol: 'DJI',  label: '道瓊工業' },
+        { symbol: 'SPX',  label: 'S&P 500' },
+        { symbol: 'IXIC', label: '那斯達克' },
+        { symbol: 'SOX',  label: '費城半導體' }
+      ];
+      const symbolStr = idxSymbols.map(i => i.symbol).join(',');
+      const idxResp = await axios.get(`https://api.twelvedata.com/quote?symbol=${symbolStr}&apikey=${TWELVE_KEY}`, { timeout: 10000 });
+      const raw = idxResp.data;
+      for (const idx of idxSymbols) {
+        const d = raw[idx.symbol];
+        if (d && d.close && !d.code) {
+          const price = parseFloat(d.close);
+          const change = parseFloat(d.change) || 0;
+          const pct = parseFloat(d.percent_change) || 0;
+          indicesData.push({ ...idx, price, change, changePercent: pct.toFixed(2) });
+          console.log(`  ✅ ${idx.symbol}: ${price.toLocaleString()} (${change >= 0 ? '+' : ''}${change.toFixed(2)})`);
+        } else {
+          indicesData.push({ ...idx, price: null, change: null, changePercent: null });
+        }
+      }
+    } catch (e) {
+      console.log(`⚠️ Twelve Data 指數失敗: ${e.message}`);
+    }
+
+    // ===== 2. 個股/ETF（Finnhub）=====
     const symbols = [
       { id: 'DIA',  label: '道瓊 DIA' },
       { id: 'SPY',  label: 'S&P SPY' },
@@ -9437,7 +9466,43 @@ async function getUSStockDashboardFlex() {
     const row1 = makeRow(stocksData.slice(0, 4));
     const row2 = makeRow(stocksData.slice(4, 8));
 
+    // 建立指數行（Twelve Data 真實指數）
+    const indicesRow = indicesData.length > 0 ? {
+      type: 'box', layout: 'horizontal', margin: 'md', spacing: 'sm',
+      contents: indicesData.map(idx => {
+        const hasData = idx.price !== null;
+        const isUp = hasData ? idx.change >= 0 : false;
+        const color = isUp ? '#00C851' : '#ff4444';
+        const priceText = hasData ? idx.price.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : 'N/A';
+        const pctText = hasData ? `${isUp?'+':''}${idx.changePercent}%` : '--';
+        return {
+          type: 'box', layout: 'vertical', flex: 1,
+          backgroundColor: '#0f1923',
+          cornerRadius: 'md',
+          paddingAll: '6px',
+          contents: [
+            { type: 'text', text: idx.label, size: 'xxs', color: '#f0883e', align: 'center', weight: 'bold' },
+            { type: 'text', text: priceText, size: 'xxs', weight: 'bold', color: hasData ? color : '#888', align: 'center', margin: 'xs' },
+            { type: 'text', text: pctText, size: 'xxs', color: hasData ? color : '#888', align: 'center' }
+          ]
+        };
+      })
+    } : null;
+
     // 卡片 1：美股數據
+    const bodyContents = [
+      { type: 'text', text: `● 即時數據｜${getTaiwanTime()}`, size: 'xxs', color: '#8b949e', margin: 'none' }
+    ];
+    if (indicesRow) {
+      bodyContents.push(
+        { type: 'text', text: '📊 四大指數', size: 'xxs', color: '#f0883e', margin: 'md', weight: 'bold' },
+        indicesRow,
+        { type: 'separator', margin: 'md', color: '#30363d' },
+        { type: 'text', text: '📈 個股 / ETF', size: 'xxs', color: '#58a6ff', margin: 'md', weight: 'bold' }
+      );
+    }
+    bodyContents.push(row1, row2);
+
     const card1 = {
       type: 'bubble', size: 'mega',
       header: {
@@ -9448,17 +9513,14 @@ async function getUSStockDashboardFlex() {
           { type: 'box', layout: 'vertical', flex: 0, backgroundColor: '#00C851', cornerRadius: 'sm', paddingAll: '4px', paddingStart: '8px', paddingEnd: '8px',
             contents: [{ type: 'text', text: 'LIVE', size: 'xxs', color: '#ffffff', weight: 'bold' }]
           },
-          { type: 'text', text: '  美股數據（Finnhub）', color: '#58a6ff', size: 'md', weight: 'bold', gravity: 'center' }
+          { type: 'text', text: '  美股即時數據', color: '#58a6ff', size: 'md', weight: 'bold', gravity: 'center' }
         ]
       },
       body: {
         type: 'box', layout: 'vertical',
         backgroundColor: '#0d1117',
         paddingAll: '12px',
-        contents: [
-          { type: 'text', text: `● 即時數據｜${getTaiwanTime()}`, size: 'xxs', color: '#8b949e', margin: 'none' },
-          row1, row2
-        ]
+        contents: bodyContents
       },
       footer: {
         type: 'box', layout: 'horizontal',
@@ -9473,27 +9535,34 @@ async function getUSStockDashboardFlex() {
     // 卡片 2：趨勢指標
     const trendItems = [];
     
-    // DIA (道瓊)
+    // 道瓊：優先真實指數
+    const djiIdx = indicesData.find(s => s.symbol === 'DJI');
     const dia = stocksData.find(s => s.id === 'DIA')?.data;
-    if (dia) {
-      const isUp = dia.change >= 0;
+    const djiData = (djiIdx && djiIdx.price) ? { price: djiIdx.price, change: djiIdx.change, changePercent: djiIdx.changePercent, isDirect: true } : dia;
+    if (djiData) {
+      const isUp = djiData.change >= 0;
       const color = isUp ? '#00C851' : '#ff4444';
       const arrow = isUp ? '▲' : '▼';
+      const priceText = djiData.isDirect ? djiData.price.toLocaleString('en-US',{minimumFractionDigits:2}) : `$${parseFloat(djiData.price).toFixed(2)}`;
+      const label = djiData.isDirect ? '道瓊工業' : '道瓊 DIA';
       trendItems.push({
         type: 'box', layout: 'horizontal', margin: 'md',
         contents: [
           { type: 'text', text: '🔥', size: 'sm', flex: 0 },
-          { type: 'text', text: `道瓊 DIA $${parseFloat(dia.price).toFixed(2)}`, size: 'sm', color, weight: 'bold', flex: 5 },
-          { type: 'text', text: `${arrow}${isUp?'+':''}$${Math.abs(dia.change).toFixed(2)}`, size: 'xs', color, align: 'end', flex: 3 }
+          { type: 'text', text: `${label} ${priceText}`, size: 'sm', color, weight: 'bold', flex: 5 },
+          { type: 'text', text: `${arrow}${isUp?'+':''}${djiData.changePercent}%`, size: 'xs', color, align: 'end', flex: 3 }
         ]
       });
     }
     
-    // SOXX (費半)
+    // 費半：優先真實指數
+    const soxIdx = indicesData.find(s => s.symbol === 'SOX');
     const soxx = stocksData.find(s => s.id === 'SOXX')?.data;
-    if (soxx) {
-      const isUp = soxx.change >= 0;
+    const soxData = (soxIdx && soxIdx.price) ? { price: soxIdx.price, change: soxIdx.change, changePercent: soxIdx.changePercent, isDirect: true } : soxx;
+    if (soxData) {
+      const isUp = soxData.change >= 0;
       const color = isUp ? '#00C851' : '#ff4444';
+      const label = soxData.isDirect ? '費城半導體' : '費半 SOXX';
       const hint = isUp ? '半導體反攻 → 台股科技跟漲' : '半導體回落 → 台股科技承壓';
       trendItems.push({
         type: 'box', layout: 'vertical', margin: 'md',
@@ -9501,8 +9570,8 @@ async function getUSStockDashboardFlex() {
           { type: 'box', layout: 'horizontal',
             contents: [
               { type: 'text', text: '🔥', size: 'sm', flex: 0 },
-              { type: 'text', text: `費半 SOXX ${isUp?'+':''}${soxx.changePercent}%`, size: 'sm', color, weight: 'bold', flex: 4 },
-              { type: 'text', text: `${isUp?'+':''}$${Math.abs(soxx.change).toFixed(2)}`, size: 'xs', color, align: 'end', flex: 3 }
+              { type: 'text', text: `${label} ${isUp?'+':''}${soxData.changePercent}%`, size: 'sm', color, weight: 'bold', flex: 4 },
+              { type: 'text', text: `${isUp?'+':''}${parseFloat(soxData.change).toFixed(2)}`, size: 'xs', color, align: 'end', flex: 3 }
             ]
           },
           { type: 'text', text: hint, size: 'xs', color: '#8b949e', margin: 'xs' }

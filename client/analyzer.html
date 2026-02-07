@@ -4488,7 +4488,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <span style="background: #00C851; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; animation: livePulse 2s infinite;">LIVE</span>
-                        <span style="color: #58a6ff; font-size: 1.1rem; font-weight: bold;">美股數據（Finnhub 自動更新）</span>
+                        <span style="color: #58a6ff; font-size: 1.1rem; font-weight: bold;">美股即時數據</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span id="usStockTime" style="font-size: 0.8rem; color: var(--text-muted);">● 即時數據</span>
@@ -4505,6 +4505,15 @@
                         <button class="quick-btn" style="background: #1a1a2e; color: #58a6ff; font-size: 0.85rem; padding: 5px 12px;" onclick="fetchUSStockDashboard()">🔄 更新</button>
                     </div>
                 </div>
+                <!-- 📊 四大指數（Twelve Data 真實點數）-->
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 0.85rem; color: #f0883e; font-weight: bold; margin-bottom: 8px;">📊 四大指數（Twelve Data）</div>
+                    <div id="usIndicesGrid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+                        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 10px; text-align: center;"><span style="color: var(--text-muted); font-size: 0.8rem;">載入中...</span></div>
+                    </div>
+                </div>
+                <!-- 📈 個股 ETF（Finnhub）-->
+                <div style="font-size: 0.85rem; color: #58a6ff; font-weight: bold; margin-bottom: 8px;">📈 個股 / ETF（Finnhub）</div>
                 <div id="usStockGrid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px;">
                     <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; text-align: center;">
                         <div style="font-size: 0.8rem; color: var(--text-muted);">載入中...</div>
@@ -12099,25 +12108,84 @@
         let usStockCountdownVal = 0;
 
         function initUSStockDashboard() {
+            fetchUSIndices();
             fetchUSStockDashboard();
             if (document.getElementById('usStockAutoRefresh')?.checked) {
                 startUSStockAutoRefresh();
             }
         }
 
+        // 📊 四大指數（Twelve Data）
+        async function fetchUSIndices() {
+            try {
+                const resp = await fetch('/api/stock/us-indices');
+                const result = await resp.json();
+                if (result.success && result.data) {
+                    renderUSIndicesGrid(result.data);
+                }
+            } catch (e) {
+                console.error('四大指數更新失敗:', e);
+            }
+        }
+
+        function renderUSIndicesGrid(indices) {
+            const grid = document.getElementById('usIndicesGrid');
+            if (!grid) return;
+
+            grid.innerHTML = indices.map(s => {
+                if (s.price === null) {
+                    return `<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 6px; text-align: center;">
+                        <div style="font-size: 0.78rem; color: var(--text-muted);">${s.label}</div>
+                        <div style="font-size: 0.95rem; color: var(--text-muted); margin: 4px 0;">N/A</div>
+                    </div>`;
+                }
+
+                const isUp = s.change >= 0;
+                const color = isUp ? '#00C851' : '#ff4444';
+                const borderColor = isUp ? 'rgba(0,200,81,0.4)' : 'rgba(255,68,68,0.4)';
+                const arrow = isUp ? '▲' : '▼';
+                const priceText = s.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const changeAmt = `${isUp ? '+' : ''}${s.change.toFixed(2)}`;
+                const changePct = `${isUp ? '+' : ''}${s.changePercent.toFixed(2)}%`;
+
+                const yahooMap = { DJI: '%5EDJI', SPX: '%5EGSPC', IXIC: '%5EIXIC', SOX: '%5ESOX' };
+                const yahooSym = yahooMap[s.id] || s.id;
+
+                return `<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border: 1px solid ${borderColor}; border-radius: 10px; padding: 10px 6px; text-align: center; cursor: pointer; transition: all 0.3s;"
+                    onclick="window.open('https://finance.yahoo.com/quote/${yahooSym}','_blank')"
+                    onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 15px rgba(0,0,0,0.4)'"
+                    onmouseleave="this.style.transform='';this.style.boxShadow=''">
+                    <div style="font-size: 0.75rem; color: #f0883e; font-weight: bold;">${s.label}</div>
+                    <div style="font-size: 1.05rem; font-weight: bold; color: ${color}; margin: 3px 0;">${priceText}</div>
+                    <div style="font-size: 0.75rem; color: ${color}; font-weight: bold;">${arrow} ${changeAmt}</div>
+                    <div style="font-size: 0.7rem; color: ${color}; opacity: 0.85;">${changePct}</div>
+                </div>`;
+            }).join('');
+        }
+
+        // 📈 個股 ETF（Finnhub）
+
         async function fetchUSStockDashboard() {
             try {
                 const timeEl = document.getElementById('usStockTime');
                 if (timeEl) timeEl.textContent = '⏳ 更新中...';
 
-                // 全部由後端抓取（避免瀏覽器 CORS 問題）
-                const response = await fetch('/api/stock/us-dashboard');
-                const result = await response.json();
+                // 同時抓取指數 + 個股
+                const [indicesResp, stockResp] = await Promise.all([
+                    fetch('/api/stock/us-indices').then(r => r.json()).catch(() => null),
+                    fetch('/api/stock/us-dashboard').then(r => r.json())
+                ]);
 
-                if (result.success && result.data && result.data.length > 0) {
-                    renderUSStockGrid(result.data);
-                    renderUSTrendIndicators(result.data);
-                    if (timeEl) timeEl.textContent = `● 即時數據｜${result.time}`;
+                // 渲染指數
+                if (indicesResp?.success && indicesResp.data) {
+                    renderUSIndicesGrid(indicesResp.data);
+                }
+
+                // 渲染個股
+                if (stockResp.success && stockResp.data && stockResp.data.length > 0) {
+                    renderUSStockGrid(stockResp.data);
+                    renderUSTrendIndicators(stockResp.data, indicesResp?.data);
+                    if (timeEl) timeEl.textContent = `● 即時數據｜${stockResp.time}`;
                     usStockCountdownVal = usStockIntervalSec;
                     startUSCountdown();
                 } else {
@@ -12170,39 +12238,50 @@
             }).join('');
         }
 
-        function renderUSTrendIndicators(stocks) {
+        function renderUSTrendIndicators(stocks, indices) {
             const container = document.getElementById('usTrendContent');
             if (!container) return;
 
-            const dia = stocks.find(s => s.id === 'DIA');
-            const soxx = stocks.find(s => s.id === 'SOXX');
-            const tsm = stocks.find(s => s.id === 'TSM');
-            const vix = stocks.find(s => s.id === 'UVXY');
-
             let html = '';
 
-            if (dia && dia.price) {
-                const isUp = dia.change >= 0;
+            // 道瓊：優先用真實指數，否則用 DIA ETF
+            const djiIdx = indices?.find(s => s.id === 'DJI');
+            const dia = stocks.find(s => s.id === 'DIA');
+            const djiData = (djiIdx && djiIdx.price) ? djiIdx : dia;
+            if (djiData && djiData.price) {
+                const isUp = djiData.change >= 0;
                 const color = isUp ? '#00C851' : '#ff4444';
                 const arrow = isUp ? '▲' : '▼';
+                const isDirect = djiData === djiIdx;
+                const priceText = isDirect ? djiData.price.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : `$${djiData.price.toFixed(2)}`;
+                const label = isDirect ? '道瓊工業' : '道瓊 DIA';
                 html += `<div style="margin-bottom: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${color};">
-                    🔥 <span style="color:${color};font-weight:bold;">道瓊 DIA $${dia.price.toFixed(2)}</span><br>
-                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}$${Math.abs(dia.change).toFixed(2)} (${isUp?'+':''}${dia.changePercent.toFixed(2)}%)</span>
+                    🔥 <span style="color:${color};font-weight:bold;">${label} ${priceText}</span><br>
+                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}${Math.abs(djiData.change).toFixed(2)} (${isUp?'+':''}${djiData.changePercent.toFixed(2)}%)</span>
                 </div>`;
             }
 
-            if (soxx && soxx.price) {
-                const isUp = soxx.change >= 0;
+            // 費半：優先用真實指數
+            const soxIdx = indices?.find(s => s.id === 'SOX');
+            const soxx = stocks.find(s => s.id === 'SOXX');
+            const soxData = (soxIdx && soxIdx.price) ? soxIdx : soxx;
+            if (soxData && soxData.price) {
+                const isUp = soxData.change >= 0;
                 const color = isUp ? '#00C851' : '#ff4444';
                 const arrow = isUp ? '▲' : '▼';
+                const isDirect = soxData === soxIdx;
+                const priceText = isDirect ? soxData.price.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : `$${soxData.price.toFixed(2)}`;
+                const label = isDirect ? '費城半導體' : '費半 SOXX';
                 const hint = isUp ? '半導體反攻 → 台股科技跟漲' : '半導體回落 → 台股科技承壓';
                 html += `<div style="margin-bottom: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${color};">
-                    🔥 <span style="color:${color};font-weight:bold;">費半 SOXX $${soxx.price.toFixed(2)}</span><br>
-                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}$${Math.abs(soxx.change).toFixed(2)} (${isUp?'+':''}${soxx.changePercent.toFixed(2)}%)</span>
+                    🔥 <span style="color:${color};font-weight:bold;">${label} ${priceText}</span><br>
+                    <span style="color:${color};font-size:0.9rem;">${arrow} ${isUp?'+':''}${Math.abs(soxData.change).toFixed(2)} (${isUp?'+':''}${soxData.changePercent.toFixed(2)}%)</span>
                     <span style="color:#8b949e;font-size:0.8rem;margin-left:8px;">${hint}</span>
                 </div>`;
             }
 
+            // 台積ADR
+            const tsm = stocks.find(s => s.id === 'TSM');
             if (tsm && tsm.price) {
                 const isUp = tsm.change >= 0;
                 const color = isUp ? '#00C851' : '#ff4444';
@@ -12215,6 +12294,8 @@
                 </div>`;
             }
 
+            // VIX
+            const vix = stocks.find(s => s.id === 'UVXY');
             if (vix && vix.price) {
                 const level = vix.price > 80 ? '⚠️ 極度恐慌' : vix.price > 40 ? '😰 偏高警戒' : vix.price > 20 ? '😐 正常範圍' : '😌 極度樂觀';
                 const vColor = vix.price > 60 ? '#ff4444' : vix.price > 40 ? '#ffaa00' : '#00C851';
