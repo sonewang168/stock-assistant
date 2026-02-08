@@ -3929,17 +3929,20 @@
         }
 
         /* 時鐘響應式 */
+        @media (max-width: 1100px) {
+            #twClockPanel canvas, #worldClockPanel canvas {
+                width: 160px !important; height: 160px !important;
+            }
+        }
         @media (max-width: 900px) {
             #twClockPanel canvas, #worldClockPanel canvas {
-                width: 110px !important; height: 110px !important;
+                width: 120px !important; height: 120px !important;
             }
-            #twClockPanel, #worldClockPanel { min-width: 120px !important; }
         }
         @media (max-width: 640px) {
             #twClockPanel canvas, #worldClockPanel canvas {
-                width: 80px !important; height: 80px !important;
+                width: 90px !important; height: 90px !important;
             }
-            #twClockPanel, #worldClockPanel { min-width: 90px !important; }
         }
 
     </style>
@@ -3950,38 +3953,48 @@
             <!-- 三欄佈局：左時鐘 | 中間內容 | 右時鐘 -->
             <div style="display: flex; align-items: center; justify-content: center; gap: 0; width: 100%;">
                 
-                <!-- 🇹🇼 左側台灣圓形時鐘 -->
-                <div id="twClockPanel" style="display: flex; flex-direction: column; align-items: center; flex-shrink: 0; min-width: 160px;">
-                    <canvas id="twAnalogClock" width="150" height="150" style="width: 150px; height: 150px;"></canvas>
-                    <div style="display: flex; align-items: center; gap: 4px; margin-top: 4px;">
-                        <span style="font-size: 1.1rem;">🇹🇼</span>
-                        <span style="font-size: 0.8rem; color: #ff6b6b; font-weight: bold;">台灣</span>
-                    </div>
-                    <div id="twDateDisplay" style="font-size: 0.7rem; color: #aaa; font-family: 'Courier New', monospace; margin-top: 1px;">----/--/--</div>
-                    <div id="twTimeDisplay" style="font-size: 1.15rem; font-weight: bold; color: #ff6b6b; font-family: 'Courier New', monospace; letter-spacing: 1px;">--:--:--</div>
+                <!-- 🇹🇼 左側台灣圓形時鐘（純時鐘） -->
+                <div id="twClockPanel" style="display: flex; flex-direction: column; align-items: center; flex-shrink: 0;">
+                    <canvas id="twAnalogClock" width="200" height="200" style="width: 200px; height: 200px;"></canvas>
                 </div>
 
-                <!-- 中間標題區 -->
+                <!-- 中間標題區 + 數位時間 -->
                 <div style="flex: 1; text-align: center; min-width: 0;">
                     <h1>🏆 台股專業分析系統【索尼王三AI分析版】</h1>
                     <p>整合技術分析、籌碼面、AI 三方票決 | 支援上市 (TWSE) 及上櫃 (TPEx) 股票</p>
                     <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;">📌 證交所/櫃買中心資料約於每日 18:00 後更新，當日資料請於盤後查詢</p>
+                    
+                    <!-- 數位時間列 -->
+                    <div style="display: flex; justify-content: center; gap: 24px; margin-top: 12px; flex-wrap: wrap;">
+                        <!-- 台灣數位時間 -->
+                        <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,107,107,0.08); padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,107,107,0.2);">
+                            <span style="font-size: 1rem;">🇹🇼</span>
+                            <span style="font-size: 0.8rem; color: #ff6b6b; font-weight: bold;">TW</span>
+                            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                                <span id="twDateDisplay" style="font-size: 0.68rem; color: #aaa; font-family: 'Courier New', monospace; line-height: 1.2;">----/--/--</span>
+                                <span id="twTimeDisplay" style="font-size: 1.2rem; font-weight: bold; color: #ff6b6b; font-family: 'Courier New', monospace; letter-spacing: 1px; line-height: 1.2;">--:--:--</span>
+                            </div>
+                        </div>
+                        <!-- 世界數位時間 -->
+                        <div style="display: flex; align-items: center; gap: 8px; background: rgba(88,166,255,0.08); padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(88,166,255,0.2);">
+                            <span style="font-size: 1rem;">US</span>
+                            <select id="worldTimezoneSelect" onchange="switchWorldTimezone()" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; color: #58a6ff; font-size: 0.8rem; font-weight: bold; padding: 2px 6px; cursor: pointer; outline: none;">
+                                <option value="us" selected>🇺🇸 美東</option>
+                                <option value="jp">🇯🇵 日本</option>
+                                <option value="kr">🇰🇷 韓國</option>
+                            </select>
+                            <div style="display: flex; flex-direction: column; align-items: flex-start;">
+                                <span id="worldDateDisplay" style="font-size: 0.68rem; color: #aaa; font-family: 'Courier New', monospace; line-height: 1.2;">----/--/--</span>
+                                <span id="worldTimeDisplay" style="font-size: 1.2rem; font-weight: bold; color: #58a6ff; font-family: 'Courier New', monospace; letter-spacing: 1px; line-height: 1.2;">--:--:--</span>
+                            </div>
+                            <span id="usMarketStatus" style="font-size: 0.65rem; padding: 2px 8px; border-radius: 10px; font-weight: bold;">--</span>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- 🌍 右側世界圓形時鐘 -->
-                <div id="worldClockPanel" style="display: flex; flex-direction: column; align-items: center; flex-shrink: 0; min-width: 160px;">
-                    <canvas id="worldAnalogClock" width="150" height="150" style="width: 150px; height: 150px;"></canvas>
-                    <div style="display: flex; align-items: center; gap: 4px; margin-top: 4px;">
-                        <span id="worldFlag" style="font-size: 1.1rem;">🇺🇸</span>
-                        <select id="worldTimezoneSelect" onchange="switchWorldTimezone()" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; color: #58a6ff; font-size: 0.8rem; font-weight: bold; padding: 2px 6px; cursor: pointer; outline: none;">
-                            <option value="us" selected>🇺🇸 美東</option>
-                            <option value="jp">🇯🇵 日本</option>
-                            <option value="kr">🇰🇷 韓國</option>
-                        </select>
-                    </div>
-                    <div id="worldDateDisplay" style="font-size: 0.7rem; color: #aaa; font-family: 'Courier New', monospace; margin-top: 1px;">----/--/--</div>
-                    <div id="worldTimeDisplay" style="font-size: 1.15rem; font-weight: bold; color: #58a6ff; font-family: 'Courier New', monospace; letter-spacing: 1px;">--:--:--</div>
-                    <span id="usMarketStatus" style="font-size: 0.65rem; padding: 2px 8px; border-radius: 10px; font-weight: bold; margin-top: 1px;">--</span>
+                <!-- 🌍 右側世界圓形時鐘（純時鐘） -->
+                <div id="worldClockPanel" style="display: flex; flex-direction: column; align-items: center; flex-shrink: 0;">
+                    <canvas id="worldAnalogClock" width="200" height="200" style="width: 200px; height: 200px;"></canvas>
                 </div>
 
             </div>
