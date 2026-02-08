@@ -3936,17 +3936,30 @@
             <h1>🏆 台股專業分析系統【索尼王三AI分析版】</h1>
             <p>整合技術分析、籌碼面、AI 三方票決 | 支援上市 (TWSE) 及上櫃 (TPEx) 股票</p>
             <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;">📌 證交所/櫃買中心資料約於每日 18:00 後更新，當日資料請於盤後查詢</p>
-            <div id="dualTimeDisplay" style="display: flex; justify-content: center; gap: 30px; margin-top: 10px; flex-wrap: wrap;">
-                <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);">
-                    <span style="font-size: 1.2rem;">🇹🇼</span>
-                    <span style="font-size: 0.8rem; color: var(--text-muted);">台灣</span>
-                    <span id="twTimeDisplay" style="font-size: 1rem; font-weight: bold; color: #ff6b6b; font-family: 'Courier New', monospace;">--:--:--</span>
+            <div id="dualTimeDisplay" style="display: flex; justify-content: center; align-items: stretch; gap: 20px; margin-top: 10px; flex-wrap: wrap;">
+                <!-- 🇹🇼 台灣時鐘（左側） -->
+                <div style="display: flex; flex-direction: column; align-items: center; background: rgba(255,107,107,0.08); padding: 10px 20px; border-radius: 14px; border: 1px solid rgba(255,107,107,0.25); min-width: 170px;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                        <span style="font-size: 1.3rem;">🇹🇼</span>
+                        <span style="font-size: 0.85rem; color: #ff6b6b; font-weight: bold;">台灣</span>
+                    </div>
+                    <div id="twDateDisplay" style="font-size: 0.75rem; color: #ccc; font-family: 'Courier New', monospace;">----/--/--</div>
+                    <div id="twTimeDisplay" style="font-size: 1.4rem; font-weight: bold; color: #ff6b6b; font-family: 'Courier New', monospace; letter-spacing: 1px;">--:--:--</div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);">
-                    <span style="font-size: 1.2rem;">🇺🇸</span>
-                    <span id="usTimezoneLabel" style="font-size: 0.8rem; color: var(--text-muted);">美東</span>
-                    <span id="usTimeDisplay" style="font-size: 1rem; font-weight: bold; color: #58a6ff; font-family: 'Courier New', monospace;">--:--:--</span>
-                    <span id="usMarketStatus" style="font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; font-weight: bold;">--</span>
+
+                <!-- 🌍 世界時鐘（右側下拉） -->
+                <div style="display: flex; flex-direction: column; align-items: center; background: rgba(88,166,255,0.08); padding: 10px 20px; border-radius: 14px; border: 1px solid rgba(88,166,255,0.25); min-width: 200px; position: relative;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                        <span id="worldFlag" style="font-size: 1.3rem;">🇺🇸</span>
+                        <select id="worldTimezoneSelect" onchange="switchWorldTimezone()" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: #58a6ff; font-size: 0.85rem; font-weight: bold; padding: 2px 8px; cursor: pointer; outline: none;">
+                            <option value="us" selected>🇺🇸 美東</option>
+                            <option value="jp">🇯🇵 日本</option>
+                            <option value="kr">🇰🇷 韓國</option>
+                        </select>
+                    </div>
+                    <div id="worldDateDisplay" style="font-size: 0.75rem; color: #ccc; font-family: 'Courier New', monospace;">----/--/--</div>
+                    <div id="worldTimeDisplay" style="font-size: 1.4rem; font-weight: bold; color: #58a6ff; font-family: 'Courier New', monospace; letter-spacing: 1px;">--:--:--</div>
+                    <span id="usMarketStatus" style="font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; font-weight: bold; margin-top: 2px;">--</span>
                 </div>
             </div>
         </header>
@@ -12037,43 +12050,74 @@
             showToast('✅ 測試完成！');
         }
 
-        // ===== 🕐 台灣 / 美國 雙時鐘 =====
+        // ===== 🕐 台灣 + 世界時鐘 =====
+        let selectedWorldTZ = 'us'; // us, jp, kr
+
+        const worldTZConfig = {
+            us: { tz: 'America/New_York', flag: '🇺🇸', color: '#58a6ff', showMarket: true },
+            jp: { tz: 'Asia/Tokyo',       flag: '🇯🇵', color: '#ff79c6', showMarket: false },
+            kr: { tz: 'Asia/Seoul',       flag: '🇰🇷', color: '#50fa7b', showMarket: false }
+        };
+
+        function switchWorldTimezone() {
+            const sel = document.getElementById('worldTimezoneSelect');
+            if (sel) selectedWorldTZ = sel.value;
+            updateDualClock();
+        }
+
         function initDualClock() {
             updateDualClock();
             setInterval(updateDualClock, 1000);
         }
 
+        function formatDate(date, tz) {
+            const y = date.toLocaleDateString('en-CA', { timeZone: tz, year: 'numeric' });
+            const m = date.toLocaleDateString('en-CA', { timeZone: tz, month: '2-digit' });
+            const d = date.toLocaleDateString('en-CA', { timeZone: tz, day: '2-digit' });
+            const weekday = date.toLocaleDateString('zh-TW', { timeZone: tz, weekday: 'short' });
+            return `${y}/${m}/${d} ${weekday}`;
+        }
+
         function updateDualClock() {
             const now = new Date();
 
-            // 🇹🇼 台灣時間
-            const twEl = document.getElementById('twTimeDisplay');
-            if (twEl) {
-                twEl.textContent = now.toLocaleTimeString('zh-TW', { 
+            // 🇹🇼 台灣
+            const twTimeEl = document.getElementById('twTimeDisplay');
+            const twDateEl = document.getElementById('twDateDisplay');
+            if (twTimeEl) {
+                twTimeEl.textContent = now.toLocaleTimeString('zh-TW', { 
                     timeZone: 'Asia/Taipei', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
                 });
             }
+            if (twDateEl) {
+                twDateEl.textContent = formatDate(now, 'Asia/Taipei');
+            }
 
-            // 🇺🇸 美東時間（紐約）
-            const usEl = document.getElementById('usTimeDisplay');
-            const usLabelEl = document.getElementById('usTimezoneLabel');
-            const usStatusEl = document.getElementById('usMarketStatus');
-            if (usEl) {
-                // 判斷 EST / EDT
-                const nyOptions = { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
-                const nyDateOptions = { timeZone: 'America/New_York', weekday: 'short' };
-                const nyTime = now.toLocaleTimeString('en-US', nyOptions);
-                const nyDay = now.toLocaleDateString('en-US', nyDateOptions);
-                
-                // 判斷 DST（簡易：3月第2個週日~11月第1個週日）
-                const nyMonth = parseInt(now.toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'numeric' }));
-                const isDST = nyMonth >= 3 && nyMonth <= 10; // 粗略判斷
-                
-                usEl.textContent = nyTime;
-                if (usLabelEl) usLabelEl.textContent = isDST ? '美東EDT' : '美東EST';
+            // 🌍 世界時鐘
+            const cfg = worldTZConfig[selectedWorldTZ];
+            const worldTimeEl = document.getElementById('worldTimeDisplay');
+            const worldDateEl = document.getElementById('worldDateDisplay');
+            const flagEl = document.getElementById('worldFlag');
+            const statusEl = document.getElementById('usMarketStatus');
 
-                // 美股盤市狀態
-                if (usStatusEl) {
+            if (worldTimeEl) {
+                worldTimeEl.textContent = now.toLocaleTimeString('en-US', {
+                    timeZone: cfg.tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+                });
+                worldTimeEl.style.color = cfg.color;
+            }
+            if (worldDateEl) {
+                worldDateEl.textContent = formatDate(now, cfg.tz);
+            }
+            if (flagEl) {
+                flagEl.textContent = cfg.flag;
+            }
+
+            // 美股盤市狀態（只在選美東時顯示）
+            if (statusEl) {
+                if (cfg.showMarket) {
+                    statusEl.style.display = '';
+                    const nyDay = now.toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short' });
                     const nyHour = parseInt(now.toLocaleString('en-US', { timeZone: 'America/New_York', hour: '2-digit', hour12: false }));
                     const nyMinute = parseInt(now.toLocaleString('en-US', { timeZone: 'America/New_York', minute: '2-digit' }));
                     const totalMin = nyHour * 60 + nyMinute;
@@ -12083,20 +12127,19 @@
                     if (isWeekend) {
                         statusText = '🌙 休市'; statusBg = '#333'; statusColor = '#999';
                     } else if (totalMin >= 240 && totalMin < 570) {
-                        // 4:00 AM - 9:30 AM = 盤前
                         statusText = '🌅 盤前'; statusBg = 'rgba(255,170,0,0.2)'; statusColor = '#ffaa00';
                     } else if (totalMin >= 570 && totalMin < 960) {
-                        // 9:30 AM - 4:00 PM = 開盤中
                         statusText = '🟢 開盤中'; statusBg = 'rgba(0,200,81,0.2)'; statusColor = '#00C851';
                     } else if (totalMin >= 960 && totalMin < 1200) {
-                        // 4:00 PM - 8:00 PM = 盤後
                         statusText = '🌆 盤後'; statusBg = 'rgba(88,166,255,0.2)'; statusColor = '#58a6ff';
                     } else {
                         statusText = '🌙 休市'; statusBg = '#333'; statusColor = '#999';
                     }
-                    usStatusEl.textContent = statusText;
-                    usStatusEl.style.background = statusBg;
-                    usStatusEl.style.color = statusColor;
+                    statusEl.textContent = statusText;
+                    statusEl.style.background = statusBg;
+                    statusEl.style.color = statusColor;
+                } else {
+                    statusEl.style.display = 'none';
                 }
             }
         }
