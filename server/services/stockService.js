@@ -728,6 +728,39 @@ class StockService {
         { symbol: '^SOX', name: '費城半導體', finageSymbol: 'SOX' }
       ];
 
+      // ===== 方法 0: Cloudflare Worker 代理 =====
+      const CF_WORKER_URL = process.env.CF_INDICES_URL;
+      if (CF_WORKER_URL) {
+        try {
+          const symbolStr = indices.map(i => i.symbol).join(',');
+          const url = `${CF_WORKER_URL}/?symbols=${encodeURIComponent(symbolStr)}`;
+          console.log(`📊 [CF Worker] LINE BOT 查詢四大指數...`);
+          const resp = await axios.get(url, { timeout: 10000 });
+
+          if (resp.data?.success && resp.data.data?.length >= 3) {
+            const results = [];
+            for (const idx of indices) {
+              const d = resp.data.data.find(r => r.symbol === idx.symbol);
+              if (d && d.price > 0) {
+                results.push({
+                  symbol: idx.symbol, name: idx.name,
+                  price: d.price, change: d.change,
+                  changePercent: d.changePercent
+                });
+              }
+            }
+            if (results.length >= 3) {
+              console.log(`📊 [CF Worker] 成功取得 ${results.length} 個指數`);
+              return results;
+            }
+          }
+          console.log(`⚠️ [CF Worker] 資料不足，降級 Yahoo`);
+        } catch (e) {
+          console.log(`❌ [CF Worker] 失敗: ${e.message}，降級 Yahoo`);
+        }
+      }
+
+      // ===== 降級: Yahoo Finance =====
       const results = [];
       for (const index of indices) {
         let data = null;

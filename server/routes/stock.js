@@ -328,47 +328,84 @@ router.get('/taiex', async (req, res) => {
 });
 
 /**
- * 🇺🇸 四大指數 ETF — Finnhub（追蹤指數的 ETF 即時報價）
+ * 🇺🇸 四大指數 — Cloudflare Worker 代理 Yahoo（真實指數點數）
  * GET /api/stock/us-indices
  * ⚠️ 必須放在 /:id 之前
+ * 降級：Finnhub ETF
  */
 router.get('/us-indices', async (req, res) => {
   try {
+    const CF_WORKER_URL = process.env.CF_INDICES_URL; // e.g. https://us-indices.xxx.workers.dev
     const FINNHUB_KEY = process.env.FINNHUB_API_KEY || 'd63hnppr01qnpqg154e0d63hnppr01qnpqg154eg';
+
     const indices = [
-      { id: 'DIA',  label: '道瓊 DIA',  index: '道瓊工業' },
-      { id: 'SPY',  label: 'S&P SPY',   index: 'S&P 500' },
-      { id: 'QQQ',  label: '那指 QQQ',  index: '那斯達克' },
-      { id: 'SOXX', label: '費半 SOXX', index: '費城半導體' }
+      { symbol: '^DJI',  label: '道瓊工業',   etf: 'DIA' },
+      { symbol: '^GSPC', label: 'S&P 500',    etf: 'SPY' },
+      { symbol: '^IXIC', label: '那斯達克',   etf: 'QQQ' },
+      { symbol: '^SOX',  label: '費城半導體', etf: 'SOXX' }
     ];
 
-    const results = [];
+    let results = [];
+
+    // ===== 方法 1: Cloudflare Worker → Yahoo 真實指數 =====
+    if (CF_WORKER_URL) {
+      try {
+        const symbolStr = indices.map(i => i.symbol).join(',');
+        const url = `${CF_WORKER_URL}/?symbols=${encodeURIComponent(symbolStr)}`;
+        console.log(`📊 [CF Worker] 查詢四大指數...`);
+        const resp = await axios.get(url, { timeout: 10000 });
+
+        if (resp.data?.success && resp.data.data?.length > 0) {
+          for (const idx of indices) {
+            const d = resp.data.data.find(r => r.symbol === idx.symbol);
+            if (d && d.price > 0) {
+              results.push({
+                id: idx.symbol, label: idx.label,
+                price: d.price, change: d.change, changePercent: d.changePercent,
+                prevClose: d.prevClose, isIndex: true, isRealIndex: true, market: 'US'
+              });
+              console.log(`  ✅ ${idx.label}: ${d.price.toLocaleString()} (${d.change >= 0 ? '+' : ''}${d.change})`);
+            }
+          }
+        }
+
+        if (results.length >= 3) {
+          console.log(`📊 [CF Worker] 成功取得 ${results.length} 個真實指數`);
+          return res.json({ success: true, data: results, source: 'yahoo-cf', time: new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei' }) });
+        }
+        console.log(`⚠️ [CF Worker] 只取得 ${results.length} 個，降級 Finnhub ETF`);
+      } catch (e) {
+        console.log(`❌ [CF Worker] 失敗: ${e.message}，降級 Finnhub ETF`);
+      }
+    } else {
+      console.log(`📊 [指數] CF_INDICES_URL 未設定，使用 Finnhub ETF`);
+    }
+
+    // ===== 方法 2: Finnhub ETF 降級 =====
+    results = [];
     for (const idx of indices) {
       try {
-        const url = `https://finnhub.io/api/v1/quote?symbol=${idx.id}&token=${FINNHUB_KEY}`;
+        const url = `https://finnhub.io/api/v1/quote?symbol=${idx.etf}&token=${FINNHUB_KEY}`;
         const resp = await axios.get(url, { timeout: 8000 });
         const q = resp.data;
         if (q && q.c > 0) {
           results.push({
-            id: idx.id, label: idx.label, index: idx.index,
+            id: idx.etf, label: `${idx.label}`, index: idx.label,
             price: q.c, change: q.d || 0, changePercent: q.dp || 0,
-            prevClose: q.pc || 0, high: q.h || 0, low: q.l || 0,
-            isIndex: true, market: 'US'
+            prevClose: q.pc || 0, isIndex: true, isRealIndex: false, market: 'US'
           });
-          console.log(`✅ ${idx.id}: $${q.c} (${q.d >= 0 ? '+' : ''}${q.d})`);
         } else {
-          results.push({ id: idx.id, label: idx.label, index: idx.index, price: null, change: null, changePercent: null, isIndex: true, market: 'US' });
+          results.push({ id: idx.etf, label: idx.label, price: null, change: null, changePercent: null, isIndex: true, isRealIndex: false, market: 'US' });
         }
       } catch (e) {
-        console.log(`❌ ${idx.id}: ${e.message}`);
-        results.push({ id: idx.id, label: idx.label, index: idx.index, price: null, change: null, changePercent: null, isIndex: true, market: 'US' });
+        results.push({ id: idx.etf, label: idx.label, price: null, change: null, changePercent: null, isIndex: true, isRealIndex: false, market: 'US' });
       }
       await new Promise(r => setTimeout(r, 120));
     }
 
-    res.json({ success: true, data: results, time: new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei' }) });
+    res.json({ success: true, data: results, source: 'finnhub-etf', time: new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei' }) });
   } catch (error) {
-    console.error('指數 ETF API 錯誤:', error.message);
+    console.error('指數 API 錯誤:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });

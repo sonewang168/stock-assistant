@@ -4507,7 +4507,7 @@
                 </div>
                 <!-- 📊 四大指數（Twelve Data 真實點數）-->
                 <div style="margin-bottom: 12px;">
-                <div style="font-size: 0.85rem; color: #f0883e; font-weight: bold; margin-bottom: 8px;">📊 指數 ETF（即時報價）</div>
+                <div id="usIndicesLabel" style="font-size: 0.85rem; color: #f0883e; font-weight: bold; margin-bottom: 8px;">📊 四大指數</div>
                     <div id="usIndicesGrid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
                         <div style="background: var(--bg-secondary); border-radius: 8px; padding: 10px; text-align: center;"><span style="color: var(--text-muted); font-size: 0.8rem;">載入中...</span></div>
                     </div>
@@ -12128,9 +12128,16 @@
             }
         }
 
-        function renderUSIndicesGrid(indices) {
+        function renderUSIndicesGrid(indices, source) {
             const grid = document.getElementById('usIndicesGrid');
             if (!grid) return;
+
+            // 更新標題
+            const label = document.getElementById('usIndicesLabel');
+            if (label) {
+                const isReal = indices.some(s => s.isRealIndex);
+                label.textContent = isReal ? '📊 四大指數（即時）' : '📊 指數 ETF（即時）';
+            }
 
             grid.innerHTML = indices.map(s => {
                 if (s.price === null) {
@@ -12144,17 +12151,25 @@
                 const color = isUp ? '#00C851' : '#ff4444';
                 const borderColor = isUp ? 'rgba(0,200,81,0.4)' : 'rgba(255,68,68,0.4)';
                 const arrow = isUp ? '▲' : '▼';
-                const priceText = '$' + s.price.toFixed(2);
+
+                // 真實指數：顯示點數（有千分位），ETF：顯示 $
+                const isReal = s.isRealIndex;
+                const priceText = isReal
+                    ? s.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : '$' + s.price.toFixed(2);
                 const changeAmt = `${isUp ? '+' : ''}${s.change.toFixed(2)}`;
                 const changePct = `${isUp ? '+' : ''}${(typeof s.changePercent === 'number' ? s.changePercent : parseFloat(s.changePercent)).toFixed(2)}%`;
 
+                // Yahoo 連結
+                const yahooMap = { '^DJI': '%5EDJI', '^GSPC': '%5EGSPC', '^IXIC': '%5EIXIC', '^SOX': '%5ESOX' };
+                const yahooSym = yahooMap[s.id] || s.id;
+
                 return `<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border: 1px solid ${borderColor}; border-radius: 10px; padding: 10px 6px; text-align: center; cursor: pointer; transition: all 0.3s;"
-                    onclick="window.open('https://finance.yahoo.com/quote/${s.id}','_blank')"
+                    onclick="window.open('https://finance.yahoo.com/quote/${yahooSym}','_blank')"
                     onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 15px rgba(0,0,0,0.4)'"
                     onmouseleave="this.style.transform='';this.style.boxShadow=''">
-                    <div style="font-size: 0.7rem; color: #8b949e;">${s.index || ''}</div>
                     <div style="font-size: 0.78rem; color: #f0883e; font-weight: bold;">${s.label}</div>
-                    <div style="font-size: 1.05rem; font-weight: bold; color: ${color}; margin: 3px 0;">${priceText}</div>
+                    <div style="font-size: ${isReal ? '0.95' : '1.05'}rem; font-weight: bold; color: ${color}; margin: 3px 0;">${priceText}</div>
                     <div style="font-size: 0.75rem; color: ${color}; font-weight: bold;">${arrow} ${changeAmt}</div>
                     <div style="font-size: 0.7rem; color: ${color}; opacity: 0.85;">${changePct}</div>
                 </div>`;
