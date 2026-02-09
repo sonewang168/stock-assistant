@@ -4793,6 +4793,89 @@
             </div>
         </div>
 
+        <!-- 🏦 整張持股即時監控 + 三大法人 -->
+        <div class="multi-monitor-section" id="fullLotSection" style="margin-top: 20px; border-top: 2px solid #f59e0b;">
+            <div class="multi-monitor-header" style="border-bottom: 2px solid rgba(245,158,11,.3);">
+                <h3>🏦 整張持股即時監控 <span style="font-size: 0.8rem; color: var(--text-muted);" id="fullLotCount">(0/20)</span>
+                    <span id="fullLotStatus" style="font-size: 0.8rem; margin-left: 10px;">⏳</span>
+                </h3>
+                <div class="multi-monitor-controls">
+                    <div class="multi-monitor-input">
+                        <select id="fullLotMarket" style="width: 70px;">
+                            <option value="twse">上市</option>
+                            <option value="tpex">上櫃</option>
+                        </select>
+                        <input type="text" id="fullLotCode" placeholder="代碼" maxlength="6" style="width: 70px;">
+                        <input type="number" id="fullLotShares" placeholder="張數" min="1" value="1" style="width: 65px;">
+                        <input type="number" id="fullLotCost" placeholder="成本價" step="0.1" style="width: 80px;">
+                        <button class="quick-btn" onclick="addFullLotStock()">➕ 新增</button>
+                    </div>
+                    <button class="quick-btn" style="background: var(--accent-blue);" onclick="refreshAllFullLot()">🔄 全部更新</button>
+                    <button class="quick-btn" style="background: linear-gradient(135deg, #f59e0b, #ef4444);" onclick="fetchAllFullLotInstitutional()">🏛️ 法人數據</button>
+                </div>
+            </div>
+
+            <!-- 整張持股表格 -->
+            <div style="overflow-x: auto; margin-top: 12px;">
+                <table id="fullLotTable" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                    <thead>
+                        <tr style="background: linear-gradient(135deg, rgba(245,158,11,.2), rgba(239,68,68,.1));">
+                            <th style="padding: 10px 8px; text-align: center; color: #f59e0b; font-size: 0.75rem; white-space: nowrap;">股票</th>
+                            <th style="padding: 10px 6px; text-align: center; color: #f59e0b; font-size: 0.75rem;">張數</th>
+                            <th style="padding: 10px 6px; text-align: center; color: #f59e0b; font-size: 0.75rem;">成本</th>
+                            <th style="padding: 10px 6px; text-align: center; color: #f59e0b; font-size: 0.75rem;">⚡即時</th>
+                            <th style="padding: 10px 6px; text-align: center; color: #f59e0b; font-size: 0.75rem;">漲跌%</th>
+                            <th style="padding: 10px 6px; text-align: center; color: #f59e0b; font-size: 0.75rem;">💰損益</th>
+                            <th style="padding: 10px 6px; text-align: center; color: #f59e0b; font-size: 0.75rem;">報酬%</th>
+                            <th style="padding: 10px 6px; text-align: center; color: #3b82f6; font-size: 0.75rem;">🏦外資</th>
+                            <th style="padding: 10px 6px; text-align: center; color: #ef4444; font-size: 0.75rem;">📈投信</th>
+                            <th style="padding: 10px 6px; text-align: center; color: #a855f7; font-size: 0.75rem;">🏢自營</th>
+                            <th style="padding: 10px 6px; text-align: center; color: #f59e0b; font-size: 0.75rem;">📊合計</th>
+                            <th style="padding: 10px 6px; text-align: center; color: var(--text-muted); font-size: 0.75rem;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fullLotBody">
+                        <tr><td colspan="12" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                            <div style="font-size: 2rem; margin-bottom: 8px;">🏦</div>
+                            點擊上方新增整張持股
+                        </td></tr>
+                    </tbody>
+                    <tfoot id="fullLotFoot" style="display: none;">
+                        <tr style="background: linear-gradient(135deg, rgba(245,158,11,.15), rgba(0,212,255,.08)); font-weight: 700;">
+                            <td style="padding: 10px 8px; text-align: center; color: #f59e0b;">合 計</td>
+                            <td style="padding: 10px 6px; text-align: center;" id="flTotalShares">-</td>
+                            <td style="padding: 10px 6px; text-align: center;" id="flTotalCost">-</td>
+                            <td style="padding: 10px 6px; text-align: center;" id="flTotalMarketVal">-</td>
+                            <td style="padding: 10px 6px;"></td>
+                            <td style="padding: 10px 6px; text-align: center;" id="flTotalPL">-</td>
+                            <td style="padding: 10px 6px; text-align: center;" id="flTotalReturn">-</td>
+                            <td style="padding: 10px 6px; text-align: center;" id="flTotalForeign">-</td>
+                            <td style="padding: 10px 6px; text-align: center;" id="flTotalTrust">-</td>
+                            <td style="padding: 10px 6px; text-align: center;" id="flTotalDealer">-</td>
+                            <td style="padding: 10px 6px; text-align: center;" id="flTotalInst">-</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- 三大法人每日摘要 -->
+            <div id="fullLotInstSummary" style="display: none; margin-top: 14px; padding: 14px; background: linear-gradient(135deg, rgba(59,130,246,.08), rgba(168,85,247,.06)); border: 1px solid rgba(59,130,246,.2); border-radius: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 style="margin: 0; color: #3b82f6; font-size: 0.95rem;">🏛️ 持股三大法人動向（最近交易日）</h4>
+                    <span id="flInstDate" style="font-size: 0.78rem; color: var(--text-muted);">─</span>
+                </div>
+                <div id="flInstCards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                </div>
+                <div id="flInstSignal" style="margin-top: 12px; padding: 10px; border-radius: 8px; text-align: center; font-weight: 700; font-size: 0.9rem;">
+                </div>
+            </div>
+
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 8px; text-align: center;">
+                💡 即時股價來自 TWSE/TPEx API ｜ 法人數據：收盤後 16:00 更新 ｜ 損益 = (即時價 - 成本) × 張數 × 1000
+            </div>
+        </div>
+
         <!-- 🤖 AI 投資組合解析與建議 -->
         <div class="ai-portfolio-section" id="aiPortfolioSection">
             <div class="ai-portfolio-header">
@@ -6980,6 +7063,7 @@
             initRealtimeQuickSearch(); // 初始化即時報價快速查詢
             loadMonitorList(); // 載入多股監控清單
             loadOddLotList(); // 載入零股監控清單
+            loadFullLotList(); // 載入整張持股監控
             loadGridLayout(); // 🆕 載入宮格布局設定
             updateOddTradingStatus(); // 初始化零股交易狀態
             setInterval(updateOddTradingStatus, 60000); // 每分鐘更新零股交易狀態
@@ -19802,6 +19886,278 @@ ${analysisContext}
             
             console.log(`📦 零股：${item.code} 從 ${oddDraggedIndex} → ${dropIndex}`);
         }
+        // ===== 整張持股即時監控 + 三大法人 =====
+        let fullLotStocks = []; // [{code, market, shares, costPrice, name, data, instData}]
+        const FULLLOT_KEY = 'fullLotStocks_v1';
+
+        function loadFullLotList() {
+            try {
+                const saved = localStorage.getItem(FULLLOT_KEY);
+                if (saved) fullLotStocks = JSON.parse(saved);
+            } catch(e) { fullLotStocks = []; }
+            renderFullLotTable();
+        }
+
+        function saveFullLotList() {
+            localStorage.setItem(FULLLOT_KEY, JSON.stringify(fullLotStocks));
+        }
+
+        function addFullLotStock() {
+            const code = document.getElementById('fullLotCode').value.trim();
+            const market = document.getElementById('fullLotMarket').value;
+            const shares = parseInt(document.getElementById('fullLotShares').value) || 1;
+            const costPrice = parseFloat(document.getElementById('fullLotCost').value) || 0;
+            if (!code) { showToast('⚠️ 請輸入股票代碼'); return; }
+            if (fullLotStocks.length >= 20) { showToast('⚠️ 最多 20 檔'); return; }
+            // 允許同一股票多筆（不同成本）
+            fullLotStocks.push({ code, market, shares, costPrice, name: getStockChineseName(code, null) || code, data: null, instData: null });
+            saveFullLotList();
+            renderFullLotTable();
+            document.getElementById('fullLotCode').value = '';
+            document.getElementById('fullLotCost').value = '';
+            document.getElementById('fullLotShares').value = '1';
+            showToast(`✅ 已新增 ${code} ${shares}張`);
+            // 自動取得報價
+            refreshSingleFullLot(fullLotStocks.length - 1);
+        }
+
+        function removeFullLotStock(idx) {
+            const s = fullLotStocks[idx];
+            if (confirm(`確定移除 ${s.code} ${s.name}？`)) {
+                fullLotStocks.splice(idx, 1);
+                saveFullLotList();
+                renderFullLotTable();
+                showToast(`🗑️ 已移除`);
+            }
+        }
+
+        async function refreshSingleFullLot(idx) {
+            const s = fullLotStocks[idx];
+            if (!s) return;
+            try {
+                const q = await getStockQuote(s.code, s.market);
+                if (q && q.price > 0) {
+                    s.data = q;
+                    s.name = q.name || s.name;
+                    saveFullLotList();
+                    renderFullLotTable();
+                }
+            } catch(e) { console.log('FL refresh error:', e); }
+        }
+
+        async function refreshAllFullLot() {
+            if (fullLotStocks.length === 0) { showToast('⚠️ 尚無持股'); return; }
+            showToast('🔄 更新全部持股報價...');
+            document.getElementById('fullLotStatus').textContent = '⏳ 更新中...';
+            for (let i = 0; i < fullLotStocks.length; i++) {
+                await refreshSingleFullLot(i);
+                if (i < fullLotStocks.length - 1) await new Promise(r => setTimeout(r, 1500));
+            }
+            document.getElementById('fullLotStatus').textContent = '✅ ' + new Date().toLocaleTimeString('zh-TW');
+            showToast('✅ 全部更新完成');
+        }
+
+        async function fetchAllFullLotInstitutional() {
+            if (fullLotStocks.length === 0) { showToast('⚠️ 尚無持股'); return; }
+            showToast('🏛️ 抓取三大法人數據...');
+
+            // 取最近交易日
+            const today = new Date();
+            const dates = [];
+            for (let d = 0; d < 7; d++) {
+                const dt = new Date(today);
+                dt.setDate(dt.getDate() - d);
+                if (dt.getDay() !== 0 && dt.getDay() !== 6) {
+                    const y = dt.getFullYear();
+                    const m = String(dt.getMonth()+1).padStart(2,'0');
+                    const dd = String(dt.getDate()).padStart(2,'0');
+                    dates.push(`${y}/${m}/${dd}`);
+                }
+                if (dates.length >= 3) break;
+            }
+
+            let foundDate = null;
+            for (let i = 0; i < fullLotStocks.length; i++) {
+                const s = fullLotStocks[i];
+                for (const date of dates) {
+                    let result = null;
+                    try {
+                        if (s.market === 'tpex') {
+                            result = await fetchTPExInstitutional(s.code, date);
+                        } else {
+                            result = await fetchTWSEInstitutional(s.code, date);
+                        }
+                    } catch(e) {}
+                    if (result) {
+                        s.instData = result;
+                        if (!foundDate) foundDate = date;
+                        break;
+                    }
+                    await new Promise(r => setTimeout(r, 500));
+                }
+                if (i < fullLotStocks.length - 1) await new Promise(r => setTimeout(r, 1200));
+            }
+            saveFullLotList();
+            renderFullLotTable();
+            renderFullLotInstSummary(foundDate);
+            showToast('✅ 法人數據更新完成');
+        }
+
+        function renderFullLotInstSummary(dateStr) {
+            const container = document.getElementById('fullLotInstSummary');
+            const validStocks = fullLotStocks.filter(s => s.instData);
+            if (validStocks.length === 0) { container.style.display = 'none'; return; }
+            container.style.display = 'block';
+            document.getElementById('flInstDate').textContent = dateStr || '─';
+
+            // Build cards
+            let cardsHtml = '';
+            let totalF = 0, totalT = 0, totalD = 0;
+            validStocks.forEach(s => {
+                const inst = s.instData;
+                totalF += inst.foreignNet || 0;
+                totalT += inst.trustNet || 0;
+                totalD += inst.dealerNet || 0;
+                const total = (inst.foreignNet||0) + (inst.trustNet||0) + (inst.dealerNet||0);
+                const color = total > 0 ? '#D32F2F' : total < 0 ? '#388E3C' : '#888';
+                cardsHtml += `
+                <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px; border-left: 3px solid ${color};">
+                    <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 6px;">${s.code} ${s.name}</div>
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; font-size: 0.78rem;">
+                        <div style="text-align: center;"><div style="color: #3b82f6;">外資</div><div style="font-weight: 700; color: ${(inst.foreignNet||0)>0?'#D32F2F':'#388E3C'}">${formatInst(inst.foreignNet)}</div></div>
+                        <div style="text-align: center;"><div style="color: #ef4444;">投信</div><div style="font-weight: 700; color: ${(inst.trustNet||0)>0?'#D32F2F':'#388E3C'}">${formatInst(inst.trustNet)}</div></div>
+                        <div style="text-align: center;"><div style="color: #a855f7;">自營</div><div style="font-weight: 700; color: ${(inst.dealerNet||0)>0?'#D32F2F':'#388E3C'}">${formatInst(inst.dealerNet)}</div></div>
+                        <div style="text-align: center;"><div style="color: #f59e0b;">合計</div><div style="font-weight: 700; color: ${total>0?'#D32F2F':'#388E3C'}">${formatInst(total)}</div></div>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('flInstCards').innerHTML = cardsHtml;
+
+            // Signal
+            const grandTotal = totalF + totalT + totalD;
+            let signal, sigColor, sigBg;
+            if (totalF > 0 && totalT > 0) { signal = '🟢 外資+投信同步買超 → 強烈看多信號'; sigColor = '#D32F2F'; sigBg = 'rgba(211,47,47,.1)'; }
+            else if (totalF < 0 && totalT < 0) { signal = '🔴 外資+投信同步賣超 → 強烈看空信號'; sigColor = '#388E3C'; sigBg = 'rgba(56,142,60,.1)'; }
+            else if (totalF > 0 && totalT < 0) { signal = '🟡 外資買超 / 投信賣超 → 觀望'; sigColor = '#f59e0b'; sigBg = 'rgba(245,158,11,.1)'; }
+            else if (totalF < 0 && totalT > 0) { signal = '🟡 外資賣超 / 投信買超 → 觀望'; sigColor = '#f59e0b'; sigBg = 'rgba(245,158,11,.1)'; }
+            else { signal = '⚪ 法人態度不明確'; sigColor = '#888'; sigBg = 'rgba(136,136,136,.1)'; }
+
+            document.getElementById('flInstSignal').innerHTML = `
+                <div style="color: ${sigColor}; background: ${sigBg}; padding: 12px; border-radius: 8px;">
+                    <div style="font-size: 1rem; margin-bottom: 4px;">${signal}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">
+                        外資合計 <span style="color: ${totalF>0?'#D32F2F':'#388E3C'}; font-weight: 700;">${formatInst(totalF)}</span> 張 ｜
+                        投信合計 <span style="color: ${totalT>0?'#D32F2F':'#388E3C'}; font-weight: 700;">${formatInst(totalT)}</span> 張 ｜
+                        自營合計 <span style="color: ${totalD>0?'#D32F2F':'#388E3C'}; font-weight: 700;">${formatInst(totalD)}</span> 張 ｜
+                        三大法人合計 <span style="color: ${grandTotal>0?'#D32F2F':'#388E3C'}; font-weight: 900;">${formatInst(grandTotal)}</span> 張
+                    </div>
+                </div>`;
+        }
+
+        function formatInst(val) {
+            if (val === null || val === undefined) return '-';
+            const abs = Math.abs(val);
+            const sign = val > 0 ? '+' : val < 0 ? '' : '';
+            if (abs >= 10000) return sign + (val/10000).toFixed(1) + '萬';
+            if (abs >= 1000) return sign + (val/1000).toFixed(1) + 'K';
+            return sign + val;
+        }
+
+        function renderFullLotTable() {
+            const body = document.getElementById('fullLotBody');
+            const foot = document.getElementById('fullLotFoot');
+            document.getElementById('fullLotCount').textContent = `(${fullLotStocks.length}/20)`;
+
+            if (fullLotStocks.length === 0) {
+                body.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 40px; color: var(--text-muted);"><div style="font-size: 2rem; margin-bottom: 8px;">🏦</div>點擊上方新增整張持股</td></tr>';
+                foot.style.display = 'none';
+                return;
+            }
+
+            let html = '';
+            let sumShares = 0, sumCost = 0, sumMV = 0, sumPL = 0;
+            let sumF = 0, sumT = 0, sumD = 0;
+
+            fullLotStocks.forEach((s, i) => {
+                const d = s.data;
+                const price = d ? d.price : 0;
+                const chg = d ? (d.changePercent || 0) : 0;
+                const totalCost = s.costPrice * s.shares * 1000;
+                const marketVal = price * s.shares * 1000;
+                const pl = price > 0 ? marketVal - totalCost : 0;
+                const ret = totalCost > 0 && price > 0 ? ((marketVal - totalCost) / totalCost * 100) : 0;
+
+                // 台股：紅漲綠跌
+                const chgColor = chg > 0 ? '#D32F2F' : chg < 0 ? '#388E3C' : 'var(--text-muted)';
+                const plColor = pl > 0 ? '#D32F2F' : pl < 0 ? '#388E3C' : 'var(--text-muted)';
+
+                const inst = s.instData || {};
+                const fNet = inst.foreignNet;
+                const tNet = inst.trustNet;
+                const dNet = inst.dealerNet;
+                const instTotal = (fNet||0) + (tNet||0) + (dNet||0);
+
+                if (price > 0) { sumShares += s.shares; sumCost += totalCost; sumMV += marketVal; sumPL += pl; }
+                if (fNet !== undefined) { sumF += fNet||0; sumT += tNet||0; sumD += dNet||0; }
+
+                const instColor = (v) => v > 0 ? '#D32F2F' : v < 0 ? '#388E3C' : 'var(--text-muted)';
+
+                html += `<tr style="border-bottom: 1px solid var(--border-color); transition: background .2s;" onmouseover="this.style.background='rgba(245,158,11,.06)'" onmouseout="this.style.background=''">
+                    <td style="padding: 8px 6px; text-align: left; white-space: nowrap;">
+                        <div style="font-weight: 700; font-size: 0.88rem;">${s.code}</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted);">${s.name}</div>
+                    </td>
+                    <td style="padding: 8px 4px; text-align: center; font-weight: 600;">${s.shares}</td>
+                    <td style="padding: 8px 4px; text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;">${s.costPrice > 0 ? '$'+s.costPrice : '-'}</td>
+                    <td style="padding: 8px 4px; text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.9rem; color: ${chgColor};">
+                        ${price > 0 ? '$'+price : '<span style="color:var(--text-muted)">─</span>'}
+                    </td>
+                    <td style="padding: 8px 4px; text-align: center; font-weight: 700; color: ${chgColor}; font-size: 0.82rem;">
+                        ${price > 0 ? (chg>0?'+':'')+chg.toFixed(2)+'%' : '-'}
+                    </td>
+                    <td style="padding: 8px 4px; text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: ${plColor}; font-size: 0.82rem;">
+                        ${price > 0 && s.costPrice > 0 ? (pl>=0?'+':'')+Math.round(pl).toLocaleString() : '-'}
+                    </td>
+                    <td style="padding: 8px 4px; text-align: center; font-weight: 700; color: ${plColor}; font-size: 0.82rem;">
+                        ${price > 0 && s.costPrice > 0 ? (ret>=0?'+':'')+ret.toFixed(1)+'%' : '-'}
+                    </td>
+                    <td style="padding: 8px 4px; text-align: center; font-weight: 600; color: ${instColor(fNet)}; font-size: 0.78rem;">${fNet !== undefined ? formatInst(fNet) : '-'}</td>
+                    <td style="padding: 8px 4px; text-align: center; font-weight: 600; color: ${instColor(tNet)}; font-size: 0.78rem;">${tNet !== undefined ? formatInst(tNet) : '-'}</td>
+                    <td style="padding: 8px 4px; text-align: center; font-weight: 600; color: ${instColor(dNet)}; font-size: 0.78rem;">${dNet !== undefined ? formatInst(dNet) : '-'}</td>
+                    <td style="padding: 8px 4px; text-align: center; font-weight: 700; color: ${instColor(instTotal)}; font-size: 0.78rem;">${fNet !== undefined ? formatInst(instTotal) : '-'}</td>
+                    <td style="padding: 8px 4px; text-align: center;">
+                        <button onclick="refreshSingleFullLot(${i})" style="background: none; border: 1px solid var(--border-color); border-radius: 5px; padding: 3px 6px; cursor: pointer; color: var(--text-primary); font-size: 0.78rem; margin-right: 2px;" title="更新報價">🔄</button>
+                        <button onclick="removeFullLotStock(${i})" style="background: none; border: 1px solid rgba(239,68,68,.3); border-radius: 5px; padding: 3px 6px; cursor: pointer; color: #ef4444; font-size: 0.78rem;" title="移除">✕</button>
+                    </td>
+                </tr>`;
+            });
+            body.innerHTML = html;
+
+            // Update footer
+            if (sumCost > 0) {
+                foot.style.display = '';
+                const sumReturn = sumCost > 0 ? (sumPL / sumCost * 100) : 0;
+                const plC = sumPL > 0 ? '#D32F2F' : sumPL < 0 ? '#388E3C' : 'var(--text-muted)';
+                const fC = v => v > 0 ? '#D32F2F' : v < 0 ? '#388E3C' : 'var(--text-muted)';
+                document.getElementById('flTotalShares').textContent = sumShares + '張';
+                document.getElementById('flTotalCost').innerHTML = `<span style="font-family:'JetBrains Mono',monospace;">$${Math.round(sumCost).toLocaleString()}</span>`;
+                document.getElementById('flTotalMarketVal').innerHTML = `<span style="font-family:'JetBrains Mono',monospace;">$${Math.round(sumMV).toLocaleString()}</span>`;
+                document.getElementById('flTotalPL').innerHTML = `<span style="color:${plC};font-family:'JetBrains Mono',monospace;">${sumPL>=0?'+':''}${Math.round(sumPL).toLocaleString()}</span>`;
+                document.getElementById('flTotalReturn').innerHTML = `<span style="color:${plC};">${sumReturn>=0?'+':''}${sumReturn.toFixed(1)}%</span>`;
+                document.getElementById('flTotalForeign').innerHTML = `<span style="color:${fC(sumF)};">${formatInst(sumF)}</span>`;
+                document.getElementById('flTotalTrust').innerHTML = `<span style="color:${fC(sumT)};">${formatInst(sumT)}</span>`;
+                document.getElementById('flTotalDealer').innerHTML = `<span style="color:${fC(sumD)};">${formatInst(sumD)}</span>`;
+                const grandInst = sumF + sumT + sumD;
+                document.getElementById('flTotalInst').innerHTML = `<span style="color:${fC(grandInst)};font-weight:900;">${formatInst(grandInst)}</span>`;
+            } else {
+                foot.style.display = 'none';
+            }
+        }
+
+        // 快速鍵 Enter 新增
+        document.getElementById('fullLotCode')?.addEventListener('keydown', e => { if (e.key === 'Enter') addFullLotStock(); });
+        document.getElementById('fullLotCost')?.addEventListener('keydown', e => { if (e.key === 'Enter') addFullLotStock(); });
+
     </script>
 
     <!-- 開盤/收盤霓虹彈窗 -->
