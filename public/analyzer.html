@@ -7941,9 +7941,9 @@
                 let year = dateParts[0].length === 4 ? parseInt(dateParts[0]) - 1911 : parseInt(dateParts[0]);
                 const dateStr = `${year}/${dateParts[1].padStart(2,'0')}/${dateParts[2].padStart(2,'0')}`;
 
-                // ===== 方法1: 後端 proxy (嘗試海外域名+OpenAPI) =====
+                // ===== 方法1: 後端 proxy (嘗試海外域名+OpenAPI+FinMind) =====
                 try {
-                    const res = await fetchWithTimeout(`/api/tpex-proxy?d=${encodeURIComponent(dateStr)}&stockId=${stockCode}`, 20000);
+                    const res = await fetchWithTimeout(`/api/tpex-proxy?d=${encodeURIComponent(dateStr)}&stockId=${stockCode}`, 25000);
                     if (res.ok) {
                         const json = await res.json();
                         if (json.success && json.data) {
@@ -7953,6 +7953,16 @@
                         if (json.success && json.openApiData) {
                             console.log(`✅ TPEx ${stockCode} via OpenAPI (${json.source})`);
                             return parseOpenApiData(json.openApiData);
+                        }
+                        if (json.success && json.finmindData) {
+                            console.log(`✅ TPEx ${stockCode} via FinMind`);
+                            const fm = json.finmindData;
+                            return {
+                                date: fm.date || date,
+                                foreignNet: Math.round((fm.foreign?.net || 0) / 1000),
+                                trustNet: Math.round((fm.trust?.net || 0) / 1000),
+                                dealerNet: Math.round((fm.dealer?.net || 0) / 1000)
+                            };
                         }
                         console.log(`⚠️ Backend proxy: ${json.error || 'no data'}`);
                     }

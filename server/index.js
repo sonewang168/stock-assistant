@@ -158,8 +158,23 @@ app.get('/api/tpex-proxy', async (req, res) => {
     const { d, stockId } = req.query;
     if (!d || !stockId) return res.status(400).json({ success: false, error: '需要 d 和 stockId' });
     console.log(`🔄 TPEx Proxy: ${stockId}, date=${d}`);
+    
+    // 先嘗試 TPEx 各域名
     const result = await fetchTPExData(d, stockId);
-    res.json(result);
+    if (result.success) return res.json(result);
+    
+    // TPEx 全敗，嘗試 FinMind
+    // 民國年轉西元: d = "115/02/09"
+    const parts = d.split('/');
+    const westernDate = `${parseInt(parts[0])+1911}-${parts[1]}-${parts[2]}`;
+    console.log(`🔄 TPEx 全敗，嘗試 FinMind (${westernDate})...`);
+    
+    const fmResult = await fetchFromFinMind(stockId, westernDate);
+    if (fmResult) {
+      return res.json({ success: true, source: 'finmind', finmindData: fmResult });
+    }
+    
+    res.json(result); // 全部失敗
   } catch (error) {
     console.error('TPEx Proxy 錯誤:', error.message);
     res.status(500).json({ success: false, error: error.message });
@@ -174,9 +189,116 @@ app.get('/api/tpex-diag', async (req, res) => {
   const dt = new Date(twNow);
   while (dt.getDay() === 0 || dt.getDay() === 6) dt.setDate(dt.getDate() - 1);
   const rocDate = `${dt.getFullYear()-1911}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
+  const westernDate = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  
   console.log(`🔍 TPEx 診斷: ${stockId}, ${rocDate}`);
   const result = await fetchTPExData(rocDate, stockId);
+  
+  // 如果 TPEx 全部失敗，嘗試 FinMind
+  if (!result.success) {
+    console.log(`🔄 TPEx 全敗，嘗試 FinMind...`);
+    try {
+      const fmResult = await fetchFromFinMind(stockId, westernDate);
+      if (fmResult) {
+        res.json({ stockId, rocDate, serverTime: twNow.toISOString(), success: true, source: 'finmind', finmindData: fmResult, tpexError: result.error });
+        return;
+      }
+    } catch(e) {
+      console.log(`❌ FinMind: ${e.message}`);
+    }
+  }
+  
   res.json({ stockId, rocDate, serverTime: twNow.toISOString(), ...result });
+});
+
+// FinMind 台股三大法人數據 (免費 API，不受 Cloudflare 影響)
+async function fetchFromFinMind(stockId, date) {
+  try {
+    const url = `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=${stockId}&start_date=${date}`;
+    console.log(`  🔄 FinMind: ${stockId} from ${date}`);
+    const response = await axios.get(url, { timeout: 15000 });
+    
+    if (response.data && response.data.status === 200 && response.data.data && response.data.data.length > 0) {
+      const rows = response.data.data;
+      // FinMind 每種法人一筆，需要彙總
+      let foreignBuy = 0, foreignSell = 0;
+      let trustBuy = 0, trustSell = 0;
+      let dealerBuy = 0, dealerSell = 0;
+      let dataDate = date;
+      
+      for (const row of rows) {
+        const name = row.name || '';
+        dataDate = row.date || date;
+        if (name.includes('外陸資') && !name.includes('自營')) {
+          foreignBuy += row.buy || 0;
+          foreignSell += row.sell || 0;
+        } else if (name.includes('外資自營')) {
+          foreignBuy += row.buy || 0;
+          foreignSell += row.sell || 0;
+        } else if (name.includes('投信')) {
+          trustBuy += row.buy || 0;
+          trustSell += row.sell || 0;
+        } else if (name.includes('自營商')) {
+          dealerBuy += row.buy || 0;
+          dealerSell += row.sell || 0;
+        } else if (name === 'Foreign_Investor') {
+          foreignBuy += row.buy || 0;
+          foreignSell += row.sell || 0;
+        } else if (name === 'Investment_Trust') {
+          trustBuy += row.buy || 0;
+          trustSell += row.sell || 0;
+        } else if (name === 'Dealer_self' || name === 'Dealer_Hedging') {
+          dealerBuy += row.buy || 0;
+          dealerSell += row.sell || 0;
+        }
+      }
+      
+      console.log(`  ✅ FinMind ${stockId}: 外資=${foreignBuy-foreignSell} 投信=${trustBuy-trustSell} 自營=${dealerBuy-dealerSell}`);
+      return {
+        date: dataDate,
+        foreign: { buy: foreignBuy, sell: foreignSell, net: foreignBuy - foreignSell },
+        trust: { buy: trustBuy, sell: trustSell, net: trustBuy - trustSell },
+        dealer: { buy: dealerBuy, sell: dealerSell, net: dealerBuy - dealerSell },
+        totalNet: (foreignBuy - foreignSell) + (trustBuy - trustSell) + (dealerBuy - dealerSell),
+        rawRows: rows.length
+      };
+    }
+    console.log(`  ⚠️ FinMind: 無資料 (status=${response.data?.status}, msg=${response.data?.msg})`);
+    return null;
+  } catch(e) {
+    console.log(`  ❌ FinMind 錯誤: ${e.message}`);
+    return null;
+  }
+}
+
+// 直接測試 FinMind 端點
+app.get('/api/finmind-test', async (req, res) => {
+  const stockId = req.query.stockId || '5347';
+  const now = new Date();
+  const twNow = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+  const dt = new Date(twNow);
+  while (dt.getDay() === 0 || dt.getDay() === 6) dt.setDate(dt.getDate() - 1);
+  // 往前多抓幾天確保有資料
+  const startDt = new Date(dt);
+  startDt.setDate(startDt.getDate() - 5);
+  const startDate = startDt.toISOString().slice(0,10);
+  const endDate = dt.toISOString().slice(0,10);
+  
+  try {
+    const url = `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=${stockId}&start_date=${startDate}&end_date=${endDate}`;
+    console.log(`🔍 FinMind 測試: ${url}`);
+    const response = await axios.get(url, { timeout: 15000 });
+    res.json({ 
+      stockId, startDate, endDate, 
+      status: response.data?.status,
+      msg: response.data?.msg,
+      rowCount: response.data?.data?.length || 0,
+      sample: response.data?.data?.slice(0, 5),
+      parsed: response.data?.data?.length > 0 ? await fetchFromFinMind(stockId, startDate) : null
+    });
+  } catch(e) {
+    res.json({ error: e.message, status: e.response?.status });
+  }
 });
 
 // ==================== 健康檢查 ====================
