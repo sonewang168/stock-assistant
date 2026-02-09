@@ -20152,94 +20152,93 @@ ${analysisContext}
 
         // ===== 法人數據診斷工具 =====
         async function diagInstitutional() {
-            const testCode = fullLotStocks.length > 0 ? fullLotStocks[0].code : '2330';
-            const testMarket = fullLotStocks.length > 0 ? (fullLotStocks[0].market || 'twse') : 'twse';
-            showToast(`🔍 診斷 ${testCode} (${testMarket})...`);
-            let report = `=== 法人數據診斷報告 ===\n股票: ${testCode} (${testMarket})\n時間: ${new Date().toLocaleString('zh-TW')}\n\n`;
+            // 找一個上市和一個上櫃來測
+            const twseStock = fullLotStocks.find(s => s.market !== 'tpex') || { code: '2330', market: 'twse' };
+            const tpexStock = fullLotStocks.find(s => s.market === 'tpex') || null;
+            
+            let report = `=== 法人診斷 ===\n${new Date().toLocaleString('zh-TW')}\n\n`;
 
-            // 1. 測試 TWSE T86 直連
-            report += '--- 方法1: TWSE T86 直連 ---\n';
+            // 找最近交易日
+            const dt = new Date();
+            while (dt.getDay() === 0 || dt.getDay() === 6) dt.setDate(dt.getDate() - 1);
+            const dateStr = `${dt.getFullYear()}${String(dt.getMonth()+1).padStart(2,'0')}${String(dt.getDate()).padStart(2,'0')}`;
+            const dateSlash = `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
+            const pn = (v) => parseInt(String(v||0).replace(/,/g,'').replace(/−/g,'-')) || 0;
+
+            // --- TWSE 測試 ---
+            report += `【上市 ${twseStock.code}】\n`;
             try {
-                const today = new Date();
-                const dt = new Date(today);
-                // 找最近交易日
-                while (dt.getDay() === 0 || dt.getDay() === 6) dt.setDate(dt.getDate() - 1);
-                const dateStr = `${dt.getFullYear()}${String(dt.getMonth()+1).padStart(2,'0')}${String(dt.getDate()).padStart(2,'0')}`;
-                const dateSlash = `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
-                report += `日期: ${dateSlash}\n`;
-                
                 const url = `https://www.twse.com.tw/rwd/zh/fund/T86?date=${dateStr}&selectType=ALLBUT0999&response=json`;
                 const data = await fetchWithProxy(url);
-                
-                if (data && data.stat === 'OK' && data.data) {
-                    const row = data.data.find(r => r[0].trim() === testCode);
+                if (data?.stat === 'OK' && data?.data) {
+                    const row = data.data.find(r => r[0].trim() === twseStock.code);
                     if (row) {
-                        report += `✅ 找到! 欄位數: ${row.length}\n`;
-                        report += `  [0]代號=${row[0]} [1]名稱=${row[1]}\n`;
-                        report += `  [2]外陸資買=${row[2]} [3]賣=${row[3]} [4]超=${row[4]}\n`;
-                        report += `  [5]外資自營買=${row[5]} [6]賣=${row[6]} [7]超=${row[7]}\n`;
-                        report += `  [8]=${row[8]} [9]=${row[9]} [10]=${row[10]}\n`;
-                        report += `  [11]=${row[11]} [12]=${row[12]} [13]=${row[13]}\n`;
-                        if (row.length > 14) report += `  [14]=${row[14]} [15]=${row[15]} [16]=${row[16]}\n`;
-                        if (row.length > 17) report += `  [17]=${row[17]}\n`;
-                        
-                        // 套用目前的解析邏輯
-                        const pn = (v) => parseInt(String(v).replace(/,/g,'').replace(/−/g,'-')) || 0;
-                        const isNew = row.length >= 22;
-                        report += `\n判定格式: ${isNew ? '新版(22欄)' : '標準(18欄)'}\n`;
-                        if (!isNew) {
-                            report += `外資超=[4]+[7] = ${pn(row[4])+pn(row[7])}\n`;
-                            report += `投信超=[10] = ${pn(row[10])}\n`;
-                            report += `自營超=[13]+[16] = ${pn(row[13])+pn(row[16])}\n`;
-                        }
-                    } else {
-                        report += `⚠️ 在 ${data.data.length} 筆中找不到 ${testCode}\n`;
-                        if (data.data.length > 0) {
-                            report += `第1筆: ${data.data[0][0]} ${data.data[0][1]}\n`;
-                        }
-                    }
-                } else {
-                    report += `❌ API 回傳: stat=${data?.stat}, data筆數=${data?.data?.length || 0}\n`;
-                }
-            } catch(e) {
-                report += `❌ 錯誤: ${e.message}\n`;
-            }
+                        report += `欄位數:${row.length} 格式:${row.length>=22?'新':'標準'}\n`;
+                        report += `外資=[4]+[7]=${pn(row[4])+pn(row[7])}\n`;
+                        report += `投信=[10]=${pn(row[10])}\n`;
+                        report += `自營=[13]+[16]=${pn(row[13])+pn(row[16])}\n`;
+                    } else report += `找不到 ${twseStock.code}\n`;
+                } else report += `API無資料 (stat=${data?.stat})\n`;
+            } catch(e) { report += `錯誤:${e.message}\n`; }
 
-            // 2. 測試 TPEx 直連
-            if (testMarket === 'tpex') {
-                report += '\n--- 方法2: TPEx 直連 ---\n';
+            // --- TPEx 測試 ---
+            if (tpexStock) {
+                report += `\n【上櫃 ${tpexStock.code}】\n`;
+                
+                // 前端直連 TPEx
+                report += `前端直連: `;
                 try {
-                    const dt = new Date();
-                    while (dt.getDay() === 0 || dt.getDay() === 6) dt.setDate(dt.getDate() - 1);
-                    const dateSlash = `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
-                    const result = await fetchTPExInstitutional(testCode, dateSlash);
+                    const result = await fetchTPExInstitutional(tpexStock.code, dateSlash);
                     if (result) {
-                        report += `✅ 外=${result.foreignNet} 投=${result.trustNet} 自=${result.dealerNet}\n`;
+                        report += `外=${result.foreignNet} 投=${result.trustNet} 自=${result.dealerNet}\n`;
                     } else {
-                        report += `❌ 回傳 null\n`;
+                        report += `null (CORS被擋?)\n`;
                     }
-                } catch(e) {
-                    report += `❌ 錯誤: ${e.message}\n`;
-                }
+                } catch(e) { report += `錯誤:${e.message}\n`; }
+
+                // 前端直連 TPEx - 用前一天
+                const dt2 = new Date(dt); dt2.setDate(dt2.getDate()-1);
+                while (dt2.getDay()===0||dt2.getDay()===6) dt2.setDate(dt2.getDate()-1);
+                const dateSlash2 = `${dt2.getFullYear()}/${String(dt2.getMonth()+1).padStart(2,'0')}/${String(dt2.getDate()).padStart(2,'0')}`;
+                report += `前端(${dateSlash2}): `;
+                try {
+                    const result2 = await fetchTPExInstitutional(tpexStock.code, dateSlash2);
+                    if (result2) {
+                        report += `外=${result2.foreignNet} 投=${result2.trustNet} 自=${result2.dealerNet}\n`;
+                    } else {
+                        report += `null\n`;
+                    }
+                } catch(e) { report += `錯誤:${e.message}\n`; }
+
+                // 後端 API
+                report += `後端API: `;
+                try {
+                    const res = await fetch(`/api/chip/${tpexStock.code}?days=1&market=tpex&force=1`);
+                    const json = await res.json();
+                    if (json.success && json.data?.latest) {
+                        const d = json.data.latest;
+                        report += `外=${d.foreign.net} 投=${d.trust.net} 自=${d.dealer.net}\n`;
+                        report += `(raw: f.buy=${d.foreign.buy} t.buy=${d.trust.buy} d.buy=${d.dealer.buy})\n`;
+                    } else {
+                        report += `${JSON.stringify(json).slice(0,150)}\n`;
+                    }
+                } catch(e) { report += `錯誤:${e.message}\n`; }
+            } else {
+                report += '\n（無上櫃股票可測試）\n';
             }
 
-            // 3. 測試後端 API
-            report += '\n--- 方法3: 後端 API ---\n';
+            // --- 後端 TWSE ---
+            report += `\n【後端API ${twseStock.code}】\n`;
             try {
-                const res = await fetch(`/api/chip/${testCode}?days=1&market=${testMarket}`);
+                const res = await fetch(`/api/chip/${twseStock.code}?days=1&market=twse`);
                 const json = await res.json();
-                report += `HTTP ${res.status}\n`;
-                if (json.success && json.data && json.data.latest) {
+                if (json.success && json.data?.latest) {
                     const d = json.data.latest;
-                    report += `外資: buy=${d.foreign.buy} sell=${d.foreign.sell} net=${d.foreign.net}\n`;
-                    report += `投信: buy=${d.trust.buy} sell=${d.trust.sell} net=${d.trust.net}\n`;
-                    report += `自營: buy=${d.dealer.buy} sell=${d.dealer.sell} net=${d.dealer.net}\n`;
+                    report += `外=${d.foreign.net} 投=${d.trust.net} 自=${d.dealer.net}\n`;
                 } else {
-                    report += `回傳: ${JSON.stringify(json).slice(0,200)}\n`;
+                    report += `${JSON.stringify(json).slice(0,100)}\n`;
                 }
-            } catch(e) {
-                report += `❌ 錯誤: ${e.message}\n`;
-            }
+            } catch(e) { report += `錯誤:${e.message}\n`; }
 
             console.log(report);
             alert(report);
