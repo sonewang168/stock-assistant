@@ -1,103 +1,142 @@
 /**
  * 📊 籌碼分析服務
- * 三大法人買賣超 - 從 TWSE 抓取真實數據
+ * 三大法人買賣超 - 從 TWSE/TPEx 抓取真實數據
+ * 
+ * 修正：
+ * - TPEx Cloudflare 520 問題：完整瀏覽器 headers + 重試機制
+ * - TWSE 19/22 欄新格式相容
+ * - 時區修正（Railway 在 UTC，需正確轉台灣時間）
+ * - TWSE/TPEx stock code .trim() 比對
+ * - parseNum 處理全形減號 −
  */
 
 const axios = require('axios');
 const { pool } = require('../db');
 
+// ★ 完整瀏覽器 headers（繞過 Cloudflare 基本防護）
+const BROWSER_HEADERS_TWSE = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'application/json, text/javascript, */*; q=0.01',
+  'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Connection': 'keep-alive',
+  'Referer': 'https://www.twse.com.tw/zh/trading/fund/T86.html'
+};
+
+const BROWSER_HEADERS_TPEX = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'application/json, text/javascript, */*; q=0.01',
+  'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Connection': 'keep-alive',
+  'Referer': 'https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge.php?l=zh-tw',
+  'Origin': 'https://www.tpex.org.tw',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'same-origin',
+  'X-Requested-With': 'XMLHttpRequest'
+};
+
+/**
+ * ★ 取得台灣時間的 Date 物件（不依賴 setHours hack）
+ */
+function getTaiwanNow() {
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  return new Date(utc + 8 * 3600000);
+}
+
+/**
+ * 通用數值解析（處理逗號、全形減號 −、空值）
+ */
+function parseNum(val) {
+  if (val === null || val === undefined) return 0;
+  return parseInt(String(val).replace(/,/g, '').replace(/−/g, '-')) || 0;
+}
+
 class ChipService {
 
   /**
    * 從 TWSE 抓取個股三大法人買賣超
-   * @param {string} stockId - 股票代碼
-   * @param {string} date - 日期 YYYYMMDD（可選，預設最近交易日）
+   * ★ 支援 18/19/22 欄自動偵測
    */
   async fetchInstitutionalFromTWSE(stockId, date = null) {
     try {
-      // 計算查詢日期（如果是週末，回推到週五）
       if (!date) {
-        const today = new Date();
-        today.setHours(today.getHours() + 8); // 台灣時區
-        
+        const today = getTaiwanNow();
         const dayOfWeek = today.getDay();
-        // 週日回推 2 天到週五
-        if (dayOfWeek === 0) {
-          today.setDate(today.getDate() - 2);
-        }
-        // 週六回推 1 天到週五
-        else if (dayOfWeek === 6) {
-          today.setDate(today.getDate() - 1);
-        }
-        
+        if (dayOfWeek === 0) today.setDate(today.getDate() - 2);
+        else if (dayOfWeek === 6) today.setDate(today.getDate() - 1);
         date = today.toISOString().slice(0, 10).replace(/-/g, '');
       }
 
       console.log(`📡 查詢 TWSE 三大法人: ${stockId}, 日期: ${date}`);
 
-      // TWSE 三大法人買賣超 API
       const url = `https://www.twse.com.tw/rwd/zh/fund/T86?date=${date}&selectType=ALLBUT0999&response=json`;
       
       const response = await axios.get(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'application/json'
-        },
+        headers: BROWSER_HEADERS_TWSE,
         timeout: 15000
       });
 
       if (response.data && response.data.data) {
-        const stockData = response.data.data.find(row => row[0] === stockId);
+        // ★ 加 .trim() 比對，TWSE 有時回傳帶空格的代號
+        const stockData = response.data.data.find(row => 
+          String(row[0]).trim() === stockId
+        );
         
         if (stockData) {
-          const parseNum = (str) => parseInt(String(str).replace(/,/g, '')) || 0;
+          const colCount = stockData.length;
+          let foreignBuy, foreignSell, foreignNet;
+          let trustBuy, trustSell, trustNet;
+          let dealerBuy, dealerSell, dealerNet;
           
-          // TWSE T86 API 欄位 (18欄):
-          // [0]代號 [1]名稱
-          // [2]外陸資買 [3]外陸資賣 [4]外陸資超
-          // [5]外資自營買 [6]外資自營賣 [7]外資自營超
-          // [8]投信買 [9]投信賣 [10]投信超
-          // [11]自營(自行)買 [12]自營(自行)賣 [13]自營(自行)超
-          // [14]自營(避險)買 [15]自營(避險)賣 [16]自營(避險)超
-          // [17]三大法人合計超
+          // 外資永遠在 [2~7]（所有格式一致）
+          foreignBuy = parseNum(stockData[2]) + parseNum(stockData[5]);
+          foreignSell = parseNum(stockData[3]) + parseNum(stockData[6]);
+          foreignNet = parseNum(stockData[4]) + parseNum(stockData[7]);
+
+          if (colCount >= 22) {
+            // ★ 新版 22 欄：[8~10] 為外資合計（新增），投信從 [11] 開始
+            console.log(`  TWSE ${stockId}: 新格式(${colCount}欄)`);
+            trustBuy = parseNum(stockData[11]); trustSell = parseNum(stockData[12]); trustNet = parseNum(stockData[13]);
+            dealerBuy = parseNum(stockData[14]) + parseNum(stockData[17]);
+            dealerSell = parseNum(stockData[15]) + parseNum(stockData[18]);
+            dealerNet = parseNum(stockData[16]) + parseNum(stockData[19]);
+          } else {
+            // 18~19 欄：投信從 [8] 開始（19 欄只是多了自營合計和三大法人合計欄位）
+            console.log(`  TWSE ${stockId}: ${colCount}欄格式`);
+            trustBuy = parseNum(stockData[8]); trustSell = parseNum(stockData[9]); trustNet = parseNum(stockData[10]);
+            dealerBuy = parseNum(stockData[11]) + parseNum(stockData[14]);
+            dealerSell = parseNum(stockData[12]) + parseNum(stockData[15]);
+            dealerNet = parseNum(stockData[13]) + parseNum(stockData[16]);
+          }
+          
           return {
-            stockId: stockData[0],
-            stockName: stockData[1],
+            stockId: String(stockData[0]).trim(),
+            stockName: String(stockData[1]).trim(),
             date: `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`,
-            foreign: {
-              buy: parseNum(stockData[2]) + parseNum(stockData[5]),
-              sell: parseNum(stockData[3]) + parseNum(stockData[6]),
-              net: parseNum(stockData[4]) + parseNum(stockData[7])
-            },
-            trust: {
-              buy: parseNum(stockData[8]),
-              sell: parseNum(stockData[9]),
-              net: parseNum(stockData[10])
-            },
-            dealer: {
-              buy: parseNum(stockData[11]) + parseNum(stockData[14]),
-              sell: parseNum(stockData[12]) + parseNum(stockData[15]),
-              net: parseNum(stockData[13]) + parseNum(stockData[16])
-            },
-            totalNet: parseNum(stockData[4]) + parseNum(stockData[7]) + parseNum(stockData[10]) + parseNum(stockData[13]) + parseNum(stockData[16])
+            foreign: { buy: foreignBuy, sell: foreignSell, net: foreignNet },
+            trust: { buy: trustBuy, sell: trustSell, net: trustNet },
+            dealer: { buy: dealerBuy, sell: dealerSell, net: dealerNet },
+            totalNet: foreignNet + trustNet + dealerNet
           };
         } else {
-          console.log(`⚠️ TWSE 資料中找不到 ${stockId}`);
+          console.log(`⚠️ TWSE 資料中找不到 ${stockId} (共 ${response.data.data.length} 筆)`);
         }
       } else {
-        console.log(`⚠️ TWSE 回傳無資料，可能是假日或尚未更新`);
+        console.log(`⚠️ TWSE 回傳無資料 (stat=${response.data?.stat})，可能是假日或尚未更新`);
         
-        // 如果當日無資料，嘗試往前一天查詢（最多嘗試 5 天）
+        // 如果當日無資料，嘗試往前查詢（最多嘗試 5 天）
         const dateObj = new Date(`${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`);
         for (let i = 0; i < 5; i++) {
           dateObj.setDate(dateObj.getDate() - 1);
+          if (dateObj.getDay() === 0 || dateObj.getDay() === 6) continue;
           const prevDate = dateObj.toISOString().slice(0, 10).replace(/-/g, '');
           console.log(`   嘗試查詢 ${prevDate}...`);
           
           const prevResult = await this.fetchInstitutionalFromTWSE(stockId, prevDate);
-          if (prevResult) {
-            return prevResult;
-          }
+          if (prevResult) return prevResult;
           
           await new Promise(r => setTimeout(r, 500));
         }
@@ -112,12 +151,12 @@ class ChipService {
 
   /**
    * 從 TPEx 抓取上櫃個股三大法人買賣超
+   * ★ 完整 headers + 重試機制（繞過 Cloudflare 520）
    */
   async fetchInstitutionalFromTPEx(stockId, date = null) {
     try {
       if (!date) {
-        const today = new Date();
-        today.setHours(today.getHours() + 8);
+        const today = getTaiwanNow();
         const dayOfWeek = today.getDay();
         if (dayOfWeek === 0) today.setDate(today.getDate() - 2);
         else if (dayOfWeek === 6) today.setDate(today.getDate() - 1);
@@ -129,76 +168,87 @@ class ChipService {
       const d = date.slice(6, 8);
       const rocDate = `${y}/${m}/${d}`;
 
-      console.log(`📡 查詢 TPEx 三大法人: ${stockId}, 日期: ${rocDate}`);
+      console.log(`📡 查詢 TPEx 三大法人: ${stockId}, 日期: ${rocDate} (西元:${date})`);
 
       const url = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${rocDate}&s=0,asc`;
 
-      const response = await axios.get(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'application/json',
-          'Referer': 'https://www.tpex.org.tw/'
-        },
-        timeout: 15000
-      });
-
-      if (response.data && response.data.aaData && response.data.aaData.length > 0) {
-        const stockData = response.data.aaData.find(row => String(row[0]).trim() === stockId);
-
-        if (stockData) {
-          const parseNum = (val) => {
-            if (val === null || val === undefined) return 0;
-            return parseInt(String(val).replace(/,/g, '').replace(/−/g, '-')) || 0;
-          };
-
-          // 偵測格式：新格式 21+ 欄（含外資合計3欄），舊格式 17 欄
-          const isNewFormat = stockData.length >= 21;
-          
-          let foreign, trust, dealer, totalNet;
-          if (isNewFormat) {
-            // 新格式: [8~10]=外資合計, [11~13]=投信, [14~16]=自營自行, [17~19]=自營避險, [20]=三大法人合計
-            const foreignNet = parseNum(stockData[4]) + parseNum(stockData[7]);
-            const trustNet = parseNum(stockData[13]);
-            const dealerNet = parseNum(stockData[16]) + parseNum(stockData[19]);
-            foreign = { buy: parseNum(stockData[2]) + parseNum(stockData[5]), sell: parseNum(stockData[3]) + parseNum(stockData[6]), net: foreignNet };
-            trust = { buy: parseNum(stockData[11]), sell: parseNum(stockData[12]), net: trustNet };
-            dealer = { buy: parseNum(stockData[14]) + parseNum(stockData[17]), sell: parseNum(stockData[15]) + parseNum(stockData[18]), net: dealerNet };
-            totalNet = foreignNet + trustNet + dealerNet;
-          } else {
-            // 舊格式: [0]代號 [1~3]外陸資 [4~6]外資自營 [7~9]投信 [10~12]自營自行 [13~15]自營避險 [16]三大法人
-            const foreignNet = parseNum(stockData[3]) + parseNum(stockData[6]);
-            const trustNet = parseNum(stockData[9]);
-            const dealerNet = parseNum(stockData[12]) + parseNum(stockData[15]);
-            foreign = { buy: parseNum(stockData[1]) + parseNum(stockData[4]), sell: parseNum(stockData[2]) + parseNum(stockData[5]), net: foreignNet };
-            trust = { buy: parseNum(stockData[7]), sell: parseNum(stockData[8]), net: trustNet };
-            dealer = { buy: parseNum(stockData[10]) + parseNum(stockData[13]), sell: parseNum(stockData[11]) + parseNum(stockData[14]), net: dealerNet };
-            totalNet = foreignNet + trustNet + dealerNet;
+      // ★ 重試機制：最多嘗試 3 次（Cloudflare 偶爾第一次擋但重試能過）
+      let lastError = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) {
+            console.log(`   TPEx ${stockId} 第 ${attempt + 1} 次重試...`);
+            await new Promise(r => setTimeout(r, 1000 + attempt * 500));
           }
 
-          return {
-            stockId: String(stockData[0]).trim(),
-            stockName: String(stockData[1]).trim(),
-            date: `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`,
-            foreign,
-            trust,
-            dealer,
-            totalNet,
-            market: 'tpex'
-          };
-        } else {
-          console.log(`⚠️ TPEx 資料中找不到 ${stockId}`);
+          const response = await axios.get(url, {
+            headers: BROWSER_HEADERS_TPEX,
+            timeout: 20000,
+            decompress: true
+          });
+
+          if (response.data && response.data.aaData && response.data.aaData.length > 0) {
+            const stockData = response.data.aaData.find(row => String(row[0]).trim() === stockId);
+
+            if (stockData) {
+              const isNewFormat = stockData.length >= 21;
+              console.log(`  TPEx ${stockId}: ${isNewFormat ? '新' : '舊'}格式(${stockData.length}欄) ✅`);
+
+              let foreign, trust, dealer, totalNet;
+              if (isNewFormat) {
+                const foreignNet = parseNum(stockData[4]) + parseNum(stockData[7]);
+                const trustNet = parseNum(stockData[13]);
+                const dealerNet = parseNum(stockData[16]) + parseNum(stockData[19]);
+                foreign = { buy: parseNum(stockData[2]) + parseNum(stockData[5]), sell: parseNum(stockData[3]) + parseNum(stockData[6]), net: foreignNet };
+                trust = { buy: parseNum(stockData[11]), sell: parseNum(stockData[12]), net: trustNet };
+                dealer = { buy: parseNum(stockData[14]) + parseNum(stockData[17]), sell: parseNum(stockData[15]) + parseNum(stockData[18]), net: dealerNet };
+                totalNet = foreignNet + trustNet + dealerNet;
+              } else {
+                const foreignNet = parseNum(stockData[3]) + parseNum(stockData[6]);
+                const trustNet = parseNum(stockData[9]);
+                const dealerNet = parseNum(stockData[12]) + parseNum(stockData[15]);
+                foreign = { buy: parseNum(stockData[1]) + parseNum(stockData[4]), sell: parseNum(stockData[2]) + parseNum(stockData[5]), net: foreignNet };
+                trust = { buy: parseNum(stockData[7]), sell: parseNum(stockData[8]), net: trustNet };
+                dealer = { buy: parseNum(stockData[10]) + parseNum(stockData[13]), sell: parseNum(stockData[11]) + parseNum(stockData[14]), net: dealerNet };
+                totalNet = foreignNet + trustNet + dealerNet;
+              }
+
+              return {
+                stockId: String(stockData[0]).trim(),
+                stockName: isNewFormat ? String(stockData[1]).trim() : stockId,
+                date: `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`,
+                foreign, trust, dealer, totalNet,
+                market: 'tpex'
+              };
+            } else {
+              console.log(`⚠️ TPEx 資料中找不到 ${stockId} (共 ${response.data.aaData.length} 筆)`);
+              break; // 有 aaData 但沒有此股票 → 不需重試
+            }
+          } else if (response.data && response.data.iTotalRecords === 0) {
+            console.log(`⚠️ TPEx ${rocDate} 無資料 (iTotalRecords=0)`);
+            break; // 該日無資料（假日），不需重試
+          } else {
+            console.log(`⚠️ TPEx 回傳格式異常: ${JSON.stringify(response.data).slice(0, 100)}`);
+          }
+        } catch (e) {
+          lastError = e;
+          console.log(`❌ TPEx attempt ${attempt + 1} 失敗: ${e.message} (HTTP ${e.response?.status || 'N/A'})`);
         }
-      } else {
-        console.log(`⚠️ TPEx 回傳無資料，嘗試往前查詢...`);
-        const dateObj = new Date(`${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`);
-        for (let i = 0; i < 5; i++) {
-          dateObj.setDate(dateObj.getDate() - 1);
-          if (dateObj.getDay() === 0 || dateObj.getDay() === 6) continue;
-          const prevDate = dateObj.toISOString().slice(0, 10).replace(/-/g, '');
-          const prevResult = await this.fetchInstitutionalFromTPEx(stockId, prevDate);
-          if (prevResult) return prevResult;
-          await new Promise(r => setTimeout(r, 500));
-        }
+      }
+
+      // 所有重試都失敗，嘗試往前查詢
+      if (lastError) {
+        console.log(`⚠️ TPEx ${stockId} ${rocDate} 全部重試失敗，嘗試往前查詢...`);
+      }
+      const dateObj = new Date(`${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`);
+      for (let i = 0; i < 5; i++) {
+        dateObj.setDate(dateObj.getDate() - 1);
+        if (dateObj.getDay() === 0 || dateObj.getDay() === 6) continue;
+        const prevDate = dateObj.toISOString().slice(0, 10).replace(/-/g, '');
+        console.log(`   嘗試查詢 ${prevDate}...`);
+        const prevResult = await this.fetchInstitutionalFromTPEx(stockId, prevDate);
+        if (prevResult) return prevResult;
+        await new Promise(r => setTimeout(r, 800));
       }
 
       return null;
@@ -228,13 +278,13 @@ class ChipService {
         LIMIT $2
       `, [stockId, days]);
 
-      // 2. 檢查是否需要抓取新資料
-      const now = new Date();
-      const hour = now.getHours();
-      const dayOfWeek = now.getDay();
-      const today = now.toISOString().slice(0, 10);
+      // 2. 檢查是否需要抓取新資料（★ 使用台灣時間）
+      const twNow = getTaiwanNow();
+      const hour = twNow.getHours();
+      const dayOfWeek = twNow.getDay();
+      const today = twNow.toISOString().slice(0, 10);
       
-      const isAfterUpdate = hour >= 15;
+      const isAfterUpdate = hour >= 15; // 收盤後 15:00 三大法人資料才更新
       const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
       
       const hasToday = dbResult.rows.some(row => 
@@ -242,13 +292,17 @@ class ChipService {
       );
 
       // 3. 如果是交易日且已過更新時間，但沒有今天的資料，嘗試抓取
-      if (isWeekday && isAfterUpdate && !hasToday) {
+      if ((isWeekday && isAfterUpdate && !hasToday) || force) {
         console.log(`📡 嘗試抓取 ${stockId} (market=${market}) 的三大法人資料...`);
         let freshData = null;
         if (market === 'tpex') {
           freshData = await this.fetchInstitutionalFromTPEx(stockId);
           if (!freshData) freshData = await this.fetchInstitutionalFromTWSE(stockId);
+        } else if (market === 'twse') {
+          freshData = await this.fetchInstitutionalFromTWSE(stockId);
+          if (!freshData) freshData = await this.fetchInstitutionalFromTPEx(stockId);
         } else {
+          // market 未指定，兩邊都試
           freshData = await this.fetchInstitutionalFromTWSE(stockId);
           if (!freshData) freshData = await this.fetchInstitutionalFromTPEx(stockId);
         }
@@ -274,6 +328,9 @@ class ChipService {
       if (market === 'tpex') {
         freshData = await this.fetchInstitutionalFromTPEx(stockId);
         if (!freshData) freshData = await this.fetchInstitutionalFromTWSE(stockId);
+      } else if (market === 'twse') {
+        freshData = await this.fetchInstitutionalFromTWSE(stockId);
+        if (!freshData) freshData = await this.fetchInstitutionalFromTPEx(stockId);
       } else {
         freshData = await this.fetchInstitutionalFromTWSE(stockId);
         if (!freshData) freshData = await this.fetchInstitutionalFromTPEx(stockId);
@@ -453,21 +510,15 @@ class ChipService {
    */
   async getTopInstitutionalRanking(type = 'foreign', direction = 'buy', limit = 10) {
     try {
-      // 計算查詢日期（如果是週末，回推到週五）
-      const today = new Date();
-      today.setHours(today.getHours() + 8);
-      
+      const today = getTaiwanNow();
       const dayOfWeek = today.getDay();
-      if (dayOfWeek === 0) {
-        today.setDate(today.getDate() - 2); // 週日 → 週五
-      } else if (dayOfWeek === 6) {
-        today.setDate(today.getDate() - 1); // 週六 → 週五
-      }
+      if (dayOfWeek === 0) today.setDate(today.getDate() - 2);
+      else if (dayOfWeek === 6) today.setDate(today.getDate() - 1);
       
-      // 嘗試最近 5 個交易日
       for (let i = 0; i < 5; i++) {
         const queryDate = new Date(today);
         queryDate.setDate(queryDate.getDate() - i);
+        if (queryDate.getDay() === 0 || queryDate.getDay() === 6) continue;
         const date = queryDate.toISOString().slice(0, 10).replace(/-/g, '');
         
         console.log(`📡 查詢三大法人排行: ${date}`);
@@ -475,19 +526,18 @@ class ChipService {
         const url = `https://www.twse.com.tw/rwd/zh/fund/T86?date=${date}&selectType=ALLBUT0999&response=json`;
         
         const response = await axios.get(url, {
-          headers: { 'User-Agent': 'Mozilla/5.0' },
+          headers: BROWSER_HEADERS_TWSE,
           timeout: 15000
         });
 
         if (response.data && response.data.data && response.data.data.length > 0) {
-          const parseNum = (str) => parseInt(String(str).replace(/,/g, '')) || 0;
           const columnMap = { foreign: 4, trust: 7, dealer: 10 };
           const col = columnMap[type] || 4;
           
           let sorted = response.data.data
             .map(row => ({
-              stockId: row[0],
-              stockName: row[1],
+              stockId: String(row[0]).trim(),
+              stockName: String(row[1]).trim(),
               net: parseNum(row[col])
             }))
             .filter(item => item.stockId && /^\d{4}$/.test(item.stockId));
@@ -506,7 +556,6 @@ class ChipService {
           };
         }
         
-        // 等待後再試下一天
         await new Promise(r => setTimeout(r, 500));
       }
       
