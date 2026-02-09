@@ -80,6 +80,41 @@ app.use('/api/smart-alerts', smartAlertsRoutes);
 // LINE Webhook（需要原始 body）
 app.use('/webhook', express.raw({ type: 'application/json' }), lineRoutes);
 
+// ==================== TPEx Proxy (繞過 CORS) ====================
+const axios = require('axios');
+app.get('/api/tpex-proxy', async (req, res) => {
+  try {
+    const { d, stockId } = req.query;
+    if (!d || !stockId) return res.status(400).json({ error: '需要 d (民國日期) 和 stockId' });
+    
+    const url = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${d}&s=0,asc`;
+    console.log(`🔄 TPEx Proxy: ${stockId}, date=${d}`);
+    
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://www.tpex.org.tw/'
+      },
+      timeout: 15000
+    });
+    
+    if (response.data && response.data.aaData) {
+      const stockRow = response.data.aaData.find(row => String(row[0]).trim() === stockId);
+      if (stockRow) {
+        res.json({ success: true, data: stockRow, columns: stockRow.length, totalRows: response.data.aaData.length });
+      } else {
+        res.json({ success: false, error: `在 ${response.data.aaData.length} 筆中找不到 ${stockId}`, totalRows: response.data.aaData.length });
+      }
+    } else {
+      res.json({ success: false, error: 'TPEx API 無資料' });
+    }
+  } catch (error) {
+    console.error('TPEx Proxy 錯誤:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== 健康檢查 ====================
 
 app.get('/api/health', async (req, res) => {

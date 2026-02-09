@@ -7905,70 +7905,78 @@
         // [20]三大法人合計超
         async function fetchTPExInstitutional(stockCode, date) {
             try {
-                // 轉換為民國年格式
+                const parseNum = (val) => {
+                    if (val === null || val === undefined) return 0;
+                    let cleaned = String(val).replace(/,/g, '').replace(/−/g, '-');
+                    return parseInt(cleaned) || 0;
+                };
+
+                function parseTPExRow(stockRow) {
+                    console.log(`📊 TPEx ${stockCode}: ${stockRow.length} columns`);
+                    const isNewFormat = stockRow.length >= 21;
+                    let foreignNet, trustNet, dealerNet;
+                    if (isNewFormat) {
+                        foreignNet = parseNum(stockRow[4]) + parseNum(stockRow[7]);
+                        trustNet = parseNum(stockRow[13]);
+                        dealerNet = parseNum(stockRow[16]) + parseNum(stockRow[19]);
+                    } else {
+                        foreignNet = parseNum(stockRow[3]) + parseNum(stockRow[6]);
+                        trustNet = parseNum(stockRow[9]);
+                        dealerNet = parseNum(stockRow[12]) + parseNum(stockRow[15]);
+                    }
+                    return {
+                        date: date,
+                        foreignNet: Math.round(foreignNet / 1000),
+                        trustNet: Math.round(trustNet / 1000),
+                        dealerNet: Math.round(dealerNet / 1000)
+                    };
+                }
+
+                // 轉換日期為民國年
                 const dateParts = date.split(/[\/\-]/);
                 let year, month, day;
-                
                 if (dateParts[0].length === 4) {
-                    // 西元年格式 2024/01/23 或 2024-01-23
                     year = parseInt(dateParts[0]) - 1911;
                     month = dateParts[1];
                     day = dateParts[2];
                 } else {
-                    // 可能已經是民國年
                     year = parseInt(dateParts[0]);
                     month = dateParts[1];
                     day = dateParts[2];
                 }
-                
                 const dateStr = `${year}/${month.padStart(2, '0')}/${day.padStart(2, '0')}`;
-                const url = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${dateStr}&s=0,asc`;
-                const data = await fetchWithProxy(url);
-                
-                if (data && data.aaData) {
-                    const stockRow = data.aaData.find(row => row[0].trim() === stockCode);
-                    if (stockRow) {
-                        console.log(`📊 TPEx ${stockCode}: ${stockRow.length} columns, format=${stockRow.length >= 21 ? 'new' : 'old'}`);
-                        const parseNum = (val) => {
-                            if (val === null || val === undefined) return 0;
-                            let cleaned = String(val).replace(/,/g, '').replace(/−/g, '-');
-                            return parseInt(cleaned) || 0;
-                        };
-                        
-                        // TPEx API 欄位（含「外資及陸資合計」3欄）：
-                        // [0]代號 [1]名稱
-                        // [2]外陸資買 [3]外陸資賣 [4]外陸資超
-                        // [5]外資自營買 [6]外資自營賣 [7]外資自營超
-                        // [8]外資合計買 [9]外資合計賣 [10]外資合計超
-                        // [11]投信買 [12]投信賣 [13]投信超
-                        // [14]自營(自行)買 [15]自營(自行)賣 [16]自營(自行)超
-                        // [17]自營(避險)買 [18]自營(避險)賣 [19]自營(避險)超
-                        // [20]三大法人合計超
-                        
-                        // 偵測格式：新格式有21+欄（含合計欄），舊格式約17欄
-                        const isNewFormat = stockRow.length >= 21;
-                        
-                        let foreignNet, trustNet, dealerNet;
-                        if (isNewFormat) {
-                            foreignNet = parseNum(stockRow[4]) + parseNum(stockRow[7]);
-                            trustNet = parseNum(stockRow[13]);
-                            dealerNet = parseNum(stockRow[16]) + parseNum(stockRow[19]);
+
+                // ★ 方法A：透過自己的後端 proxy（最可靠，不受 CORS 限制）
+                try {
+                    const proxyRes = await fetch(`/api/tpex-proxy?d=${encodeURIComponent(dateStr)}&stockId=${stockCode}`);
+                    if (proxyRes.ok) {
+                        const json = await proxyRes.json();
+                        if (json.success && json.data) {
+                            console.log(`✅ TPEx ${stockCode} via backend proxy (${json.columns} cols)`);
+                            return parseTPExRow(json.data);
                         } else {
-                            // 舊格式 (17欄)
-                            foreignNet = parseNum(stockRow[3]) + parseNum(stockRow[6]);
-                            trustNet = parseNum(stockRow[9]);
-                            dealerNet = parseNum(stockRow[12]) + parseNum(stockRow[15]);
+                            console.log(`⚠️ TPEx proxy: ${json.error || 'no data'}`);
                         }
-                        
-                        // 轉換為張數（股數 / 1000）
-                        return {
-                            date: date,
-                            foreignNet: Math.round(foreignNet / 1000),
-                            trustNet: Math.round(trustNet / 1000),
-                            dealerNet: Math.round(dealerNet / 1000)
-                        };
                     }
+                } catch(e) {
+                    console.log(`⚠️ TPEx proxy failed: ${e.message}`);
                 }
+
+                // ★ 方法B：前端直連 + CORS proxy (fallback)
+                try {
+                    const url = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${dateStr}&s=0,asc`;
+                    const data = await fetchWithProxy(url);
+                    if (data && data.aaData) {
+                        const stockRow = data.aaData.find(row => row[0].trim() === stockCode);
+                        if (stockRow) {
+                            console.log(`✅ TPEx ${stockCode} via CORS proxy`);
+                            return parseTPExRow(stockRow);
+                        }
+                    }
+                } catch(e) {
+                    console.log(`⚠️ TPEx CORS proxy failed: ${e.message}`);
+                }
+
                 return null;
             } catch (e) {
                 console.log('TPEx institutional fetch error:', e);
@@ -20192,21 +20200,20 @@ ${analysisContext}
                     if (result) {
                         report += `外=${result.foreignNet} 投=${result.trustNet} 自=${result.dealerNet}\n`;
                     } else {
-                        report += `null (CORS被擋?)\n`;
+                        report += `null\n`;
                     }
                 } catch(e) { report += `錯誤:${e.message}\n`; }
 
-                // 前端直連 TPEx - 用前一天
-                const dt2 = new Date(dt); dt2.setDate(dt2.getDate()-1);
-                while (dt2.getDay()===0||dt2.getDay()===6) dt2.setDate(dt2.getDate()-1);
-                const dateSlash2 = `${dt2.getFullYear()}/${String(dt2.getMonth()+1).padStart(2,'0')}/${String(dt2.getDate()).padStart(2,'0')}`;
-                report += `前端(${dateSlash2}): `;
+                // 直接測 proxy endpoint
+                const rocDate = `${dt.getFullYear()-1911}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
+                report += `Proxy API: `;
                 try {
-                    const result2 = await fetchTPExInstitutional(tpexStock.code, dateSlash2);
-                    if (result2) {
-                        report += `外=${result2.foreignNet} 投=${result2.trustNet} 自=${result2.dealerNet}\n`;
+                    const pRes = await fetch(`/api/tpex-proxy?d=${encodeURIComponent(rocDate)}&stockId=${tpexStock.code}`);
+                    const pJson = await pRes.json();
+                    if (pJson.success) {
+                        report += `✅ ${pJson.columns}欄 data=[${pJson.data.slice(0,4).join(',')}...]\n`;
                     } else {
-                        report += `null\n`;
+                        report += `${pJson.error}\n`;
                     }
                 } catch(e) { report += `錯誤:${e.message}\n`; }
 
