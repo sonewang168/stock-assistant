@@ -184,7 +184,7 @@ class ChipService {
    * 取得三大法人買賣超（優先從資料庫，沒有則抓取）
    * 自動嘗試 TWSE + TPEx
    */
-  async getInstitutionalTrading(stockId, days = 5) {
+  async getInstitutionalTrading(stockId, days = 5, market = null) {
     try {
       // 1. 先查詢資料庫
       let dbResult = await pool.query(`
@@ -200,9 +200,7 @@ class ChipService {
       const dayOfWeek = now.getDay();
       const today = now.toISOString().slice(0, 10);
       
-      // 判斷是否為交易時間後（15:00 後資料才會更新）
       const isAfterUpdate = hour >= 15;
-      // 判斷是否為交易日（週一到週五）
       const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
       
       const hasToday = dbResult.rows.some(row => 
@@ -211,12 +209,17 @@ class ChipService {
 
       // 3. 如果是交易日且已過更新時間，但沒有今天的資料，嘗試抓取
       if (isWeekday && isAfterUpdate && !hasToday) {
-        console.log(`📡 嘗試從 TWSE/TPEx 抓取 ${stockId} 的三大法人資料...`);
-        let freshData = await this.fetchInstitutionalFromTWSE(stockId);
-        if (!freshData) freshData = await this.fetchInstitutionalFromTPEx(stockId);
+        console.log(`📡 嘗試抓取 ${stockId} (market=${market}) 的三大法人資料...`);
+        let freshData = null;
+        if (market === 'tpex') {
+          freshData = await this.fetchInstitutionalFromTPEx(stockId);
+          if (!freshData) freshData = await this.fetchInstitutionalFromTWSE(stockId);
+        } else {
+          freshData = await this.fetchInstitutionalFromTWSE(stockId);
+          if (!freshData) freshData = await this.fetchInstitutionalFromTPEx(stockId);
+        }
         if (freshData) {
           await this.saveInstitutionalData(freshData);
-          // 重新查詢
           dbResult = await pool.query(`
             SELECT * FROM institutional_trading 
             WHERE stock_id = $1 
@@ -226,17 +229,20 @@ class ChipService {
         }
       }
 
-      // 4. 如果資料庫有資料，返回（即使是舊資料）
+      // 4. 如果資料庫有資料，返回
       if (dbResult.rows.length > 0) {
         return this.formatInstitutionalData(dbResult.rows);
       }
 
-      // 5. 資料庫沒資料，嘗試抓取（任何時間）─ 先試 TWSE 再試 TPEx
-      console.log(`📡 資料庫無資料，嘗試從 TWSE 抓取 ${stockId}...`);
-      let freshData = await this.fetchInstitutionalFromTWSE(stockId);
-      if (!freshData) {
-        console.log(`📡 TWSE 找不到，嘗試 TPEx 抓取 ${stockId}...`);
+      // 5. 資料庫沒資料，嘗試抓取 ─ 根據 market 優先順序
+      console.log(`📡 資料庫無資料，抓取 ${stockId} (market=${market})...`);
+      let freshData = null;
+      if (market === 'tpex') {
         freshData = await this.fetchInstitutionalFromTPEx(stockId);
+        if (!freshData) freshData = await this.fetchInstitutionalFromTWSE(stockId);
+      } else {
+        freshData = await this.fetchInstitutionalFromTWSE(stockId);
+        if (!freshData) freshData = await this.fetchInstitutionalFromTPEx(stockId);
       }
       if (freshData) {
         await this.saveInstitutionalData(freshData);
