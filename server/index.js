@@ -80,42 +80,103 @@ app.use('/api/smart-alerts', smartAlertsRoutes);
 // LINE Webhook（需要原始 body）
 app.use('/webhook', express.raw({ type: 'application/json' }), lineRoutes);
 
-// ==================== TPEx Proxy (繞過 CORS) ====================
+
+// ==================== TPEx Proxy (繞過 CORS + Cloudflare) ====================
 const axios = require('axios');
+
+// TPEx 多域名 + OpenAPI 策略
+async function fetchTPExData(rocDate, stockId) {
+  const HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    'Accept': 'application/json, text/javascript, */*; q=0.01',
+    'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Connection': 'keep-alive'
+  };
+
+  // 策略1: 多域名嘗試 (海外域名通常沒 Cloudflare)
+  const webUrls = [
+    { name: 'TPEx-overseas', url: `https://wwwov.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${rocDate}&s=0,asc` },
+    { name: 'TPEx-main', url: `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${rocDate}&s=0,asc` },
+  ];
+
+  for (const { name, url } of webUrls) {
+    try {
+      console.log(`  🔄 嘗試 ${name}...`);
+      const response = await axios.get(url, { headers: HEADERS, timeout: 15000 });
+      if (response.data && response.data.aaData && response.data.aaData.length > 0) {
+        const row = response.data.aaData.find(r => String(r[0]).trim() === stockId);
+        if (row) {
+          console.log(`  ✅ ${name} 找到 ${stockId} (${row.length}欄)`);
+          return { success: true, data: row, columns: row.length, source: name, totalRows: response.data.aaData.length };
+        } else {
+          console.log(`  ⚠️ ${name}: ${response.data.aaData.length} 筆但無 ${stockId}`);
+        }
+      } else {
+        console.log(`  ⚠️ ${name}: 無 aaData`);
+      }
+    } catch(e) {
+      console.log(`  ❌ ${name}: ${e.response?.status || e.message}`);
+    }
+  }
+
+  // 策略2: OpenAPI (政府開放資料端點)
+  const openApiUrls = [
+    'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_3itrade_hedge',
+    'https://wwwov.tpex.org.tw/openapi/v1/tpex_mainboard_3itrade_hedge',
+  ];
+  
+  for (const apiUrl of openApiUrls) {
+    try {
+      const domain = apiUrl.includes('wwwov') ? 'overseas' : 'main';
+      console.log(`  🔄 嘗試 OpenAPI (${domain})...`);
+      const response = await axios.get(apiUrl, { headers: HEADERS, timeout: 15000 });
+      if (Array.isArray(response.data) && response.data.length > 0) {
+        // 找到正確的欄位名稱
+        const keys = Object.keys(response.data[0]);
+        console.log(`  📋 OpenAPI 欄位: ${keys.slice(0,6).join(', ')}...`);
+        const item = response.data.find(d => {
+          const vals = Object.values(d).map(v => String(v).trim());
+          return vals.includes(stockId);
+        });
+        if (item) {
+          console.log(`  ✅ OpenAPI 找到 ${stockId}`);
+          return { success: true, openApiData: item, source: `openapi-${domain}`, keys };
+        }
+      } else {
+        console.log(`  ⚠️ OpenAPI: 非陣列或空`);
+      }
+    } catch(e) {
+      console.log(`  ❌ OpenAPI: ${e.response?.status || e.message}`);
+    }
+  }
+
+  return { success: false, error: '所有 TPEx 端點皆失敗' };
+}
+
 app.get('/api/tpex-proxy', async (req, res) => {
   try {
     const { d, stockId } = req.query;
-    if (!d || !stockId) return res.status(400).json({ error: '需要 d (民國日期) 和 stockId' });
-    
-    const url = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${d}&s=0,asc`;
+    if (!d || !stockId) return res.status(400).json({ success: false, error: '需要 d 和 stockId' });
     console.log(`🔄 TPEx Proxy: ${stockId}, date=${d}`);
-    
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/javascript, */*; q=0.01',
-        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Referer': 'https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge.php?l=zh-tw',
-        'X-Requested-With': 'XMLHttpRequest',
-        'Connection': 'keep-alive'
-      },
-      timeout: 20000
-    });
-    
-    if (response.data && response.data.aaData) {
-      const stockRow = response.data.aaData.find(row => String(row[0]).trim() === stockId);
-      if (stockRow) {
-        res.json({ success: true, data: stockRow, columns: stockRow.length, totalRows: response.data.aaData.length });
-      } else {
-        res.json({ success: false, error: `在 ${response.data.aaData.length} 筆中找不到 ${stockId}`, totalRows: response.data.aaData.length });
-      }
-    } else {
-      res.json({ success: false, error: 'TPEx API 無資料', raw: String(response.data).slice(0, 200) });
-    }
+    const result = await fetchTPExData(d, stockId);
+    res.json(result);
   } catch (error) {
     console.error('TPEx Proxy 錯誤:', error.message);
-    res.status(500).json({ error: error.message, status: error.response?.status });
+    res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// 診斷端點
+app.get('/api/tpex-diag', async (req, res) => {
+  const stockId = req.query.stockId || '5347';
+  const now = new Date();
+  const twNow = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+  const dt = new Date(twNow);
+  while (dt.getDay() === 0 || dt.getDay() === 6) dt.setDate(dt.getDate() - 1);
+  const rocDate = `${dt.getFullYear()-1911}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
+  console.log(`🔍 TPEx 診斷: ${stockId}, ${rocDate}`);
+  const result = await fetchTPExData(rocDate, stockId);
+  res.json({ stockId, rocDate, serverTime: twNow.toISOString(), ...result });
 });
 
 // ==================== 健康檢查 ====================

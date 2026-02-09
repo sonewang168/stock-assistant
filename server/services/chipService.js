@@ -170,20 +170,20 @@ class ChipService {
 
       console.log(`📡 查詢 TPEx 三大法人: ${stockId}, 日期: ${rocDate} (西元:${date})`);
 
-      const url = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${rocDate}&s=0,asc`;
+      // ★ 嘗試多個域名：海外域名通常不受 Cloudflare 阻擋
+      const urls = [
+        { name: 'overseas', url: `https://wwwov.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${rocDate}&s=0,asc` },
+        { name: 'main', url: `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${rocDate}&s=0,asc` },
+      ];
 
-      // ★ 重試機制：最多嘗試 3 次（Cloudflare 偶爾第一次擋但重試能過）
+      // ★ 嘗試每個域名（海外域名優先，不重試同一個被擋的域名）
       let lastError = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
+      for (const { name, url } of urls) {
         try {
-          if (attempt > 0) {
-            console.log(`   TPEx ${stockId} 第 ${attempt + 1} 次重試...`);
-            await new Promise(r => setTimeout(r, 1000 + attempt * 500));
-          }
-
+          console.log(`   嘗試 ${name}...`);
           const response = await axios.get(url, {
             headers: BROWSER_HEADERS_TPEX,
-            timeout: 20000,
+            timeout: 15000,
             decompress: true
           });
 
@@ -232,7 +232,7 @@ class ChipService {
           }
         } catch (e) {
           lastError = e;
-          console.log(`❌ TPEx attempt ${attempt + 1} 失敗: ${e.message} (HTTP ${e.response?.status || 'N/A'})`);
+          console.log(`❌ TPEx ${name} 失敗: ${e.message} (HTTP ${e.response?.status || 'N/A'})`);
         }
       }
 

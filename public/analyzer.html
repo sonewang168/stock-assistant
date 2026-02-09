@@ -7940,60 +7940,76 @@
                 const dateParts = date.split(/[\/\-]/);
                 let year = dateParts[0].length === 4 ? parseInt(dateParts[0]) - 1911 : parseInt(dateParts[0]);
                 const dateStr = `${year}/${dateParts[1].padStart(2,'0')}/${dateParts[2].padStart(2,'0')}`;
-                const tpexUrl = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${dateStr}&s=0,asc`;
 
-                // === 方法1: allorigins /get 格式 (回傳 {contents: "..."}) ===
+                // ===== 方法1: 後端 proxy (嘗試海外域名+OpenAPI) =====
                 try {
-                    const res = await fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(tpexUrl)}`, 15000);
+                    const res = await fetchWithTimeout(`/api/tpex-proxy?d=${encodeURIComponent(dateStr)}&stockId=${stockCode}`, 20000);
+                    if (res.ok) {
+                        const json = await res.json();
+                        if (json.success && json.data) {
+                            console.log(`✅ TPEx ${stockCode} via backend proxy (${json.source})`);
+                            return parseTPExRow(json.data);
+                        }
+                        if (json.success && json.openApiData) {
+                            console.log(`✅ TPEx ${stockCode} via OpenAPI (${json.source})`);
+                            return parseOpenApiData(json.openApiData);
+                        }
+                        console.log(`⚠️ Backend proxy: ${json.error || 'no data'}`);
+                    }
+                } catch(e) { console.log(`❌ Backend proxy: ${e.message}`); }
+
+                // ===== 方法2: allorigins/get + 海外域名 =====
+                const overseasUrl = `https://wwwov.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${dateStr}&s=0,asc`;
+                try {
+                    const res = await fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(overseasUrl)}`, 15000);
                     if (res.ok) {
                         const wrapper = await res.json();
                         if (wrapper.contents) {
                             const data = JSON.parse(wrapper.contents);
                             const row = findStock(data.aaData);
-                            if (row) { console.log(`✅ TPEx ${stockCode} via allorigins/get`); return parseTPExRow(row); }
+                            if (row) { console.log(`✅ TPEx ${stockCode} via allorigins+overseas`); return parseTPExRow(row); }
+                            else { console.log(`⚠️ allorigins+overseas: ${data.aaData?.length || 0} rows, no ${stockCode}`); }
                         }
                     }
-                } catch(e) { console.log(`❌ TPEx allorigins/get: ${e.message}`); }
+                } catch(e) { console.log(`❌ allorigins+overseas: ${e.message}`); }
 
-                // === 方法2: corsproxy.io (加 headers) ===
-                try {
-                    const res = await fetchWithTimeout(`https://corsproxy.io/?url=${encodeURIComponent(tpexUrl)}`, 12000);
-                    if (res.ok) {
-                        const data = await res.json();
-                        const row = findStock(data.aaData);
-                        if (row) { console.log(`✅ TPEx ${stockCode} via corsproxy.io`); return parseTPExRow(row); }
-                    } else { console.log(`❌ TPEx corsproxy.io: HTTP ${res.status}`); }
-                } catch(e) { console.log(`❌ TPEx corsproxy.io: ${e.message}`); }
+                // ===== 方法3: 直接 fetch OpenAPI (可能支援 CORS) =====
+                const openApiUrls = [
+                    'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_3itrade_hedge',
+                    'https://wwwov.tpex.org.tw/openapi/v1/tpex_mainboard_3itrade_hedge',
+                ];
+                for (const apiUrl of openApiUrls) {
+                    try {
+                        const res = await fetchWithTimeout(apiUrl, 12000);
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (Array.isArray(data) && data.length > 0) {
+                                const item = data.find(d => {
+                                    const vals = Object.values(d).map(v => String(v).trim());
+                                    return vals.includes(stockCode);
+                                });
+                                if (item) {
+                                    console.log(`✅ TPEx ${stockCode} via OpenAPI direct`);
+                                    return parseOpenApiData(item);
+                                }
+                            }
+                        }
+                    } catch(e) { console.log(`❌ OpenAPI direct: ${e.message}`); }
+                }
 
-                // === 方法3: thingproxy ===
+                // ===== 方法4: allorigins/get + 原始域名 =====
+                const mainUrl = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${dateStr}&s=0,asc`;
                 try {
-                    const res = await fetchWithTimeout(`https://thingproxy.freeboard.io/fetch/${tpexUrl}`, 12000);
+                    const res = await fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(mainUrl)}`, 15000);
                     if (res.ok) {
-                        const data = await res.json();
-                        const row = findStock(data.aaData);
-                        if (row) { console.log(`✅ TPEx ${stockCode} via thingproxy`); return parseTPExRow(row); }
-                    } else { console.log(`❌ TPEx thingproxy: HTTP ${res.status}`); }
-                } catch(e) { console.log(`❌ TPEx thingproxy: ${e.message}`); }
-
-                // === 方法4: 後端 proxy ===
-                try {
-                    const res = await fetchWithTimeout(`/api/tpex-proxy?d=${encodeURIComponent(dateStr)}&stockId=${stockCode}`, 15000);
-                    if (res.ok) {
-                        const json = await res.json();
-                        if (json.success && json.data) { console.log(`✅ TPEx ${stockCode} via backend`); return parseTPExRow(json.data); }
-                        else { console.log(`❌ TPEx backend: ${json.error}`); }
-                    } else { console.log(`❌ TPEx backend: HTTP ${res.status}`); }
-                } catch(e) { console.log(`❌ TPEx backend: ${e.message}`); }
-
-                // === 方法5: codetabs ===
-                try {
-                    const res = await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(tpexUrl)}`, 12000);
-                    if (res.ok) {
-                        const data = await res.json();
-                        const row = findStock(data.aaData);
-                        if (row) { console.log(`✅ TPEx ${stockCode} via codetabs`); return parseTPExRow(row); }
-                    } else { console.log(`❌ TPEx codetabs: HTTP ${res.status}`); }
-                } catch(e) { console.log(`❌ TPEx codetabs: ${e.message}`); }
+                        const wrapper = await res.json();
+                        if (wrapper.contents) {
+                            const data = JSON.parse(wrapper.contents);
+                            const row = findStock(data.aaData);
+                            if (row) { console.log(`✅ TPEx ${stockCode} via allorigins+main`); return parseTPExRow(row); }
+                        }
+                    }
+                } catch(e) { console.log(`❌ allorigins+main: ${e.message}`); }
 
                 console.log(`❌ TPEx ${stockCode}: 全部方法失敗`);
                 return null;
@@ -8001,6 +8017,33 @@
                 console.log('TPEx institutional fetch error:', e);
                 return null;
             }
+        }
+
+        // 解析 OpenAPI 格式的法人數據
+        function parseOpenApiData(item) {
+            const pn = (val) => parseInt(String(val||0).replace(/,/g, '').replace(/−/g, '-')) || 0;
+            // OpenAPI 可能的欄位名稱（中文或英文）
+            const keys = Object.keys(item);
+            console.log('OpenAPI keys:', keys.join(', '));
+            
+            // 嘗試各種可能的欄位名稱
+            let foreignNet = 0, trustNet = 0, dealerNet = 0;
+            for (const [k, v] of Object.entries(item)) {
+                const kl = k.toLowerCase();
+                if (kl.includes('外資') && (kl.includes('淨') || kl.includes('超') || kl.includes('net'))) foreignNet = pn(v);
+                if (kl.includes('外陸資') && (kl.includes('淨') || kl.includes('超') || kl.includes('net'))) foreignNet = pn(v);
+                if (kl.includes('投信') && (kl.includes('淨') || kl.includes('超') || kl.includes('net'))) trustNet = pn(v);
+                if (kl.includes('自營') && (kl.includes('淨') || kl.includes('超') || kl.includes('net')) && !kl.includes('避險')) dealerNet = pn(v);
+                if (kl.includes('foreign') && kl.includes('net')) foreignNet = pn(v);
+                if (kl.includes('trust') && kl.includes('net')) trustNet = pn(v);
+                if (kl.includes('dealer') && kl.includes('net')) dealerNet = pn(v);
+            }
+            return {
+                date: new Date().toLocaleDateString('zh-TW'),
+                foreignNet: Math.round(foreignNet / 1000),
+                trustNet: Math.round(trustNet / 1000),
+                dealerNet: Math.round(dealerNet / 1000)
+            };
         }
 
         function calculateAllIndicators() {
@@ -20213,13 +20256,33 @@ ${analysisContext}
                 report += `\n【上櫃 ${tpexStock.code}】\n`;
                 
                 // 前端直連 TPEx
+                report += `\n【上櫃 ${tpexStock.code}】\n`;
+                const rocDate = `${dt.getFullYear()-1911}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
+                report += `民國年日期: ${rocDate}\n\n`;
+
+                // 測試後端診斷端點 (會嘗試海外域名+OpenAPI)
+                try {
+                    const diagRes = await fetch(`/api/tpex-diag?stockId=${tpexStock.code}`);
+                    const diagJson = await diagRes.json();
+                    report += `後端診斷結果:\n`;
+                    report += `  success: ${diagJson.success}\n`;
+                    report += `  source: ${diagJson.source || 'N/A'}\n`;
+                    if (diagJson.data) report += `  data欄位數: ${diagJson.columns}\n`;
+                    if (diagJson.openApiData) report += `  OpenAPI keys: ${diagJson.keys?.slice(0,5).join(',')}\n`;
+                    if (diagJson.error) report += `  error: ${diagJson.error}\n`;
+                    report += `  serverTime: ${diagJson.serverTime}\n`;
+                } catch(e) { report += `後端診斷失敗: ${e.message}\n`; }
+
+                report += `\n`;
+                
+                // 測試整合函式
                 report += `fetchTPExInstitutional: `;
                 try {
                     const result = await fetchTPExInstitutional(tpexStock.code, dateSlash);
                     if (result) {
                         report += `✅ 外=${result.foreignNet} 投=${result.trustNet} 自=${result.dealerNet}\n`;
                     } else {
-                        report += `❌ null (全部proxy失敗,看console)\n`;
+                        report += `❌ null (看console詳細)\n`;
                     }
                 } catch(e) { report += `錯誤:${e.message}\n`; }
 
