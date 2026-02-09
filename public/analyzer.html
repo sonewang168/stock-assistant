@@ -4895,7 +4895,7 @@
             </div>
 
             <div id="battlePlanBody">
-                <!-- 定存區 -->
+                <!-- 定存 + 5年作戰計畫 -->
                 <div style="margin-top: 14px;">
                     <h4 style="color: #ffd700; font-size: 0.95rem; margin-bottom: 10px;">🏦 定存部位</h4>
                     <div style="overflow-x: auto;">
@@ -4906,8 +4906,6 @@
                                     <th style="padding: 8px; text-align: center; color: #ffd700; font-size: 0.75rem;">金額</th>
                                     <th style="padding: 8px; text-align: center; color: #ffd700; font-size: 0.75rem;">利率</th>
                                     <th style="padding: 8px; text-align: center; color: #ffd700; font-size: 0.75rem;">年利息</th>
-                                    <th style="padding: 8px; text-align: center; color: #ffd700; font-size: 0.75rem;">5年複利</th>
-                                    <th style="padding: 8px; text-align: center; color: #ffd700; font-size: 0.75rem;">10年複利</th>
                                     <th style="padding: 8px; text-align: center; color: var(--text-muted); font-size: 0.75rem;">操作</th>
                                 </tr>
                             </thead>
@@ -4916,10 +4914,9 @@
                         </table>
                     </div>
                     <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center;">
-                        <input type="text" id="depName" placeholder="名稱" style="width: 90px; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem;">
+                        <input type="text" id="depName" placeholder="名稱(如:1年機動)" style="width: 110px; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem;">
                         <input type="number" id="depAmount" placeholder="金額" style="width: 100px; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem;">
                         <input type="number" id="depRate" placeholder="利率%" step="0.01" value="1.69" style="width: 75px; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem;">
-                        <input type="number" id="depYears" placeholder="年期" min="1" value="1" style="width: 55px; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem;">
                         <button class="quick-btn" onclick="addDeposit()">➕</button>
                     </div>
                 </div>
@@ -4955,23 +4952,17 @@
                     </div>
                 </div>
 
-                <!-- 作戰時間軸 -->
+                <!-- ⚔️ 5年作戰計畫 -->
                 <div style="margin-top: 16px;">
-                    <h4 style="color: #ff8c00; margin-bottom: 10px;">⚔️ 分階段作戰時間軸</h4>
-                    <div id="battleTimeline" style="position: relative; padding-left: 24px;">
-                        <div style="position: absolute; left: 10px; top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, #00d4ff, #a855f7, #00ff88, #ffd700);"></div>
-                    </div>
-                    <div style="margin-top: 10px;">
-                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                            <select id="bpPhase" style="padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.8rem;">
-                                <option value="Phase 0：2026 Q1">Phase 0：2026 Q1</option>
-                                <option value="Phase 1：2026 Q2~Q3">Phase 1：2026 Q2~Q3</option>
-                                <option value="Phase 2：2026 Q4~2027">Phase 2：2026 Q4~2027</option>
-                                <option value="Phase 3：2028~2029">Phase 3：2028~2029</option>
-                                <option value="Phase 4：2030~2036">Phase 4：2030~2036</option>
+                    <h4 style="color: #ff8c00; margin-bottom: 12px;">⚔️ 5年作戰計畫</h4>
+                    <div id="fiveYearPlan" style="display: grid; gap: 12px;"></div>
+                    <div style="margin-top: 10px; padding: 10px; background: rgba(255,140,0,.06); border: 1px dashed rgba(255,140,0,.3); border-radius: 10px;">
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                            <select id="bpYear" style="padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem; width: 85px;">
+                                <option value="1">第1年</option><option value="2">第2年</option><option value="3">第3年</option><option value="4">第4年</option><option value="5">第5年</option>
                             </select>
-                            <input type="text" id="bpAction" placeholder="行動計畫..." style="flex: 1; min-width: 150px; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem;">
-                            <button class="quick-btn" onclick="addBattlePlan()">➕</button>
+                            <input type="text" id="bpAction" placeholder="新增行動計畫..." style="flex: 1; min-width: 180px; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem;">
+                            <button class="quick-btn" style="background: linear-gradient(135deg, #ff8c00, #f59e0b);" onclick="addBattlePlan()">➕ 新增</button>
                         </div>
                     </div>
                 </div>
@@ -4981,7 +4972,7 @@
                     <h4 style="color: #00ff88; margin-bottom: 10px;">🧮 定期定額試算器</h4>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
                         <div><label style="font-size: 0.7rem; color: var(--text-muted); display: block;">每月投入</label><input type="number" id="dcaMonthly" value="5000" style="width: 80px; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;"></div>
-                        <div><label style="font-size: 0.7rem; color: var(--text-muted); display: block;">年數</label><input type="number" id="dcaYears" value="10" style="width: 55px; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;"></div>
+                        <div><label style="font-size: 0.7rem; color: var(--text-muted); display: block;">年數</label><input type="number" id="dcaYears" value="5" min="1" max="30" style="width: 55px; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;"></div>
                         <div><label style="font-size: 0.7rem; color: var(--text-muted); display: block;">年化報酬%</label><input type="number" id="dcaRate" value="10" step="0.5" style="width: 65px; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;"></div>
                         <div>
                             <label style="font-size: 0.7rem; color: var(--text-muted); display: block;">標的</label>
@@ -20107,41 +20098,67 @@ ${analysisContext}
             if (fullLotStocks.length === 0) { showToast('⚠️ 尚無持股'); return; }
             showToast('🏛️ 抓取三大法人數據...');
 
-            // 取最近交易日
-            const today = new Date();
-            const dates = [];
-            for (let d = 0; d < 7; d++) {
-                const dt = new Date(today);
-                dt.setDate(dt.getDate() - d);
-                if (dt.getDay() !== 0 && dt.getDay() !== 6) {
-                    const y = dt.getFullYear();
-                    const m = String(dt.getMonth()+1).padStart(2,'0');
-                    const dd = String(dt.getDate()).padStart(2,'0');
-                    dates.push(`${y}/${m}/${dd}`);
-                }
-                if (dates.length >= 3) break;
-            }
-
             let foundDate = null;
             for (let i = 0; i < fullLotStocks.length; i++) {
                 const s = fullLotStocks[i];
-                for (const date of dates) {
-                    let result = null;
-                    try {
-                        if (s.market === 'tpex') {
-                            result = await fetchTPExInstitutional(s.code, date);
-                        } else {
-                            result = await fetchTWSEInstitutional(s.code, date);
+                let got = false;
+
+                // 方法1：後端 API（最可靠，不受 CORS 限制，自動判斷上市/上櫃）
+                try {
+                    const res = await fetch(`/api/chip/${s.code}?days=1`);
+                    if (res.ok) {
+                        const json = await res.json();
+                        if (json.success && json.data && json.data.latest) {
+                            const d = json.data.latest;
+                            s.instData = {
+                                date: json.data.date,
+                                foreignNet: Math.round((d.foreign.net || 0) / 1000),
+                                trustNet: Math.round((d.trust.net || 0) / 1000),
+                                dealerNet: Math.round((d.dealer.net || 0) / 1000)
+                            };
+                            if (!foundDate && json.data.date) foundDate = String(json.data.date).slice(0, 10);
+                            got = true;
+                            console.log(`✅ ${s.code} 法人數據（後端API）`);
                         }
-                    } catch(e) {}
-                    if (result) {
-                        s.instData = result;
-                        if (!foundDate) foundDate = date;
-                        break;
                     }
-                    await new Promise(r => setTimeout(r, 500));
+                } catch(e) { console.log(`⚠️ ${s.code} 後端API失敗:`, e.message); }
+
+                // 方法2：前端直抓（fallback）
+                if (!got) {
+                    const today = new Date();
+                    const dates = [];
+                    for (let d = 0; d < 5; d++) {
+                        const dt = new Date(today);
+                        dt.setDate(dt.getDate() - d);
+                        if (dt.getDay() !== 0 && dt.getDay() !== 6) {
+                            const y = dt.getFullYear();
+                            const m = String(dt.getMonth()+1).padStart(2,'0');
+                            const dd = String(dt.getDate()).padStart(2,'0');
+                            dates.push(`${y}/${m}/${dd}`);
+                        }
+                        if (dates.length >= 3) break;
+                    }
+                    for (const date of dates) {
+                        if (got) break;
+                        // 兩邊都試
+                        for (const fn of [fetchTWSEInstitutional, fetchTPExInstitutional]) {
+                            try {
+                                const result = await fn(s.code, date);
+                                if (result) {
+                                    s.instData = result;
+                                    if (!foundDate) foundDate = date;
+                                    got = true;
+                                    console.log(`✅ ${s.code} 法人數據（前端 ${fn.name}）`);
+                                    break;
+                                }
+                            } catch(e) {}
+                            await new Promise(r => setTimeout(r, 400));
+                        }
+                    }
                 }
-                if (i < fullLotStocks.length - 1) await new Promise(r => setTimeout(r, 1200));
+
+                if (!got) console.log(`❌ ${s.code} 法人數據全部失敗`);
+                if (i < fullLotStocks.length - 1) await new Promise(r => setTimeout(r, 800));
             }
             saveFullLotList();
             renderFullLotTable();
@@ -20316,9 +20333,8 @@ ${analysisContext}
             const name = document.getElementById('depName').value.trim() || '定存';
             const amount = parseFloat(document.getElementById('depAmount').value) || 0;
             const rate = parseFloat(document.getElementById('depRate').value) || 1.69;
-            const years = parseInt(document.getElementById('depYears').value) || 1;
             if (amount <= 0) { showToast('⚠️ 請輸入金額'); return; }
-            deposits.push({ name, amount, rate, years });
+            deposits.push({ name, amount, rate });
             saveDeposits(); renderDeposits(); updateAssetSummary();
             document.getElementById('depName').value = '';
             document.getElementById('depAmount').value = '';
@@ -20329,22 +20345,18 @@ ${analysisContext}
             const body = document.getElementById('depositBody');
             const foot = document.getElementById('depositFoot');
             if (deposits.length === 0) {
-                body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted);">點擊下方新增定存</td></tr>';
+                body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">點擊下方新增定存</td></tr>';
                 foot.innerHTML = ''; return;
             }
-            let html = '', sumAmt = 0, sumInt = 0, sum5 = 0, sum10 = 0;
+            let html = '', sumAmt = 0, sumInt = 0;
             deposits.forEach((d, i) => {
                 const annualInt = Math.round(d.amount * d.rate / 100);
-                const comp5 = Math.round(d.amount * Math.pow(1 + d.rate/100, 5) - d.amount);
-                const comp10 = Math.round(d.amount * Math.pow(1 + d.rate/100, 10) - d.amount);
-                sumAmt += d.amount; sumInt += annualInt; sum5 += comp5; sum10 += comp10;
+                sumAmt += d.amount; sumInt += annualInt;
                 html += `<tr style="border-bottom:1px solid var(--border-color);">
-                    <td style="padding:7px 6px;text-align:left;font-weight:600;">${d.name}<span style="font-size:.7rem;color:var(--text-muted);margin-left:4px;">${d.years}年${d.rate > 1.65 ? '機動' : '固定'}</span></td>
+                    <td style="padding:7px 6px;text-align:left;font-weight:600;">${d.name}</td>
                     <td style="padding:7px 4px;text-align:center;font-family:monospace;font-weight:700;color:#ffd700;">$${d.amount.toLocaleString()}</td>
                     <td style="padding:7px 4px;text-align:center;">${d.rate}%</td>
                     <td style="padding:7px 4px;text-align:center;color:#ffd700;font-weight:600;">$${annualInt.toLocaleString()}</td>
-                    <td style="padding:7px 4px;text-align:center;color:#00ff88;">$${comp5.toLocaleString()}</td>
-                    <td style="padding:7px 4px;text-align:center;color:#00ff88;">$${comp10.toLocaleString()}</td>
                     <td style="padding:7px 4px;text-align:center;"><button onclick="removeDeposit(${i})" style="background:none;border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:2px 6px;cursor:pointer;color:#ef4444;font-size:.75rem;">✕</button></td>
                 </tr>`;
             });
@@ -20354,8 +20366,6 @@ ${analysisContext}
                 <td style="padding:8px;text-align:center;color:#ffd700;font-family:monospace;">$${sumAmt.toLocaleString()}</td>
                 <td></td>
                 <td style="padding:8px;text-align:center;color:#ffd700;">$${sumInt.toLocaleString()}/年</td>
-                <td style="padding:8px;text-align:center;color:#00ff88;">$${sum5.toLocaleString()}</td>
-                <td style="padding:8px;text-align:center;color:#00ff88;">$${sum10.toLocaleString()}</td>
                 <td></td>
             </tr>`;
         }
@@ -20370,9 +20380,8 @@ ${analysisContext}
             let depTotal = 0, depInterest = 0;
             deposits.forEach(d => { depTotal += d.amount; depInterest += d.amount * d.rate / 100; });
             const totalMV = (stockMV > 0 ? stockMV : stockCost) + depTotal;
-            const passive = Math.round(depInterest); // 可加上股利估算
+            const passive = Math.round(depInterest);
 
-            const fmt = v => v >= 10000 ? (v/10000).toFixed(1)+'萬' : '$'+Math.round(v).toLocaleString();
             const el = id => document.getElementById(id);
             if (el('asTotalStock')) el('asTotalStock').textContent = '$' + Math.round(stockMV > 0 ? stockMV : stockCost).toLocaleString();
             if (el('asTotalDeposit')) el('asTotalDeposit').textContent = '$' + depTotal.toLocaleString();
@@ -20384,52 +20393,74 @@ ${analysisContext}
             if (el('asDepositPct')) el('asDepositPct').textContent = depPct + '%';
         }
 
-        // ===== 作戰計畫時間軸 =====
-        let battlePlans = [];
-        const BP_KEY = 'battlePlans_v1';
+        // ===== 5年作戰計畫 =====
+        let battlePlans = {};
+        const BP_KEY = 'battlePlans_v2';
+        const BP_YEARS = [
+            { key: 'y1', label: '第1年（2026）', color: '#ef4444', icon: '🎯', hint: '建立紀律 / 啟動定期定額' },
+            { key: 'y2', label: '第2年（2027）', color: '#f59e0b', icon: '📈', hint: '定存到期配置 / 擴大部位' },
+            { key: 'y3', label: '第3年（2028）', color: '#00d4ff', icon: '⚡', hint: '提高 ETF 佔比 / 調整配置' },
+            { key: 'y4', label: '第4年（2029）', color: '#a855f7', icon: '🚀', hint: '評估成效 / 加碼或收割' },
+            { key: 'y5', label: '第5年（2030）', color: '#00ff88', icon: '🏆', hint: '目標達成 / 制定下一個5年' },
+        ];
         function loadBattlePlans() {
-            try { const s = localStorage.getItem(BP_KEY); if (s) battlePlans = JSON.parse(s); } catch(e) { battlePlans = []; }
-            if (battlePlans.length === 0) {
-                // 預設作戰計畫
-                battlePlans = [
-                    { phase: 'Phase 0：2026 Q1', action: '建立紀律：設停損線 -25%｜追蹤 Q1 記憶體報價' },
-                    { phase: 'Phase 1：2026 Q2~Q3', action: '每月定期定額 0050 $5,000｜配息全部再投入' },
-                    { phase: 'Phase 2：2026 Q4~2027', action: '1年期到期：50萬續存 + 30萬轉0050定期定額 + 20萬預備' },
-                    { phase: 'Phase 3：2028~2029', action: '目標 ETF 佔股票 40%+｜評估世界先進 VSMC' },
-                    { phase: 'Phase 4：2030~2036', action: '0050 複利收割｜逐步轉保守配置' },
-                ];
+            try { const s = localStorage.getItem(BP_KEY); if (s) battlePlans = JSON.parse(s); } catch(e) { battlePlans = {}; }
+            // 預設內容
+            if (!battlePlans.y1 && !battlePlans.y2) {
+                battlePlans = {
+                    y1: ['設定停損線 -25%，追蹤 Q1 記憶體報價', '每月定期定額 0050 $5,000，配息全部再投入'],
+                    y2: ['1年期定存到期：50萬續存 + 30萬轉 0050 定期定額 + 20萬預備金', '評估高股息 ETF（0056/00878）配置'],
+                    y3: ['目標 ETF 佔股票 40%+', '評估世界先進/VSMC 是否值得長抱'],
+                    y4: ['檢視 3 年複合報酬率', '視市場狀況：加碼或部分獲利了結'],
+                    y5: ['0050 複利收割成果', '逐步轉保守配置或制定下一個 5 年計畫'],
+                };
                 saveBattlePlans();
             }
-            renderBattlePlans();
+            renderFiveYearPlan();
         }
         function saveBattlePlans() { localStorage.setItem(BP_KEY, JSON.stringify(battlePlans)); }
         function addBattlePlan() {
-            const phase = document.getElementById('bpPhase').value;
+            const yearNum = document.getElementById('bpYear').value;
             const action = document.getElementById('bpAction').value.trim();
             if (!action) { showToast('⚠️ 請輸入行動計畫'); return; }
-            battlePlans.push({ phase, action });
-            saveBattlePlans(); renderBattlePlans();
+            const key = 'y' + yearNum;
+            if (!battlePlans[key]) battlePlans[key] = [];
+            battlePlans[key].push(action);
+            saveBattlePlans(); renderFiveYearPlan();
             document.getElementById('bpAction').value = '';
-            showToast('✅ 已新增作戰計畫');
+            showToast(`✅ 已新增第${yearNum}年計畫`);
         }
-        function removeBattlePlan(i) { battlePlans.splice(i, 1); saveBattlePlans(); renderBattlePlans(); }
-        function renderBattlePlans() {
-            const tl = document.getElementById('battleTimeline');
-            const phaseColors = { '0': '#ef4444', '1': '#00d4ff', '2': '#00ff88', '3': '#a855f7', '4': '#ffd700' };
-            let html = '<div style="position:absolute;left:10px;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,#00d4ff,#a855f7,#00ff88,#ffd700);"></div>';
-            battlePlans.forEach((bp, i) => {
-                const phaseNum = bp.phase.match(/\d/)?.[0] || '0';
-                const color = phaseColors[phaseNum] || '#00d4ff';
-                html += `<div style="position:relative;padding-left:20px;margin-bottom:14px;">
-                    <div style="position:absolute;left:4px;top:4px;width:13px;height:13px;border-radius:50%;border:3px solid ${color};background:var(--bg-primary);"></div>
-                    <div style="font-family:monospace;font-size:.72rem;color:${color};margin-bottom:2px;">${bp.phase}</div>
-                    <div style="font-size:.82rem;color:var(--text-secondary);line-height:1.6;display:flex;justify-content:space-between;align-items:flex-start;">
-                        <span>${bp.action}</span>
-                        <button onclick="removeBattlePlan(${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.7rem;opacity:.5;flex-shrink:0;margin-left:6px;" title="移除">✕</button>
+        function removeBpItem(yearKey, idx) {
+            if (battlePlans[yearKey]) {
+                battlePlans[yearKey].splice(idx, 1);
+                saveBattlePlans(); renderFiveYearPlan();
+            }
+        }
+        function renderFiveYearPlan() {
+            const container = document.getElementById('fiveYearPlan');
+            let html = '';
+            BP_YEARS.forEach(yr => {
+                const items = battlePlans[yr.key] || [];
+                html += `<div style="background: linear-gradient(135deg, ${yr.color}10, ${yr.color}05); border: 1px solid ${yr.color}40; border-left: 4px solid ${yr.color}; border-radius: 12px; padding: 14px; transition: all .2s;" onmouseover="this.style.borderLeftWidth='6px'" onmouseout="this.style.borderLeftWidth='4px'">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="font-weight: 700; color: ${yr.color}; font-size: 0.92rem;">${yr.icon} ${yr.label}</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted);">${yr.hint}</div>
                     </div>
-                </div>`;
+                    <div style="display: flex; flex-direction: column; gap: 5px;">`;
+                if (items.length === 0) {
+                    html += `<div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic; padding: 4px 0;">尚無計畫，在下方新增 ↓</div>`;
+                } else {
+                    items.forEach((item, idx) => {
+                        html += `<div style="display: flex; align-items: flex-start; gap: 6px; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">
+                            <span style="color: ${yr.color}; flex-shrink: 0;">▸</span>
+                            <span style="flex: 1;">${item}</span>
+                            <button onclick="removeBpItem('${yr.key}',${idx})" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: .65rem; opacity: .4; flex-shrink: 0;" title="移除">✕</button>
+                        </div>`;
+                    });
+                }
+                html += `</div></div>`;
             });
-            tl.innerHTML = html;
+            container.innerHTML = html;
         }
         function toggleBattlePlanEdit() {
             const body = document.getElementById('battlePlanBody');

@@ -103,7 +103,86 @@ class ChipService {
   }
 
   /**
+   * 從 TPEx 抓取上櫃個股三大法人買賣超
+   */
+  async fetchInstitutionalFromTPEx(stockId, date = null) {
+    try {
+      if (!date) {
+        const today = new Date();
+        today.setHours(today.getHours() + 8);
+        const dayOfWeek = today.getDay();
+        if (dayOfWeek === 0) today.setDate(today.getDate() - 2);
+        else if (dayOfWeek === 6) today.setDate(today.getDate() - 1);
+        date = today.toISOString().slice(0, 10).replace(/-/g, '');
+      }
+
+      const y = parseInt(date.slice(0, 4)) - 1911;
+      const m = date.slice(4, 6);
+      const d = date.slice(6, 8);
+      const rocDate = `${y}/${m}/${d}`;
+
+      console.log(`📡 查詢 TPEx 三大法人: ${stockId}, 日期: ${rocDate}`);
+
+      const url = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=EW&t=D&d=${rocDate}&s=0,asc`;
+
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json',
+          'Referer': 'https://www.tpex.org.tw/'
+        },
+        timeout: 15000
+      });
+
+      if (response.data && response.data.aaData && response.data.aaData.length > 0) {
+        const stockData = response.data.aaData.find(row => String(row[0]).trim() === stockId);
+
+        if (stockData) {
+          const parseNum = (val) => {
+            if (val === null || val === undefined) return 0;
+            return parseInt(String(val).replace(/,/g, '').replace(/−/g, '-')) || 0;
+          };
+
+          const foreignNet = parseNum(stockData[4]) + parseNum(stockData[7]);
+          const trustNet = parseNum(stockData[10]);
+          const dealerNet = parseNum(stockData[17]);
+
+          return {
+            stockId: String(stockData[0]).trim(),
+            stockName: String(stockData[1]).trim(),
+            date: `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`,
+            foreign: { buy: parseNum(stockData[2]) + parseNum(stockData[5]), sell: parseNum(stockData[3]) + parseNum(stockData[6]), net: foreignNet },
+            trust: { buy: parseNum(stockData[8]), sell: parseNum(stockData[9]), net: trustNet },
+            dealer: { buy: parseNum(stockData[11]) + parseNum(stockData[14]), sell: parseNum(stockData[12]) + parseNum(stockData[15]), net: dealerNet },
+            totalNet: foreignNet + trustNet + dealerNet,
+            market: 'tpex'
+          };
+        } else {
+          console.log(`⚠️ TPEx 資料中找不到 ${stockId}`);
+        }
+      } else {
+        console.log(`⚠️ TPEx 回傳無資料，嘗試往前查詢...`);
+        const dateObj = new Date(`${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`);
+        for (let i = 0; i < 5; i++) {
+          dateObj.setDate(dateObj.getDate() - 1);
+          if (dateObj.getDay() === 0 || dateObj.getDay() === 6) continue;
+          const prevDate = dateObj.toISOString().slice(0, 10).replace(/-/g, '');
+          const prevResult = await this.fetchInstitutionalFromTPEx(stockId, prevDate);
+          if (prevResult) return prevResult;
+          await new Promise(r => setTimeout(r, 500));
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('抓取 TPEx 三大法人失敗:', error.message);
+      return null;
+    }
+  }
+
+  /**
    * 取得三大法人買賣超（優先從資料庫，沒有則抓取）
+   * 自動嘗試 TWSE + TPEx
    */
   async getInstitutionalTrading(stockId, days = 5) {
     try {
@@ -132,8 +211,9 @@ class ChipService {
 
       // 3. 如果是交易日且已過更新時間，但沒有今天的資料，嘗試抓取
       if (isWeekday && isAfterUpdate && !hasToday) {
-        console.log(`📡 嘗試從 TWSE 抓取 ${stockId} 的三大法人資料...`);
-        const freshData = await this.fetchInstitutionalFromTWSE(stockId);
+        console.log(`📡 嘗試從 TWSE/TPEx 抓取 ${stockId} 的三大法人資料...`);
+        let freshData = await this.fetchInstitutionalFromTWSE(stockId);
+        if (!freshData) freshData = await this.fetchInstitutionalFromTPEx(stockId);
         if (freshData) {
           await this.saveInstitutionalData(freshData);
           // 重新查詢
@@ -151,9 +231,13 @@ class ChipService {
         return this.formatInstitutionalData(dbResult.rows);
       }
 
-      // 5. 資料庫沒資料，嘗試抓取（任何時間）
+      // 5. 資料庫沒資料，嘗試抓取（任何時間）─ 先試 TWSE 再試 TPEx
       console.log(`📡 資料庫無資料，嘗試從 TWSE 抓取 ${stockId}...`);
-      const freshData = await this.fetchInstitutionalFromTWSE(stockId);
+      let freshData = await this.fetchInstitutionalFromTWSE(stockId);
+      if (!freshData) {
+        console.log(`📡 TWSE 找不到，嘗試 TPEx 抓取 ${stockId}...`);
+        freshData = await this.fetchInstitutionalFromTPEx(stockId);
+      }
       if (freshData) {
         await this.saveInstitutionalData(freshData);
         const newResult = await pool.query(`
@@ -307,7 +391,8 @@ class ChipService {
 
       const results = [];
       for (const row of watchlist.rows) {
-        const data = await this.fetchInstitutionalFromTWSE(row.stock_id);
+        let data = await this.fetchInstitutionalFromTWSE(row.stock_id);
+        if (!data) data = await this.fetchInstitutionalFromTPEx(row.stock_id);
         if (data) {
           await this.saveInstitutionalData(data);
           results.push(data);
