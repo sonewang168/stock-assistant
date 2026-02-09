@@ -14884,16 +14884,30 @@ ${oddAiResults.openai?.content || '未完成'}
             
             // 嘗試獲取類股指數即時報價
             const codes = Object.keys(sectorIndices);
-            const indexUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${codes.map(c => `tse_${c}.tw`).join('|')}&json=1&delay=0&_=${Date.now()}`;
+            const codesParam = codes.map(c => `tse_${c}.tw`).join('|');
             
             try {
                 let data = null;
+                
+                // 方法1: 後端 proxy（最可靠）
                 try {
-                    const response = await fetchWithTimeout(indexUrl, 8000);
+                    const response = await fetchWithTimeout(`/api/sector-index?codes=${encodeURIComponent(codesParam)}`, 10000);
                     data = await response.json();
-                } catch (e) {
-                    console.log('類股指數直接請求失敗，使用 proxy...');
-                    data = await fetchWithProxy(indexUrl);
+                    if (data && data.msgArray) console.log('✅ 類股指數 via 後端 proxy');
+                } catch(e) { console.log('❌ 類股後端proxy:', e.message); }
+                
+                // 方法2: 直接請求
+                if (!data || !data.msgArray) {
+                    try {
+                        const indexUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${codesParam}&json=1&delay=0&_=${Date.now()}`;
+                        const response = await fetchWithTimeout(indexUrl, 8000);
+                        data = await response.json();
+                        if (data && data.msgArray) console.log('✅ 類股指數 via 直接請求');
+                    } catch (e) {
+                        console.log('類股指數直接請求失敗，使用 proxy...');
+                        const indexUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${codesParam}&json=1&delay=0&_=${Date.now()}`;
+                        data = await fetchWithProxy(indexUrl);
+                    }
                 }
                 
                 if (data && data.msgArray && data.msgArray.length > 0) {

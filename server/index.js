@@ -271,6 +271,25 @@ async function fetchFromFinMind(stockId, date) {
   }
 }
 
+// TWSE 類股指數 Proxy（mis.twse.com.tw 被 CORS 擋）
+app.get('/api/sector-index', async (req, res) => {
+  try {
+    const codes = req.query.codes || 'tse_IX0001.tw|tse_IX0021.tw';
+    const url = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=${codes}&json=1&delay=0&_=${Date.now()}`;
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://mis.twse.com.tw/'
+      },
+      timeout: 10000
+    });
+    res.json(response.data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 直接測試 FinMind 端點
 app.get('/api/finmind-test', async (req, res) => {
   const stockId = req.query.stockId || '5347';
