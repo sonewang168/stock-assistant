@@ -7931,60 +7931,71 @@
                     };
                 }
 
-                // 轉換日期為民國年
-                const dateParts = date.split(/[\/\-]/);
-                let year, month, day;
-                if (dateParts[0].length === 4) {
-                    year = parseInt(dateParts[0]) - 1911;
-                    month = dateParts[1];
-                    day = dateParts[2];
-                } else {
-                    year = parseInt(dateParts[0]);
-                    month = dateParts[1];
-                    day = dateParts[2];
+                function findStock(aaData) {
+                    if (!aaData || !Array.isArray(aaData)) return null;
+                    return aaData.find(row => String(row[0]).trim() === stockCode) || null;
                 }
-                const dateStr = `${year}/${month.padStart(2, '0')}/${day.padStart(2, '0')}`;
+
+                // 民國年日期
+                const dateParts = date.split(/[\/\-]/);
+                let year = dateParts[0].length === 4 ? parseInt(dateParts[0]) - 1911 : parseInt(dateParts[0]);
+                const dateStr = `${year}/${dateParts[1].padStart(2,'0')}/${dateParts[2].padStart(2,'0')}`;
                 const tpexUrl = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${dateStr}&s=0,asc`;
 
-                // ★ 逐一嘗試各 CORS proxy（TPEx 不支援直連 CORS）
-                const proxies = [
-                    `https://api.allorigins.win/raw?url=${encodeURIComponent(tpexUrl)}`,
-                    `https://corsproxy.io/?${encodeURIComponent(tpexUrl)}`,
-                    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(tpexUrl)}`,
-                    `/api/tpex-proxy?d=${encodeURIComponent(dateStr)}&stockId=${stockCode}`
-                ];
-
-                for (let i = 0; i < proxies.length; i++) {
-                    try {
-                        const res = await fetchWithTimeout(proxies[i], 12000);
-                        if (!res.ok) {
-                            console.log(`❌ TPEx proxy[${i}] HTTP ${res.status}`);
-                            continue;
+                // === 方法1: allorigins /get 格式 (回傳 {contents: "..."}) ===
+                try {
+                    const res = await fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(tpexUrl)}`, 15000);
+                    if (res.ok) {
+                        const wrapper = await res.json();
+                        if (wrapper.contents) {
+                            const data = JSON.parse(wrapper.contents);
+                            const row = findStock(data.aaData);
+                            if (row) { console.log(`✅ TPEx ${stockCode} via allorigins/get`); return parseTPExRow(row); }
                         }
-                        const json = await res.json();
-                        
-                        // 後端 proxy 回傳格式
-                        if (json.success && json.data) {
-                            console.log(`✅ TPEx ${stockCode} via proxy[${i}] (backend)`);
-                            return parseTPExRow(json.data);
-                        }
-                        
-                        // CORS proxy 回傳原始 TPEx 格式
-                        if (json.aaData) {
-                            const stockRow = json.aaData.find(row => String(row[0]).trim() === stockCode);
-                            if (stockRow) {
-                                console.log(`✅ TPEx ${stockCode} via proxy[${i}] (${stockRow.length} cols)`);
-                                return parseTPExRow(stockRow);
-                            } else {
-                                console.log(`⚠️ TPEx proxy[${i}]: ${json.aaData.length} rows but no ${stockCode}`);
-                            }
-                        }
-                    } catch(e) {
-                        console.log(`❌ TPEx proxy[${i}] error: ${e.message}`);
                     }
-                }
+                } catch(e) { console.log(`❌ TPEx allorigins/get: ${e.message}`); }
 
-                console.log(`❌ TPEx ${stockCode}: 所有 proxy 皆失敗`);
+                // === 方法2: corsproxy.io (加 headers) ===
+                try {
+                    const res = await fetchWithTimeout(`https://corsproxy.io/?url=${encodeURIComponent(tpexUrl)}`, 12000);
+                    if (res.ok) {
+                        const data = await res.json();
+                        const row = findStock(data.aaData);
+                        if (row) { console.log(`✅ TPEx ${stockCode} via corsproxy.io`); return parseTPExRow(row); }
+                    } else { console.log(`❌ TPEx corsproxy.io: HTTP ${res.status}`); }
+                } catch(e) { console.log(`❌ TPEx corsproxy.io: ${e.message}`); }
+
+                // === 方法3: thingproxy ===
+                try {
+                    const res = await fetchWithTimeout(`https://thingproxy.freeboard.io/fetch/${tpexUrl}`, 12000);
+                    if (res.ok) {
+                        const data = await res.json();
+                        const row = findStock(data.aaData);
+                        if (row) { console.log(`✅ TPEx ${stockCode} via thingproxy`); return parseTPExRow(row); }
+                    } else { console.log(`❌ TPEx thingproxy: HTTP ${res.status}`); }
+                } catch(e) { console.log(`❌ TPEx thingproxy: ${e.message}`); }
+
+                // === 方法4: 後端 proxy ===
+                try {
+                    const res = await fetchWithTimeout(`/api/tpex-proxy?d=${encodeURIComponent(dateStr)}&stockId=${stockCode}`, 15000);
+                    if (res.ok) {
+                        const json = await res.json();
+                        if (json.success && json.data) { console.log(`✅ TPEx ${stockCode} via backend`); return parseTPExRow(json.data); }
+                        else { console.log(`❌ TPEx backend: ${json.error}`); }
+                    } else { console.log(`❌ TPEx backend: HTTP ${res.status}`); }
+                } catch(e) { console.log(`❌ TPEx backend: ${e.message}`); }
+
+                // === 方法5: codetabs ===
+                try {
+                    const res = await fetchWithTimeout(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(tpexUrl)}`, 12000);
+                    if (res.ok) {
+                        const data = await res.json();
+                        const row = findStock(data.aaData);
+                        if (row) { console.log(`✅ TPEx ${stockCode} via codetabs`); return parseTPExRow(row); }
+                    } else { console.log(`❌ TPEx codetabs: HTTP ${res.status}`); }
+                } catch(e) { console.log(`❌ TPEx codetabs: ${e.message}`); }
+
+                console.log(`❌ TPEx ${stockCode}: 全部方法失敗`);
                 return null;
             } catch (e) {
                 console.log('TPEx institutional fetch error:', e);

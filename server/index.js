@@ -92,11 +92,14 @@ app.get('/api/tpex-proxy', async (req, res) => {
     
     const response = await axios.get(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json',
-        'Referer': 'https://www.tpex.org.tw/'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+        'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Referer': 'https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge.php?l=zh-tw',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Connection': 'keep-alive'
       },
-      timeout: 15000
+      timeout: 20000
     });
     
     if (response.data && response.data.aaData) {
@@ -107,11 +110,11 @@ app.get('/api/tpex-proxy', async (req, res) => {
         res.json({ success: false, error: `在 ${response.data.aaData.length} 筆中找不到 ${stockId}`, totalRows: response.data.aaData.length });
       }
     } else {
-      res.json({ success: false, error: 'TPEx API 無資料' });
+      res.json({ success: false, error: 'TPEx API 無資料', raw: String(response.data).slice(0, 200) });
     }
   } catch (error) {
     console.error('TPEx Proxy 錯誤:', error.message);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message, status: error.response?.status });
   }
 });
 
