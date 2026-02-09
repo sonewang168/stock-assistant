@@ -2399,6 +2399,12 @@
             margin-bottom: 20px;
             border: 1px solid var(--border-color);
         }
+        .multi-monitor-section[draggable="true"] { cursor: default; }
+        .multi-monitor-section.drag-over-top { border-top: 3px solid #00d4ff !important; }
+        .multi-monitor-section.drag-over-bottom { border-bottom: 3px solid #00d4ff !important; }
+        .ai-portfolio-section.drag-over-top { border-top: 3px solid #00d4ff !important; }
+        .ai-portfolio-section.drag-over-bottom { border-bottom: 3px solid #00d4ff !important; }
+        .collapsed { display: none !important; }
 
         .multi-monitor-header {
             display: flex;
@@ -4801,10 +4807,8 @@
                 </h3>
                 <div class="multi-monitor-controls">
                     <div class="multi-monitor-input">
-                        <select id="fullLotMarket" style="width: 70px;">
-                            <option value="twse">上市</option>
-                            <option value="tpex">上櫃</option>
-                        </select>
+                        <span style="font-size: 0.75rem; color: #f59e0b; padding: 4px 8px; background: rgba(245,158,11,.1); border-radius: 5px; white-space: nowrap;">🔍 自動偵測</span>
+                        <select id="fullLotMarket" style="display:none;"><option value="twse">上市</option><option value="tpex">上櫃</option></select>
                         <input type="text" id="fullLotCode" placeholder="代碼" maxlength="6" style="width: 70px;">
                         <input type="number" id="fullLotShares" placeholder="張數" min="1" value="1" style="width: 65px;">
                         <input type="number" id="fullLotCost" placeholder="成本價" step="0.1" style="width: 80px;">
@@ -4872,7 +4876,124 @@
             </div>
 
             <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 8px; text-align: center;">
-                💡 即時股價來自 TWSE/TPEx API ｜ 法人數據：收盤後 16:00 更新 ｜ 損益 = (即時價 - 成本) × 張數 × 1000
+                💡 自動偵測上市/上櫃 ｜ 法人數據：收盤後 16:00 更新 ｜ 損益 = (即時價 - 成本) × 張數 × 1000
+            </div>
+        </div>
+
+        <!-- 💰 定存 + 5~10年作戰計畫 -->
+        <div class="multi-monitor-section" id="battlePlanSection" style="margin-top: 20px; border-top: 2px solid #ffd700;" data-draggable="section">
+            <div class="multi-monitor-header" style="border-bottom: 2px solid rgba(255,215,0,.3); cursor: grab;" data-drag-handle="true">
+                <h3 style="display: flex; align-items: center; gap: 8px;">
+                    <span style="cursor: grab; font-size: 1.2rem;" title="拖曳排序">⋮⋮</span>
+                    ⚔️ 5~10年作戰計畫
+                    <span style="font-size: 0.8rem; color: var(--text-muted);">定存 + 長期策略</span>
+                </h3>
+                <div style="display: flex; gap: 6px;">
+                    <button class="quick-btn" style="background: linear-gradient(135deg, #ffd700, #f59e0b);" onclick="toggleBattlePlanEdit()">✏️ 編輯</button>
+                    <button class="quick-btn" onclick="document.getElementById('battlePlanBody').classList.toggle('collapsed')">📂 收合</button>
+                </div>
+            </div>
+
+            <div id="battlePlanBody">
+                <!-- 定存區 -->
+                <div style="margin-top: 14px;">
+                    <h4 style="color: #ffd700; font-size: 0.95rem; margin-bottom: 10px;">🏦 定存部位</h4>
+                    <div style="overflow-x: auto;">
+                        <table id="depositTable" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                            <thead>
+                                <tr style="background: linear-gradient(135deg, rgba(255,215,0,.15), rgba(245,158,11,.08));">
+                                    <th style="padding: 8px; text-align: center; color: #ffd700; font-size: 0.75rem;">項目</th>
+                                    <th style="padding: 8px; text-align: center; color: #ffd700; font-size: 0.75rem;">金額</th>
+                                    <th style="padding: 8px; text-align: center; color: #ffd700; font-size: 0.75rem;">利率</th>
+                                    <th style="padding: 8px; text-align: center; color: #ffd700; font-size: 0.75rem;">年利息</th>
+                                    <th style="padding: 8px; text-align: center; color: #ffd700; font-size: 0.75rem;">5年複利</th>
+                                    <th style="padding: 8px; text-align: center; color: #ffd700; font-size: 0.75rem;">10年複利</th>
+                                    <th style="padding: 8px; text-align: center; color: var(--text-muted); font-size: 0.75rem;">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="depositBody"></tbody>
+                            <tfoot id="depositFoot"></tfoot>
+                        </table>
+                    </div>
+                    <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center;">
+                        <input type="text" id="depName" placeholder="名稱" style="width: 90px; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem;">
+                        <input type="number" id="depAmount" placeholder="金額" style="width: 100px; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem;">
+                        <input type="number" id="depRate" placeholder="利率%" step="0.01" value="1.69" style="width: 75px; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem;">
+                        <input type="number" id="depYears" placeholder="年期" min="1" value="1" style="width: 55px; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem;">
+                        <button class="quick-btn" onclick="addDeposit()">➕</button>
+                    </div>
+                </div>
+
+                <!-- 總資產摘要 -->
+                <div id="totalAssetSummary" style="margin-top: 16px; padding: 14px; background: linear-gradient(135deg, rgba(0,212,255,.06), rgba(168,85,247,.04)); border: 1px solid rgba(0,212,255,.2); border-radius: 12px;">
+                    <h4 style="color: #00d4ff; margin-bottom: 10px;">📊 總資產配置</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px;" id="assetSummaryGrid">
+                        <div style="text-align: center; padding: 10px; background: var(--bg-card); border-radius: 8px;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">股票市值</div>
+                            <div style="font-weight: 700; color: #00d4ff; font-size: 1.1rem;" id="asTotalStock">─</div>
+                        </div>
+                        <div style="text-align: center; padding: 10px; background: var(--bg-card); border-radius: 8px;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">定存</div>
+                            <div style="font-weight: 700; color: #ffd700; font-size: 1.1rem;" id="asTotalDeposit">─</div>
+                        </div>
+                        <div style="text-align: center; padding: 10px; background: var(--bg-card); border-radius: 8px;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">總資產</div>
+                            <div style="font-weight: 700; color: #a855f7; font-size: 1.1rem;" id="asTotalAll">─</div>
+                        </div>
+                        <div style="text-align: center; padding: 10px; background: var(--bg-card); border-radius: 8px;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">年被動收入</div>
+                            <div style="font-weight: 700; color: #00ff88; font-size: 1.1rem;" id="asPassiveIncome">─</div>
+                        </div>
+                        <div style="text-align: center; padding: 10px; background: var(--bg-card); border-radius: 8px;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">股票佔比</div>
+                            <div style="font-weight: 700; color: #00d4ff;" id="asStockPct">─</div>
+                        </div>
+                        <div style="text-align: center; padding: 10px; background: var(--bg-card); border-radius: 8px;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">定存佔比</div>
+                            <div style="font-weight: 700; color: #ffd700;" id="asDepositPct">─</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 作戰時間軸 -->
+                <div style="margin-top: 16px;">
+                    <h4 style="color: #ff8c00; margin-bottom: 10px;">⚔️ 分階段作戰時間軸</h4>
+                    <div id="battleTimeline" style="position: relative; padding-left: 24px;">
+                        <div style="position: absolute; left: 10px; top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, #00d4ff, #a855f7, #00ff88, #ffd700);"></div>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <select id="bpPhase" style="padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.8rem;">
+                                <option value="Phase 0：2026 Q1">Phase 0：2026 Q1</option>
+                                <option value="Phase 1：2026 Q2~Q3">Phase 1：2026 Q2~Q3</option>
+                                <option value="Phase 2：2026 Q4~2027">Phase 2：2026 Q4~2027</option>
+                                <option value="Phase 3：2028~2029">Phase 3：2028~2029</option>
+                                <option value="Phase 4：2030~2036">Phase 4：2030~2036</option>
+                            </select>
+                            <input type="text" id="bpAction" placeholder="行動計畫..." style="flex: 1; min-width: 150px; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem;">
+                            <button class="quick-btn" onclick="addBattlePlan()">➕</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 定期定額試算 -->
+                <div style="margin-top: 16px; padding: 14px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px;">
+                    <h4 style="color: #00ff88; margin-bottom: 10px;">🧮 定期定額試算器</h4>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
+                        <div><label style="font-size: 0.7rem; color: var(--text-muted); display: block;">每月投入</label><input type="number" id="dcaMonthly" value="5000" style="width: 80px; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;"></div>
+                        <div><label style="font-size: 0.7rem; color: var(--text-muted); display: block;">年數</label><input type="number" id="dcaYears" value="10" style="width: 55px; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;"></div>
+                        <div><label style="font-size: 0.7rem; color: var(--text-muted); display: block;">年化報酬%</label><input type="number" id="dcaRate" value="10" step="0.5" style="width: 65px; padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;"></div>
+                        <div>
+                            <label style="font-size: 0.7rem; color: var(--text-muted); display: block;">標的</label>
+                            <select id="dcaPreset" onchange="let r={a:12,b:7.9,c:1.69};if(this.value!='d')document.getElementById('dcaRate').value=r[this.value]" style="padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem;">
+                                <option value="d">自訂</option><option value="a">0050(12%)</option><option value="b">0056(7.9%)</option><option value="c">定存(1.69%)</option>
+                            </select>
+                        </div>
+                        <button class="quick-btn" style="background: linear-gradient(135deg, #00ff88, #00d4ff);" onclick="calcDCA()">📊 計算</button>
+                    </div>
+                    <div id="dcaResult" style="display: none; margin-top: 12px; padding: 12px; background: rgba(0,255,136,.05); border: 1px solid rgba(0,255,136,.2); border-radius: 10px;">
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -19902,21 +20023,46 @@ ${analysisContext}
             localStorage.setItem(FULLLOT_KEY, JSON.stringify(fullLotStocks));
         }
 
-        function addFullLotStock() {
+        // 已知上櫃股票清單（常見）
+        const KNOWN_TPEX = new Set(['3491','5765','6443','6770','7709','7717','3293','4966','3529','5765','6547','8436','3152','5289','6684','3081','6890','4160','6569','4743','5347','3105','8069','6472','3680','3661']);
+
+        async function autoDetectMarket(code) {
+            // 先查已知清單
+            if (KNOWN_TPEX.has(code)) return 'tpex';
+            // 嘗試 TWSE
+            try {
+                const twseUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_${code}.tw&json=1&delay=0&_=${Date.now()}`;
+                const res = await fetchWithProxy(twseUrl);
+                if (res && res.msgArray && res.msgArray.length > 0 && res.msgArray[0].z !== '-') return 'twse';
+            } catch(e) {}
+            // 嘗試 TPEX
+            try {
+                const tpexUrl = `https://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=otc_${code}.tw&json=1&delay=0&_=${Date.now()}`;
+                const res = await fetchWithProxy(tpexUrl);
+                if (res && res.msgArray && res.msgArray.length > 0 && res.msgArray[0].z !== '-') return 'tpex';
+            } catch(e) {}
+            // 預設上市
+            return document.getElementById('fullLotMarket').value;
+        }
+
+        async function addFullLotStock() {
             const code = document.getElementById('fullLotCode').value.trim();
-            const market = document.getElementById('fullLotMarket').value;
             const shares = parseInt(document.getElementById('fullLotShares').value) || 1;
             const costPrice = parseFloat(document.getElementById('fullLotCost').value) || 0;
             if (!code) { showToast('⚠️ 請輸入股票代碼'); return; }
             if (fullLotStocks.length >= 20) { showToast('⚠️ 最多 20 檔'); return; }
-            // 允許同一股票多筆（不同成本）
+
+            showToast(`🔍 自動偵測 ${code} 市場...`);
+            const market = await autoDetectMarket(code);
+            const marketLabel = market === 'tpex' ? '上櫃' : '上市';
+
             fullLotStocks.push({ code, market, shares, costPrice, name: getStockChineseName(code, null) || code, data: null, instData: null });
             saveFullLotList();
             renderFullLotTable();
             document.getElementById('fullLotCode').value = '';
             document.getElementById('fullLotCost').value = '';
             document.getElementById('fullLotShares').value = '1';
-            showToast(`✅ 已新增 ${code} ${shares}張`);
+            showToast(`✅ 已新增 ${code}（${marketLabel}）${shares}張`);
             // 自動取得報價
             refreshSingleFullLot(fullLotStocks.length - 1);
         }
@@ -20157,6 +20303,266 @@ ${analysisContext}
         // 快速鍵 Enter 新增
         document.getElementById('fullLotCode')?.addEventListener('keydown', e => { if (e.key === 'Enter') addFullLotStock(); });
         document.getElementById('fullLotCost')?.addEventListener('keydown', e => { if (e.key === 'Enter') addFullLotStock(); });
+
+        // ===== 定存管理 =====
+        let deposits = [];
+        const DEP_KEY = 'deposits_v1';
+        function loadDeposits() {
+            try { const s = localStorage.getItem(DEP_KEY); if (s) deposits = JSON.parse(s); } catch(e) { deposits = []; }
+            renderDeposits();
+        }
+        function saveDeposits() { localStorage.setItem(DEP_KEY, JSON.stringify(deposits)); }
+        function addDeposit() {
+            const name = document.getElementById('depName').value.trim() || '定存';
+            const amount = parseFloat(document.getElementById('depAmount').value) || 0;
+            const rate = parseFloat(document.getElementById('depRate').value) || 1.69;
+            const years = parseInt(document.getElementById('depYears').value) || 1;
+            if (amount <= 0) { showToast('⚠️ 請輸入金額'); return; }
+            deposits.push({ name, amount, rate, years });
+            saveDeposits(); renderDeposits(); updateAssetSummary();
+            document.getElementById('depName').value = '';
+            document.getElementById('depAmount').value = '';
+            showToast(`✅ 已新增 ${name} $${amount.toLocaleString()}`);
+        }
+        function removeDeposit(i) { deposits.splice(i, 1); saveDeposits(); renderDeposits(); updateAssetSummary(); }
+        function renderDeposits() {
+            const body = document.getElementById('depositBody');
+            const foot = document.getElementById('depositFoot');
+            if (deposits.length === 0) {
+                body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted);">點擊下方新增定存</td></tr>';
+                foot.innerHTML = ''; return;
+            }
+            let html = '', sumAmt = 0, sumInt = 0, sum5 = 0, sum10 = 0;
+            deposits.forEach((d, i) => {
+                const annualInt = Math.round(d.amount * d.rate / 100);
+                const comp5 = Math.round(d.amount * Math.pow(1 + d.rate/100, 5) - d.amount);
+                const comp10 = Math.round(d.amount * Math.pow(1 + d.rate/100, 10) - d.amount);
+                sumAmt += d.amount; sumInt += annualInt; sum5 += comp5; sum10 += comp10;
+                html += `<tr style="border-bottom:1px solid var(--border-color);">
+                    <td style="padding:7px 6px;text-align:left;font-weight:600;">${d.name}<span style="font-size:.7rem;color:var(--text-muted);margin-left:4px;">${d.years}年${d.rate > 1.65 ? '機動' : '固定'}</span></td>
+                    <td style="padding:7px 4px;text-align:center;font-family:monospace;font-weight:700;color:#ffd700;">$${d.amount.toLocaleString()}</td>
+                    <td style="padding:7px 4px;text-align:center;">${d.rate}%</td>
+                    <td style="padding:7px 4px;text-align:center;color:#ffd700;font-weight:600;">$${annualInt.toLocaleString()}</td>
+                    <td style="padding:7px 4px;text-align:center;color:#00ff88;">$${comp5.toLocaleString()}</td>
+                    <td style="padding:7px 4px;text-align:center;color:#00ff88;">$${comp10.toLocaleString()}</td>
+                    <td style="padding:7px 4px;text-align:center;"><button onclick="removeDeposit(${i})" style="background:none;border:1px solid rgba(239,68,68,.3);border-radius:5px;padding:2px 6px;cursor:pointer;color:#ef4444;font-size:.75rem;">✕</button></td>
+                </tr>`;
+            });
+            body.innerHTML = html;
+            foot.innerHTML = `<tr style="background:rgba(255,215,0,.08);font-weight:700;">
+                <td style="padding:8px;text-align:center;color:#ffd700;">合 計</td>
+                <td style="padding:8px;text-align:center;color:#ffd700;font-family:monospace;">$${sumAmt.toLocaleString()}</td>
+                <td></td>
+                <td style="padding:8px;text-align:center;color:#ffd700;">$${sumInt.toLocaleString()}/年</td>
+                <td style="padding:8px;text-align:center;color:#00ff88;">$${sum5.toLocaleString()}</td>
+                <td style="padding:8px;text-align:center;color:#00ff88;">$${sum10.toLocaleString()}</td>
+                <td></td>
+            </tr>`;
+        }
+
+        // ===== 總資產摘要 =====
+        function updateAssetSummary() {
+            let stockMV = 0, stockCost = 0;
+            fullLotStocks.forEach(s => {
+                if (s.data && s.data.price > 0) stockMV += s.data.price * s.shares * 1000;
+                stockCost += s.costPrice * s.shares * 1000;
+            });
+            let depTotal = 0, depInterest = 0;
+            deposits.forEach(d => { depTotal += d.amount; depInterest += d.amount * d.rate / 100; });
+            const totalMV = (stockMV > 0 ? stockMV : stockCost) + depTotal;
+            const passive = Math.round(depInterest); // 可加上股利估算
+
+            const fmt = v => v >= 10000 ? (v/10000).toFixed(1)+'萬' : '$'+Math.round(v).toLocaleString();
+            const el = id => document.getElementById(id);
+            if (el('asTotalStock')) el('asTotalStock').textContent = '$' + Math.round(stockMV > 0 ? stockMV : stockCost).toLocaleString();
+            if (el('asTotalDeposit')) el('asTotalDeposit').textContent = '$' + depTotal.toLocaleString();
+            if (el('asTotalAll')) el('asTotalAll').textContent = '$' + Math.round(totalMV).toLocaleString();
+            if (el('asPassiveIncome')) el('asPassiveIncome').textContent = '≈$' + passive.toLocaleString() + '/年';
+            const stockPct = totalMV > 0 ? ((stockMV > 0 ? stockMV : stockCost) / totalMV * 100).toFixed(1) : 0;
+            const depPct = totalMV > 0 ? (depTotal / totalMV * 100).toFixed(1) : 0;
+            if (el('asStockPct')) el('asStockPct').textContent = stockPct + '%';
+            if (el('asDepositPct')) el('asDepositPct').textContent = depPct + '%';
+        }
+
+        // ===== 作戰計畫時間軸 =====
+        let battlePlans = [];
+        const BP_KEY = 'battlePlans_v1';
+        function loadBattlePlans() {
+            try { const s = localStorage.getItem(BP_KEY); if (s) battlePlans = JSON.parse(s); } catch(e) { battlePlans = []; }
+            if (battlePlans.length === 0) {
+                // 預設作戰計畫
+                battlePlans = [
+                    { phase: 'Phase 0：2026 Q1', action: '建立紀律：設停損線 -25%｜追蹤 Q1 記憶體報價' },
+                    { phase: 'Phase 1：2026 Q2~Q3', action: '每月定期定額 0050 $5,000｜配息全部再投入' },
+                    { phase: 'Phase 2：2026 Q4~2027', action: '1年期到期：50萬續存 + 30萬轉0050定期定額 + 20萬預備' },
+                    { phase: 'Phase 3：2028~2029', action: '目標 ETF 佔股票 40%+｜評估世界先進 VSMC' },
+                    { phase: 'Phase 4：2030~2036', action: '0050 複利收割｜逐步轉保守配置' },
+                ];
+                saveBattlePlans();
+            }
+            renderBattlePlans();
+        }
+        function saveBattlePlans() { localStorage.setItem(BP_KEY, JSON.stringify(battlePlans)); }
+        function addBattlePlan() {
+            const phase = document.getElementById('bpPhase').value;
+            const action = document.getElementById('bpAction').value.trim();
+            if (!action) { showToast('⚠️ 請輸入行動計畫'); return; }
+            battlePlans.push({ phase, action });
+            saveBattlePlans(); renderBattlePlans();
+            document.getElementById('bpAction').value = '';
+            showToast('✅ 已新增作戰計畫');
+        }
+        function removeBattlePlan(i) { battlePlans.splice(i, 1); saveBattlePlans(); renderBattlePlans(); }
+        function renderBattlePlans() {
+            const tl = document.getElementById('battleTimeline');
+            const phaseColors = { '0': '#ef4444', '1': '#00d4ff', '2': '#00ff88', '3': '#a855f7', '4': '#ffd700' };
+            let html = '<div style="position:absolute;left:10px;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,#00d4ff,#a855f7,#00ff88,#ffd700);"></div>';
+            battlePlans.forEach((bp, i) => {
+                const phaseNum = bp.phase.match(/\d/)?.[0] || '0';
+                const color = phaseColors[phaseNum] || '#00d4ff';
+                html += `<div style="position:relative;padding-left:20px;margin-bottom:14px;">
+                    <div style="position:absolute;left:4px;top:4px;width:13px;height:13px;border-radius:50%;border:3px solid ${color};background:var(--bg-primary);"></div>
+                    <div style="font-family:monospace;font-size:.72rem;color:${color};margin-bottom:2px;">${bp.phase}</div>
+                    <div style="font-size:.82rem;color:var(--text-secondary);line-height:1.6;display:flex;justify-content:space-between;align-items:flex-start;">
+                        <span>${bp.action}</span>
+                        <button onclick="removeBattlePlan(${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:.7rem;opacity:.5;flex-shrink:0;margin-left:6px;" title="移除">✕</button>
+                    </div>
+                </div>`;
+            });
+            tl.innerHTML = html;
+        }
+        function toggleBattlePlanEdit() {
+            const body = document.getElementById('battlePlanBody');
+            body.style.display = body.style.display === 'none' ? '' : '';
+        }
+
+        // ===== DCA 試算 =====
+        function calcDCA() {
+            const m = parseFloat(document.getElementById('dcaMonthly').value) || 5000;
+            const y = parseInt(document.getElementById('dcaYears').value) || 10;
+            const r = parseFloat(document.getElementById('dcaRate').value) / 100 || 0.1;
+            const mr = r / 12;
+            let t = 0; const p = m * 12 * y;
+            for (let i = 0; i < y * 12; i++) t = (t + m) * (1 + mr);
+            const gain = t - p;
+            const pct = (gain / p * 100).toFixed(1);
+            document.getElementById('dcaResult').style.display = 'block';
+            document.getElementById('dcaResult').innerHTML = `
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;text-align:center;">
+                    <div><div style="font-size:.68rem;color:var(--text-muted);">總投入</div><div style="font-weight:700;color:#00d4ff;font-size:1rem;">$${Math.round(p).toLocaleString()}</div></div>
+                    <div><div style="font-size:.68rem;color:var(--text-muted);">最終價值</div><div style="font-weight:700;color:#00ff88;font-size:1rem;">$${Math.round(t).toLocaleString()}</div></div>
+                    <div><div style="font-size:.68rem;color:var(--text-muted);">獲利</div><div style="font-weight:700;color:#ffd700;font-size:1rem;">$${Math.round(gain).toLocaleString()}</div></div>
+                    <div><div style="font-size:.68rem;color:var(--text-muted);">報酬率</div><div style="font-weight:700;color:#a855f7;font-size:1rem;">${pct}%</div></div>
+                </div>
+                <div style="margin-top:10px;font-size:.78rem;color:var(--text-muted);text-align:center;">
+                    每月 $${m.toLocaleString()} × ${y}年 × 年化 ${(r*100).toFixed(1)}%
+                </div>`;
+        }
+
+        // ===== 拖曳排序功能 =====
+        (function initDragSort() {
+            const sectionIds = ['multiMonitorSection', 'oddLotMonitorSection', 'fullLotSection', 'battlePlanSection', 'aiPortfolioSection'];
+            const ORDER_KEY = 'sectionOrder_v1';
+
+            function getSections() { return sectionIds.map(id => document.getElementById(id)).filter(Boolean); }
+
+            function loadOrder() {
+                try {
+                    const saved = localStorage.getItem(ORDER_KEY);
+                    if (!saved) return;
+                    const order = JSON.parse(saved);
+                    const parent = document.getElementById(sectionIds[0])?.parentElement;
+                    if (!parent) return;
+                    // 找到第一個 section 的位置作為基準
+                    const firstSection = getSections()[0];
+                    if (!firstSection) return;
+                    const refNode = firstSection;
+                    order.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el && parent.contains(el)) {
+                            parent.insertBefore(el, null); // move to end in order
+                        }
+                    });
+                } catch(e) {}
+            }
+
+            function saveOrder() {
+                const parent = document.getElementById(sectionIds[0])?.parentElement;
+                if (!parent) return;
+                const order = [];
+                parent.querySelectorAll('.multi-monitor-section, .ai-portfolio-section, #battlePlanSection').forEach(el => {
+                    if (el.id && sectionIds.includes(el.id)) order.push(el.id);
+                });
+                localStorage.setItem(ORDER_KEY, JSON.stringify(order));
+            }
+
+            let dragEl = null;
+            document.addEventListener('DOMContentLoaded', () => {
+                loadOrder();
+                getSections().forEach(sec => {
+                    const header = sec.querySelector('.multi-monitor-header, .ai-portfolio-header');
+                    if (!header) return;
+                    // Add drag handle visual
+                    if (!header.querySelector('.drag-handle-icon')) {
+                        const handle = document.createElement('span');
+                        handle.className = 'drag-handle-icon';
+                        handle.textContent = '⋮⋮';
+                        handle.title = '拖曳排序';
+                        handle.style.cssText = 'cursor:grab;font-size:1.1rem;opacity:.4;margin-right:6px;user-select:none;';
+                        header.querySelector('h3')?.prepend(handle);
+                    }
+                    sec.draggable = true;
+                    sec.style.transition = 'opacity .2s, transform .2s';
+                    sec.addEventListener('dragstart', e => {
+                        dragEl = sec;
+                        sec.style.opacity = '0.4';
+                        e.dataTransfer.effectAllowed = 'move';
+                    });
+                    sec.addEventListener('dragend', () => {
+                        sec.style.opacity = '1';
+                        dragEl = null;
+                        document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => el.classList.remove('drag-over-top', 'drag-over-bottom'));
+                        saveOrder();
+                    });
+                    sec.addEventListener('dragover', e => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (dragEl && dragEl !== sec) {
+                            const rect = sec.getBoundingClientRect();
+                            const mid = rect.top + rect.height / 2;
+                            sec.classList.remove('drag-over-top', 'drag-over-bottom');
+                            if (e.clientY < mid) sec.classList.add('drag-over-top');
+                            else sec.classList.add('drag-over-bottom');
+                        }
+                    });
+                    sec.addEventListener('dragleave', () => {
+                        sec.classList.remove('drag-over-top', 'drag-over-bottom');
+                    });
+                    sec.addEventListener('drop', e => {
+                        e.preventDefault();
+                        sec.classList.remove('drag-over-top', 'drag-over-bottom');
+                        if (dragEl && dragEl !== sec) {
+                            const rect = sec.getBoundingClientRect();
+                            const mid = rect.top + rect.height / 2;
+                            const parent = sec.parentElement;
+                            if (e.clientY < mid) parent.insertBefore(dragEl, sec);
+                            else parent.insertBefore(dragEl, sec.nextSibling);
+                        }
+                    });
+                });
+            });
+        })();
+
+        // 初始化定存與作戰計畫
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDeposits();
+            loadBattlePlans();
+            setTimeout(updateAssetSummary, 3000);
+        });
+
+        // Override renderFullLotTable to also update asset summary
+        const _origRenderFL = renderFullLotTable;
+        renderFullLotTable = function() { _origRenderFL(); setTimeout(updateAssetSummary, 100); };
 
     </script>
 
