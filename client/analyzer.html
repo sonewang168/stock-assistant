@@ -7922,7 +7922,7 @@
                 }
                 
                 const dateStr = `${year}/${month.padStart(2, '0')}/${day.padStart(2, '0')}`;
-                const url = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=EW&t=D&d=${dateStr}&s=0,asc`;
+                const url = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${dateStr}&s=0,asc`;
                 const data = await fetchWithProxy(url);
                 
                 if (data && data.aaData) {

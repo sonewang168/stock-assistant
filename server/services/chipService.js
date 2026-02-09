@@ -131,7 +131,7 @@ class ChipService {
 
       console.log(`📡 查詢 TPEx 三大法人: ${stockId}, 日期: ${rocDate}`);
 
-      const url = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=EW&t=D&d=${rocDate}&s=0,asc`;
+      const url = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=json&se=AL&t=D&d=${rocDate}&s=0,asc`;
 
       const response = await axios.get(url, {
         headers: {
