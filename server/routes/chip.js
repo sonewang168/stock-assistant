@@ -16,8 +16,9 @@ router.get('/:stockId', async (req, res) => {
     const { stockId } = req.params;
     const days = parseInt(req.query.days) || 5;
     const market = req.query.market || null;
+    const force = req.query.force === '1';
 
-    const data = await chipService.getInstitutionalTrading(stockId, days, market);
+    const data = await chipService.getInstitutionalTrading(stockId, days, market, force);
 
     if (!data) {
       return res.status(404).json({ 

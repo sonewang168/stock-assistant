@@ -20160,7 +20160,7 @@ ${analysisContext}
 
                 // 方法1：後端 API（最可靠，不受 CORS 限制，自動判斷上市/上櫃）
                 try {
-                    const res = await fetch(`/api/chip/${s.code}?days=1&market=${s.market || 'twse'}`);
+                    const res = await fetch(`/api/chip/${s.code}?days=1&market=${s.market || 'twse'}&force=1`);
                     if (res.ok) {
                         const json = await res.json();
                         if (json.success && json.data && json.data.latest) {

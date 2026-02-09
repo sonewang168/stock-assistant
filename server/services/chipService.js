@@ -52,26 +52,34 @@ class ChipService {
         if (stockData) {
           const parseNum = (str) => parseInt(String(str).replace(/,/g, '')) || 0;
           
+          // TWSE T86 API 欄位 (18欄):
+          // [0]代號 [1]名稱
+          // [2]外陸資買 [3]外陸資賣 [4]外陸資超
+          // [5]外資自營買 [6]外資自營賣 [7]外資自營超
+          // [8]投信買 [9]投信賣 [10]投信超
+          // [11]自營(自行)買 [12]自營(自行)賣 [13]自營(自行)超
+          // [14]自營(避險)買 [15]自營(避險)賣 [16]自營(避險)超
+          // [17]三大法人合計超
           return {
             stockId: stockData[0],
             stockName: stockData[1],
             date: `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`,
             foreign: {
-              buy: parseNum(stockData[2]),
-              sell: parseNum(stockData[3]),
-              net: parseNum(stockData[4])
+              buy: parseNum(stockData[2]) + parseNum(stockData[5]),
+              sell: parseNum(stockData[3]) + parseNum(stockData[6]),
+              net: parseNum(stockData[4]) + parseNum(stockData[7])
             },
             trust: {
-              buy: parseNum(stockData[5]),
-              sell: parseNum(stockData[6]),
-              net: parseNum(stockData[7])
+              buy: parseNum(stockData[8]),
+              sell: parseNum(stockData[9]),
+              net: parseNum(stockData[10])
             },
             dealer: {
-              buy: parseNum(stockData[8]) + parseNum(stockData[11]),
-              sell: parseNum(stockData[9]) + parseNum(stockData[12]),
-              net: parseNum(stockData[10]) + parseNum(stockData[13])
+              buy: parseNum(stockData[11]) + parseNum(stockData[14]),
+              sell: parseNum(stockData[12]) + parseNum(stockData[15]),
+              net: parseNum(stockData[13]) + parseNum(stockData[16])
             },
-            totalNet: parseNum(stockData[4]) + parseNum(stockData[7]) + parseNum(stockData[10]) + parseNum(stockData[13])
+            totalNet: parseNum(stockData[4]) + parseNum(stockData[7]) + parseNum(stockData[10]) + parseNum(stockData[13]) + parseNum(stockData[16])
           };
         } else {
           console.log(`⚠️ TWSE 資料中找不到 ${stockId}`);
@@ -204,8 +212,14 @@ class ChipService {
    * 取得三大法人買賣超（優先從資料庫，沒有則抓取）
    * 自動嘗試 TWSE + TPEx
    */
-  async getInstitutionalTrading(stockId, days = 5, market = null) {
+  async getInstitutionalTrading(stockId, days = 5, market = null, force = false) {
     try {
+      // 0. 強制更新：清除舊資料再重抓
+      if (force) {
+        console.log(`🔄 強制更新 ${stockId} (market=${market})`);
+        await pool.query('DELETE FROM institutional_trading WHERE stock_id = $1', [stockId]);
+      }
+
       // 1. 先查詢資料庫
       let dbResult = await pool.query(`
         SELECT * FROM institutional_trading 
