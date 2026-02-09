@@ -143,18 +143,38 @@ class ChipService {
             return parseInt(String(val).replace(/,/g, '').replace(/−/g, '-')) || 0;
           };
 
-          const foreignNet = parseNum(stockData[4]) + parseNum(stockData[7]);
-          const trustNet = parseNum(stockData[10]);
-          const dealerNet = parseNum(stockData[17]);
+          // 偵測格式：新格式 21+ 欄（含外資合計3欄），舊格式 17 欄
+          const isNewFormat = stockData.length >= 21;
+          
+          let foreign, trust, dealer, totalNet;
+          if (isNewFormat) {
+            // 新格式: [8~10]=外資合計, [11~13]=投信, [14~16]=自營自行, [17~19]=自營避險, [20]=三大法人合計
+            const foreignNet = parseNum(stockData[4]) + parseNum(stockData[7]);
+            const trustNet = parseNum(stockData[13]);
+            const dealerNet = parseNum(stockData[16]) + parseNum(stockData[19]);
+            foreign = { buy: parseNum(stockData[2]) + parseNum(stockData[5]), sell: parseNum(stockData[3]) + parseNum(stockData[6]), net: foreignNet };
+            trust = { buy: parseNum(stockData[11]), sell: parseNum(stockData[12]), net: trustNet };
+            dealer = { buy: parseNum(stockData[14]) + parseNum(stockData[17]), sell: parseNum(stockData[15]) + parseNum(stockData[18]), net: dealerNet };
+            totalNet = foreignNet + trustNet + dealerNet;
+          } else {
+            // 舊格式: [0]代號 [1~3]外陸資 [4~6]外資自營 [7~9]投信 [10~12]自營自行 [13~15]自營避險 [16]三大法人
+            const foreignNet = parseNum(stockData[3]) + parseNum(stockData[6]);
+            const trustNet = parseNum(stockData[9]);
+            const dealerNet = parseNum(stockData[12]) + parseNum(stockData[15]);
+            foreign = { buy: parseNum(stockData[1]) + parseNum(stockData[4]), sell: parseNum(stockData[2]) + parseNum(stockData[5]), net: foreignNet };
+            trust = { buy: parseNum(stockData[7]), sell: parseNum(stockData[8]), net: trustNet };
+            dealer = { buy: parseNum(stockData[10]) + parseNum(stockData[13]), sell: parseNum(stockData[11]) + parseNum(stockData[14]), net: dealerNet };
+            totalNet = foreignNet + trustNet + dealerNet;
+          }
 
           return {
             stockId: String(stockData[0]).trim(),
             stockName: String(stockData[1]).trim(),
             date: `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`,
-            foreign: { buy: parseNum(stockData[2]) + parseNum(stockData[5]), sell: parseNum(stockData[3]) + parseNum(stockData[6]), net: foreignNet },
-            trust: { buy: parseNum(stockData[8]), sell: parseNum(stockData[9]), net: trustNet },
-            dealer: { buy: parseNum(stockData[11]) + parseNum(stockData[14]), sell: parseNum(stockData[12]) + parseNum(stockData[15]), net: dealerNet },
-            totalNet: foreignNet + trustNet + dealerNet,
+            foreign,
+            trust,
+            dealer,
+            totalNet,
             market: 'tpex'
           };
         } else {

@@ -4953,58 +4953,23 @@
                 </div>
 
                 <!-- ⚔️ 5年作戰計畫 -->
-                <div style="margin-top: 16px;">
-                    <h4 style="color: #ff8c00; margin-bottom: 12px;">⚔️ 5年作戰計畫（2026~2030）</h4>
-                    <div id="fiveYearPlan" style="display: grid; gap: 12px;">
-                        <!-- 第1年 -->
-                        <div style="background: linear-gradient(135deg, rgba(239,68,68,.06), rgba(239,68,68,.02)); border: 1px solid rgba(239,68,68,.25); border-left: 4px solid #ef4444; border-radius: 12px; padding: 14px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <div style="font-weight: 700; color: #ef4444; font-size: 0.92rem;">🎯 第1年（2026）</div>
-                                <div style="font-size: 0.7rem; color: var(--text-muted);">建立紀律 / 啟動定期定額</div>
-                            </div>
-                            <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">載入中...</div>
-                        </div>
-                        <!-- 第2年 -->
-                        <div style="background: linear-gradient(135deg, rgba(245,158,11,.06), rgba(245,158,11,.02)); border: 1px solid rgba(245,158,11,.25); border-left: 4px solid #f59e0b; border-radius: 12px; padding: 14px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <div style="font-weight: 700; color: #f59e0b; font-size: 0.92rem;">📈 第2年（2027）</div>
-                                <div style="font-size: 0.7rem; color: var(--text-muted);">定存到期配置 / 擴大部位</div>
-                            </div>
-                            <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">載入中...</div>
-                        </div>
-                        <!-- 第3年 -->
-                        <div style="background: linear-gradient(135deg, rgba(0,212,255,.06), rgba(0,212,255,.02)); border: 1px solid rgba(0,212,255,.25); border-left: 4px solid #00d4ff; border-radius: 12px; padding: 14px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <div style="font-weight: 700; color: #00d4ff; font-size: 0.92rem;">⚡ 第3年（2028）</div>
-                                <div style="font-size: 0.7rem; color: var(--text-muted);">提高 ETF 佔比 / 調整配置</div>
-                            </div>
-                            <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">載入中...</div>
-                        </div>
-                        <!-- 第4年 -->
-                        <div style="background: linear-gradient(135deg, rgba(168,85,247,.06), rgba(168,85,247,.02)); border: 1px solid rgba(168,85,247,.25); border-left: 4px solid #a855f7; border-radius: 12px; padding: 14px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <div style="font-weight: 700; color: #a855f7; font-size: 0.92rem;">🚀 第4年（2029）</div>
-                                <div style="font-size: 0.7rem; color: var(--text-muted);">評估成效 / 加碼或收割</div>
-                            </div>
-                            <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">載入中...</div>
-                        </div>
-                        <!-- 第5年 -->
-                        <div style="background: linear-gradient(135deg, rgba(0,255,136,.06), rgba(0,255,136,.02)); border: 1px solid rgba(0,255,136,.25); border-left: 4px solid #00ff88; border-radius: 12px; padding: 14px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <div style="font-weight: 700; color: #00ff88; font-size: 0.92rem;">🏆 第5年（2030）</div>
-                                <div style="font-size: 0.7rem; color: var(--text-muted);">目標達成 / 制定下一個5年</div>
-                            </div>
-                            <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">載入中...</div>
+                <div style="margin-top: 16px;" id="fiveYearSection">
+                    <!-- 標題 + 操作列 -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+                        <h4 style="color: #ff8c00; margin: 0; font-size: 1rem;">⚔️ 5年作戰計畫（2026~2030）</h4>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <button class="quick-btn" style="background: linear-gradient(135deg, #00ff88, #00d4ff); font-size: .76rem; padding: 5px 12px;" onclick="saveAllBattlePlans()">💾 儲存</button>
+                            <button class="quick-btn" style="background: linear-gradient(135deg, #a855f7, #6366f1); font-size: .76rem; padding: 5px 12px;" onclick="exportBattlePlans()">📋 匯出</button>
+                            <button class="quick-btn" style="background: rgba(239,68,68,.15); color: #ef4444; font-size: .76rem; padding: 5px 12px;" onclick="clearAllBattlePlans()">🗑️ 清除重建</button>
                         </div>
                     </div>
-                    <div style="margin-top: 10px; padding: 10px; background: rgba(255,140,0,.06); border: 1px dashed rgba(255,140,0,.3); border-radius: 10px;">
-                        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-                            <select id="bpYear" style="padding: 5px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem; width: 85px;">
-                                <option value="1">第1年</option><option value="2">第2年</option><option value="3">第3年</option><option value="4">第4年</option><option value="5">第5年</option>
-                            </select>
-                            <input type="text" id="bpAction" placeholder="新增行動計畫..." style="flex: 1; min-width: 180px; padding: 5px 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.82rem;">
-                            <button class="quick-btn" style="background: linear-gradient(135deg, #ff8c00, #f59e0b);" onclick="addBattlePlan()">➕ 新增</button>
-                        </div>
+
+                    <!-- 5年卡片容器 -->
+                    <div id="fiveYearPlan" style="display: grid; gap: 14px;"></div>
+
+                    <!-- 操作提示 -->
+                    <div style="margin-top: 10px; text-align: center; font-size: .7rem; color: var(--text-muted);">
+                        💡 點擊 ✏️ 編輯 ｜ Enter 確認 ｜ Esc 取消 ｜ 每年底部可直接輸入新增
                     </div>
                 </div>
 
@@ -7901,13 +7866,14 @@
                         
                         let trustNet, dealerNet;
                         if (isNewFormat) {
-                            // 新版 API (22欄位)
-                            trustNet = parseNum(stockRow[13]);  // 投信買賣超
-                            dealerNet = parseNum(stockRow[20]); // 自營商合計買賣超
+                            // 新版 API (22欄位，含外資合計3欄)
+                            trustNet = parseNum(stockRow[13]);
+                            dealerNet = parseNum(stockRow[19]) + parseNum(stockRow[22]);
                         } else {
-                            // 舊版 API
+                            // TWSE T86 標準18欄:
+                            // [10]投信超 [13]自營(自行)超 [16]自營(避險)超
                             trustNet = parseNum(stockRow[10]);
-                            dealerNet = parseNum(stockRow[11]);
+                            dealerNet = parseNum(stockRow[13]) + parseNum(stockRow[16]);
                         }
                         
                         // 轉換為張數（股數 / 1000）
@@ -7927,14 +7893,15 @@
         }
         
         // 獲取上櫃股票三大法人資料
-        // TPEX 3itrade_hedge_result API 欄位順序:
-        // 0:股票代號, 1:股票名稱
-        // 2:外資及陸資(不含外資自營商)-買進, 3:賣出, 4:買賣超
-        // 5:外資自營商-買進, 6:賣出, 7:買賣超
-        // 8:投信-買進, 9:賣出, 10:買賣超
-        // 11:自營商(自行買賣)-買進, 12:賣出, 13:買賣超
-        // 14:自營商(避險)-買進, 15:賣出, 16:買賣超
-        // 17:自營商合計買賣超, 18:三大法人買賣超合計
+        // TPEX 3itrade_hedge_result API 欄位 (新格式 21欄):
+        // [0]代號 [1]名稱
+        // [2~4]外陸資(不含外資自營商) 買/賣/超
+        // [5~7]外資自營商 買/賣/超
+        // [8~10]外資及陸資合計 買/賣/超
+        // [11~13]投信 買/賣/超
+        // [14~16]自營商(自行) 買/賣/超
+        // [17~19]自營商(避險) 買/賣/超
+        // [20]三大法人合計超
         async function fetchTPExInstitutional(stockCode, date) {
             try {
                 // 轉換為民國年格式
@@ -7960,16 +7927,37 @@
                 if (data && data.aaData) {
                     const stockRow = data.aaData.find(row => row[0].trim() === stockCode);
                     if (stockRow) {
+                        console.log(`📊 TPEx ${stockCode}: ${stockRow.length} columns, format=${stockRow.length >= 21 ? 'new' : 'old'}`);
                         const parseNum = (val) => {
                             if (val === null || val === undefined) return 0;
                             let cleaned = String(val).replace(/,/g, '').replace(/−/g, '-');
                             return parseInt(cleaned) || 0;
                         };
                         
-                        // 外資 = 外陸資(不含外資自營商) + 外資自營商
-                        const foreignNet = parseNum(stockRow[4]) + parseNum(stockRow[7]);
-                        const trustNet = parseNum(stockRow[10]);  // 投信買賣超
-                        const dealerNet = parseNum(stockRow[17]); // 自營商合計買賣超
+                        // TPEx API 欄位（含「外資及陸資合計」3欄）：
+                        // [0]代號 [1]名稱
+                        // [2]外陸資買 [3]外陸資賣 [4]外陸資超
+                        // [5]外資自營買 [6]外資自營賣 [7]外資自營超
+                        // [8]外資合計買 [9]外資合計賣 [10]外資合計超
+                        // [11]投信買 [12]投信賣 [13]投信超
+                        // [14]自營(自行)買 [15]自營(自行)賣 [16]自營(自行)超
+                        // [17]自營(避險)買 [18]自營(避險)賣 [19]自營(避險)超
+                        // [20]三大法人合計超
+                        
+                        // 偵測格式：新格式有21+欄（含合計欄），舊格式約17欄
+                        const isNewFormat = stockRow.length >= 21;
+                        
+                        let foreignNet, trustNet, dealerNet;
+                        if (isNewFormat) {
+                            foreignNet = parseNum(stockRow[4]) + parseNum(stockRow[7]);
+                            trustNet = parseNum(stockRow[13]);
+                            dealerNet = parseNum(stockRow[16]) + parseNum(stockRow[19]);
+                        } else {
+                            // 舊格式 (17欄)
+                            foreignNet = parseNum(stockRow[3]) + parseNum(stockRow[6]);
+                            trustNet = parseNum(stockRow[9]);
+                            dealerNet = parseNum(stockRow[12]) + parseNum(stockRow[15]);
+                        }
                         
                         // 轉換為張數（股數 / 1000）
                         return {
@@ -20048,7 +20036,32 @@ ${analysisContext}
                 const saved = localStorage.getItem(FULLLOT_KEY);
                 if (saved) fullLotStocks = JSON.parse(saved);
             } catch(e) { fullLotStocks = []; }
+            // 遷移：舊資料可能沒有 market 欄位，載入後自動偵測
+            let needSave = false;
+            fullLotStocks.forEach(s => {
+                if (!s.market) {
+                    // 用簡易規則先設定，之後 refresh 時會重新偵測
+                    // 常見上櫃股票代號 4位開頭 3xxx, 4xxx, 5xxx, 6xxx, 8xxx
+                    s.market = 'twse'; // 預設上市
+                    needSave = true;
+                }
+            });
+            if (needSave) saveFullLotList();
             renderFullLotTable();
+            // 非同步重新偵測 market
+            fullLotStocks.forEach(async (s, i) => {
+                if (!s._marketChecked) {
+                    try {
+                        const m = await autoDetectMarket(s.code);
+                        if (m !== s.market) {
+                            s.market = m;
+                            saveFullLotList();
+                            renderFullLotTable();
+                        }
+                        s._marketChecked = true;
+                    } catch(e) {}
+                }
+            });
         }
 
         function saveFullLotList() {
@@ -20438,9 +20451,11 @@ ${analysisContext}
             if (el('asDepositPct')) el('asDepositPct').textContent = depPct + '%';
         }
 
-        // ===== 5年作戰計畫 =====
+
+        // ===== 5年作戰計畫（完整互動版）=====
         let battlePlans = {};
-        const BP_KEY = 'battlePlans_v2';
+        let bpEditingKey = null;
+        const BP_KEY = 'battlePlans_v3';
         const BP_YEARS = [
             { key: 'y1', label: '第1年（2026）', color: '#ef4444', icon: '🎯', hint: '建立紀律 / 啟動定期定額' },
             { key: 'y2', label: '第2年（2027）', color: '#f59e0b', icon: '📈', hint: '定存到期配置 / 擴大部位' },
@@ -20448,69 +20463,205 @@ ${analysisContext}
             { key: 'y4', label: '第4年（2029）', color: '#a855f7', icon: '🚀', hint: '評估成效 / 加碼或收割' },
             { key: 'y5', label: '第5年（2030）', color: '#00ff88', icon: '🏆', hint: '目標達成 / 制定下一個5年' },
         ];
+        const BP_DEFAULTS = {
+            y1: ['設定停損線 -25%，追蹤 Q1 記憶體報價', '每月定期定額 0050 $5,000，配息全部再投入'],
+            y2: ['1年期定存到期：50萬續存 + 30萬轉 0050 定期定額 + 20萬預備金', '評估高股息 ETF（0056/00878）配置'],
+            y3: ['目標 ETF 佔股票 40%+', '評估世界先進/VSMC 是否值得長抱'],
+            y4: ['檢視 3 年複合報酬率', '視市場狀況：加碼或部分獲利了結'],
+            y5: ['0050 複利收割成果', '逐步轉保守配置或制定下一個 5 年計畫'],
+        };
+
         function loadBattlePlans() {
-            try { const s = localStorage.getItem(BP_KEY); if (s) battlePlans = JSON.parse(s); } catch(e) { battlePlans = {}; }
-            // 預設內容
-            if (!battlePlans.y1 && !battlePlans.y2) {
-                battlePlans = {
-                    y1: ['設定停損線 -25%，追蹤 Q1 記憶體報價', '每月定期定額 0050 $5,000，配息全部再投入'],
-                    y2: ['1年期定存到期：50萬續存 + 30萬轉 0050 定期定額 + 20萬預備金', '評估高股息 ETF（0056/00878）配置'],
-                    y3: ['目標 ETF 佔股票 40%+', '評估世界先進/VSMC 是否值得長抱'],
-                    y4: ['檢視 3 年複合報酬率', '視市場狀況：加碼或部分獲利了結'],
-                    y5: ['0050 複利收割成果', '逐步轉保守配置或制定下一個 5 年計畫'],
-                };
+            try {
+                let s = localStorage.getItem(BP_KEY);
+                if (!s) s = localStorage.getItem('battlePlans_v2');
+                if (s) battlePlans = JSON.parse(s);
+            } catch(e) { battlePlans = {}; }
+            const hasAny = BP_YEARS.some(yr => battlePlans[yr.key] && battlePlans[yr.key].length > 0);
+            if (!hasAny) {
+                battlePlans = JSON.parse(JSON.stringify(BP_DEFAULTS));
                 saveBattlePlans();
             }
             renderFiveYearPlan();
         }
         function saveBattlePlans() { localStorage.setItem(BP_KEY, JSON.stringify(battlePlans)); }
-        function addBattlePlan() {
-            const yearNum = document.getElementById('bpYear').value;
-            const action = document.getElementById('bpAction').value.trim();
-            if (!action) { showToast('⚠️ 請輸入行動計畫'); return; }
-            const key = 'y' + yearNum;
-            if (!battlePlans[key]) battlePlans[key] = [];
-            battlePlans[key].push(action);
+
+        function bpAdd(yearKey) {
+            const input = document.getElementById('bpInput_' + yearKey);
+            if (!input) return;
+            const val = input.value.trim();
+            if (!val) { showToast('⚠️ 請輸入計畫內容'); input.focus(); return; }
+            if (!battlePlans[yearKey]) battlePlans[yearKey] = [];
+            battlePlans[yearKey].push(val);
+            saveBattlePlans();
+            renderFiveYearPlan();
+            setTimeout(() => { const ni = document.getElementById('bpInput_' + yearKey); if (ni) { ni.value = ''; ni.focus(); } }, 60);
+            showToast('✅ 已新增');
+        }
+
+        function bpRemove(yearKey, idx) {
+            if (!battlePlans[yearKey]) return;
+            battlePlans[yearKey].splice(idx, 1);
+            saveBattlePlans();
+            renderFiveYearPlan();
+        }
+
+        function bpEdit(yearKey, idx) {
+            bpEditingKey = yearKey + '_' + idx;
+            renderFiveYearPlan();
+            setTimeout(() => {
+                const inp = document.getElementById('bpEditInp_' + yearKey + '_' + idx);
+                if (inp) { inp.focus(); inp.select(); }
+            }, 60);
+        }
+
+        function bpSaveEdit(yearKey, idx) {
+            const inp = document.getElementById('bpEditInp_' + yearKey + '_' + idx);
+            if (!inp) return;
+            const val = inp.value.trim();
+            if (!val) { bpRemove(yearKey, idx); return; }
+            battlePlans[yearKey][idx] = val;
+            bpEditingKey = null;
+            saveBattlePlans();
+            renderFiveYearPlan();
+            showToast('✅ 已更新');
+        }
+
+        function bpCancelEdit() { bpEditingKey = null; renderFiveYearPlan(); }
+
+        function bpMoveUp(yk, idx) {
+            if (idx <= 0) return;
+            const a = battlePlans[yk];
+            [a[idx-1], a[idx]] = [a[idx], a[idx-1]];
             saveBattlePlans(); renderFiveYearPlan();
-            document.getElementById('bpAction').value = '';
-            showToast(`✅ 已新增第${yearNum}年計畫`);
         }
-        function removeBpItem(yearKey, idx) {
-            if (battlePlans[yearKey]) {
-                battlePlans[yearKey].splice(idx, 1);
-                saveBattlePlans(); renderFiveYearPlan();
-            }
+        function bpMoveDown(yk, idx) {
+            const a = battlePlans[yk];
+            if (idx >= a.length - 1) return;
+            [a[idx], a[idx+1]] = [a[idx+1], a[idx]];
+            saveBattlePlans(); renderFiveYearPlan();
         }
-        function renderFiveYearPlan() {
-            const container = document.getElementById('fiveYearPlan');
-            let html = '';
+
+        function bpClearYear(yearKey) {
+            const yr = BP_YEARS.find(y => y.key === yearKey);
+            if (!confirm('確定清空「' + (yr ? yr.label : yearKey) + '」？')) return;
+            battlePlans[yearKey] = [];
+            saveBattlePlans(); renderFiveYearPlan();
+            showToast('🗑️ 已清空 ' + (yr ? yr.label : ''));
+        }
+
+        function saveAllBattlePlans() {
+            saveBattlePlans();
+            const sec = document.getElementById('fiveYearSection');
+            if (sec) { sec.style.outline = '2px solid #00ff88'; setTimeout(() => sec.style.outline = '', 800); }
+            showToast('💾 5年作戰計畫已儲存！');
+        }
+
+        function clearAllBattlePlans() {
+            if (!confirm('⚠️ 確定清除全部5年作戰計畫？\n將恢復為預設範本。')) return;
+            battlePlans = JSON.parse(JSON.stringify(BP_DEFAULTS));
+            bpEditingKey = null;
+            saveBattlePlans();
+            renderFiveYearPlan();
+            showToast('🗑️ 已清除並恢復預設範本');
+        }
+
+        function exportBattlePlans() {
+            let text = '⚔️ 5年作戰計畫（2026~2030）\n' + '═'.repeat(40) + '\n\n';
             BP_YEARS.forEach(yr => {
                 const items = battlePlans[yr.key] || [];
-                html += `<div style="background: linear-gradient(135deg, ${yr.color}10, ${yr.color}05); border: 1px solid ${yr.color}40; border-left: 4px solid ${yr.color}; border-radius: 12px; padding: 14px; transition: all .2s;" onmouseover="this.style.borderLeftWidth='6px'" onmouseout="this.style.borderLeftWidth='4px'">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div style="font-weight: 700; color: ${yr.color}; font-size: 0.92rem;">${yr.icon} ${yr.label}</div>
-                        <div style="font-size: 0.7rem; color: var(--text-muted);">${yr.hint}</div>
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 5px;">`;
-                if (items.length === 0) {
-                    html += `<div style="font-size: 0.8rem; color: var(--text-muted); font-style: italic; padding: 4px 0;">尚無計畫，在下方新增 ↓</div>`;
+                text += yr.icon + ' ' + yr.label + '  —  ' + yr.hint + '\n';
+                text += '─'.repeat(30) + '\n';
+                if (items.length === 0) { text += '   （尚無計畫）\n'; }
+                else { items.forEach((item, i) => { text += '   ' + (i+1) + '. ' + item + '\n'; }); }
+                text += '\n';
+            });
+            text += '═'.repeat(40) + '\n匯出時間：' + new Date().toLocaleString('zh-TW');
+            navigator.clipboard.writeText(text).then(() => showToast('📋 已複製到剪貼簿！')).catch(() => {
+                const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta);
+                ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                showToast('📋 已複製到剪貼簿！');
+            });
+        }
+
+        // ===== 核心渲染 =====
+        function renderFiveYearPlan() {
+            const container = document.getElementById('fiveYearPlan');
+            if (!container) return;
+            let html = '';
+
+            BP_YEARS.forEach(yr => {
+                const items = battlePlans[yr.key] || [];
+                const count = items.length;
+
+                // === 年度卡片 ===
+                html += '<div style="background:linear-gradient(135deg,' + yr.color + '08,' + yr.color + '03);'
+                    + 'border:1px solid ' + yr.color + '35;border-left:5px solid ' + yr.color + ';border-radius:14px;overflow:hidden;">';
+
+                // 標題列
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:' + yr.color + '12;">'
+                    + '<div style="display:flex;align-items:center;gap:8px;">'
+                    + '<span style="font-size:1.3rem;">' + yr.icon + '</span>'
+                    + '<div><div style="font-weight:700;color:' + yr.color + ';font-size:0.95rem;">' + yr.label + '</div>'
+                    + '<div style="font-size:0.68rem;color:var(--text-muted);margin-top:1px;">' + yr.hint + '</div></div></div>'
+                    + '<div style="display:flex;align-items:center;gap:6px;">'
+                    + '<span style="font-size:0.68rem;background:' + yr.color + '25;color:' + yr.color + ';padding:2px 8px;border-radius:10px;font-weight:600;">' + count + ' 項</span>'
+                    + '<button onclick="bpClearYear(\'' + yr.key + '\')" style="background:none;border:1px solid rgba(239,68,68,.2);border-radius:6px;padding:2px 6px;cursor:pointer;color:#ef4444;font-size:.68rem;opacity:.6;" title="清空本年度">🗑️</button>'
+                    + '</div></div>';
+
+                // 項目列表
+                html += '<div style="padding:10px 14px;">';
+
+                if (count === 0) {
+                    html += '<div style="text-align:center;padding:16px 0;color:var(--text-muted);font-size:0.82rem;">📝 尚無計畫，在下方輸入框新增</div>';
                 } else {
-                    items.forEach((item, idx) => {
-                        html += `<div style="display: flex; align-items: flex-start; gap: 6px; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">
-                            <span style="color: ${yr.color}; flex-shrink: 0;">▸</span>
-                            <span style="flex: 1;">${item}</span>
-                            <button onclick="removeBpItem('${yr.key}',${idx})" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: .65rem; opacity: .4; flex-shrink: 0;" title="移除">✕</button>
-                        </div>`;
+                    items.forEach(function(item, idx) {
+                        var isEditing = (bpEditingKey === yr.key + '_' + idx);
+
+                        if (isEditing) {
+                            // 編輯模式
+                            html += '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--border-color);">'
+                                + '<span style="color:' + yr.color + ';font-weight:700;font-size:.75rem;width:22px;text-align:center;">' + (idx+1) + '</span>'
+                                + '<input type="text" id="bpEditInp_' + yr.key + '_' + idx + '" value="' + item.replace(/"/g, '&quot;') + '" '
+                                + 'style="flex:1;padding:6px 10px;background:var(--bg-primary);border:2px solid ' + yr.color + ';border-radius:8px;color:var(--text-primary);font-size:0.84rem;outline:none;" '
+                                + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();bpSaveEdit(\'' + yr.key + '\',' + idx + ')} if(event.key===\'Escape\')bpCancelEdit()">'
+                                + '<button onclick="bpSaveEdit(\'' + yr.key + '\',' + idx + ')" style="background:' + yr.color + ';color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:.8rem;font-weight:700;">✓ 存</button>'
+                                + '<button onclick="bpCancelEdit()" style="background:var(--bg-secondary);color:var(--text-muted);border:1px solid var(--border-color);border-radius:6px;padding:5px 8px;cursor:pointer;font-size:.8rem;">✗</button>'
+                                + '</div>';
+                        } else {
+                            // 顯示模式
+                            html += '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid ' + yr.color + '10;transition:background .15s;" '
+                                + 'onmouseover="this.style.background=\'' + yr.color + '08\'" onmouseout="this.style.background=\'\'">'
+                                + '<span style="color:' + yr.color + ';font-weight:700;font-size:.75rem;width:22px;text-align:center;flex-shrink:0;">' + (idx+1) + '</span>'
+                                + '<span style="flex:1;font-size:0.84rem;color:var(--text-secondary);line-height:1.55;cursor:pointer;" ondblclick="bpEdit(\'' + yr.key + '\',' + idx + ')">' + item + '</span>'
+                                + '<div style="display:flex;gap:2px;flex-shrink:0;opacity:.4;" onmouseover="this.style.opacity=\'1\'" onmouseout="this.style.opacity=\'.4\'">';
+                            if (idx > 0) html += '<button onclick="bpMoveUp(\'' + yr.key + '\',' + idx + ')" style="background:none;border:none;cursor:pointer;font-size:.55rem;color:var(--text-muted);padding:2px;" title="上移">▲</button>';
+                            if (idx < count - 1) html += '<button onclick="bpMoveDown(\'' + yr.key + '\',' + idx + ')" style="background:none;border:none;cursor:pointer;font-size:.55rem;color:var(--text-muted);padding:2px;" title="下移">▼</button>';
+                            html += '<button onclick="bpEdit(\'' + yr.key + '\',' + idx + ')" style="background:none;border:none;cursor:pointer;font-size:.7rem;color:' + yr.color + ';padding:2px;" title="編輯">✏️</button>'
+                                + '<button onclick="bpRemove(\'' + yr.key + '\',' + idx + ')" style="background:none;border:none;cursor:pointer;font-size:.7rem;color:#ef4444;padding:2px;" title="刪除">✕</button>'
+                                + '</div></div>';
+                        }
                     });
                 }
-                html += `</div></div>`;
+
+                // 新增輸入框
+                html += '</div>'
+                    + '<div style="display:flex;gap:6px;padding:10px 14px;background:' + yr.color + '06;border-top:1px dashed ' + yr.color + '25;">'
+                    + '<input type="text" id="bpInput_' + yr.key + '" placeholder="✍️ 輸入新的行動計畫..." '
+                    + 'style="flex:1;padding:7px 12px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:0.84rem;" '
+                    + 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();bpAdd(\'' + yr.key + '\')}">'
+                    + '<button onclick="bpAdd(\'' + yr.key + '\')" style="background:' + yr.color + ';color:#fff;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:0.84rem;font-weight:700;white-space:nowrap;">➕ 新增</button>'
+                    + '</div></div>';
             });
+
             container.innerHTML = html;
         }
+
         function toggleBattlePlanEdit() {
             const body = document.getElementById('battlePlanBody');
             body.style.display = body.style.display === 'none' ? '' : '';
         }
+
 
         // ===== DCA 試算 =====
         function calcDCA() {
@@ -20537,8 +20688,12 @@ ${analysisContext}
 
         // ===== 拖曳排序功能 =====
         (function initDragSort() {
+            // 只有上方主要區塊參與拖曳，類股熱力圖/ETF/自選永遠在最下方
             const sectionIds = ['multiMonitorSection', 'oddLotMonitorSection', 'fullLotSection', 'battlePlanSection', 'aiPortfolioSection'];
-            const ORDER_KEY = 'sectionOrder_v1';
+            const ORDER_KEY = 'sectionOrder_v2'; // v2 重設避免舊排序亂跳
+
+            // 清除舊版 v1 排序
+            try { localStorage.removeItem('sectionOrder_v1'); } catch(e) {}
 
             function getSections() { return sectionIds.map(id => document.getElementById(id)).filter(Boolean); }
 
@@ -20547,19 +20702,24 @@ ${analysisContext}
                     const saved = localStorage.getItem(ORDER_KEY);
                     if (!saved) return;
                     const order = JSON.parse(saved);
+                    // 驗證 order 只含允許的 sectionIds
+                    const valid = order.filter(id => sectionIds.includes(id));
+                    if (valid.length === 0) return;
                     const parent = document.getElementById(sectionIds[0])?.parentElement;
                     if (!parent) return;
-                    // 找到第一個 section 的位置作為基準
-                    const firstSection = getSections()[0];
-                    if (!firstSection) return;
-                    const refNode = firstSection;
-                    order.forEach(id => {
+                    // 找到 heatmapSection 作為「不可超越的下限」
+                    const bottomBoundary = document.getElementById('heatmapSection') || document.getElementById('etfSection') || document.getElementById('watchlistSection');
+                    valid.forEach(id => {
                         const el = document.getElementById(id);
                         if (el && parent.contains(el)) {
-                            parent.insertBefore(el, null); // move to end in order
+                            if (bottomBoundary) {
+                                parent.insertBefore(el, bottomBoundary);
+                            } else {
+                                parent.appendChild(el);
+                            }
                         }
                     });
-                } catch(e) {}
+                } catch(e) { console.warn('loadOrder error:', e); }
             }
 
             function saveOrder() {
