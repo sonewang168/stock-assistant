@@ -13039,10 +13039,13 @@
                     
                     const ms = getAsiaMarketStatus();
                     const statusIcon = ms.status === 'open' ? '🟢' : ms.status === 'pre' ? '🟡' : '🔴';
-                    if (timeEl) timeEl.textContent = `${statusIcon} ${result.time || new Date().toLocaleTimeString('zh-TW')} (${result.count}筆)`;
+                    const cacheTag = result.cached ? ' [快取]' : '';
+                    if (timeEl) timeEl.textContent = `${statusIcon} ${result.time || new Date().toLocaleTimeString('zh-TW')} (${result.count}筆${cacheTag})`;
                     
-                    // 啟動倒數
-                    asiaCountdownVal = asiaIntervalSec;
+                    // 啟動倒數（收盤後用較長間隔）
+                    const msNow = getAsiaMarketStatus();
+                    const effectiveInterval = (msNow.status === 'closed') ? Math.max(asiaIntervalSec, 300) : asiaIntervalSec;
+                    asiaCountdownVal = effectiveInterval;
                     startAsiaCountdown();
                 } else {
                     if (timeEl) timeEl.textContent = `❌ ${result.error || '無資料'}`;
@@ -13055,8 +13058,11 @@
 
         function startAsiaAutoRefresh() {
             stopAsiaAutoRefresh();
-            asiaTimer = setInterval(fetchAsiaIndices, asiaIntervalSec * 1000);
-            asiaCountdownVal = asiaIntervalSec;
+            // 收盤後自動降低頻率（5分鐘），避免浪費 API 額度
+            const ms = getAsiaMarketStatus();
+            const effectiveInterval = (ms.status === 'closed') ? Math.max(asiaIntervalSec, 300) : asiaIntervalSec;
+            asiaTimer = setInterval(fetchAsiaIndices, effectiveInterval * 1000);
+            asiaCountdownVal = effectiveInterval;
             startAsiaCountdown();
         }
 
@@ -13085,9 +13091,11 @@
         function startAsiaCountdown() {
             if (asiaCountdownTimer) clearInterval(asiaCountdownTimer);
             const cdEl = document.getElementById('asiaCountdown');
+            const ms = getAsiaMarketStatus();
+            const closedHint = ms.status === 'closed' ? '（收盤模式）' : '';
             asiaCountdownTimer = setInterval(() => {
                 asiaCountdownVal--;
-                if (cdEl) cdEl.textContent = asiaCountdownVal > 0 ? `下次自動更新：${asiaCountdownVal}秒` : '';
+                if (cdEl) cdEl.textContent = asiaCountdownVal > 0 ? `下次更新：${asiaCountdownVal}秒 ${closedHint}` : '';
                 if (asiaCountdownVal <= 0) clearInterval(asiaCountdownTimer);
             }, 1000);
         }

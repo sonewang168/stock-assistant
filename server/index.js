@@ -344,61 +344,85 @@ const ASIA_INDICES = [
   { symbol: '036930.KQ', label: '主星電子',       region: 'korea', cat: 'semi', desc: 'MLCC被動元件→國巨/華新科' },
 ];
 
+// 日韓數據快取（避免重複請求）
+let asiaCache = { data: null, time: 0 };
+const ASIA_CACHE_MS = 15000; // 15秒快取
+
 app.get('/api/asia-indices', async (req, res) => {
   try {
-    // 使用 Yahoo Finance API
+    const now = Date.now();
+    
+    // 快取有效就直接回傳
+    if (asiaCache.data && (now - asiaCache.time) < ASIA_CACHE_MS) {
+      const twNow = new Date(now + (new Date().getTimezoneOffset() + 480) * 60000);
+      return res.json({
+        success: true,
+        data: asiaCache.data,
+        time: twNow.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
+        count: asiaCache.data.filter(d => d.price !== null).length,
+        cached: true
+      });
+    }
+
+    // 所有 symbol 合併成一次請求
     const symbols = [...new Set(ASIA_INDICES.map(i => i.symbol))];
-    const results = [];
+    const symbolStr = symbols.map(s => encodeURIComponent(s)).join(',');
+    const dataMap = {};
 
-    // 並行抓取所有指數
-    const fetches = symbols.map(async (symbol) => {
-      // 嘗試 v8 chart API
-      try {
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d&includePrePost=false`;
-        const response = await axios.get(url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-            'Accept': '*/*'
-          },
-          timeout: 10000
-        });
-
-        const chart = response.data?.chart?.result?.[0];
-        if (chart) {
-          const meta = chart.meta;
+    // 方法1: v8 batch（一次請求全部）
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/spark?symbols=${symbolStr}&range=2d&interval=1d`;
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'Accept': '*/*'
+        },
+        timeout: 12000
+      });
+      const sparkData = response.data?.spark?.result || [];
+      sparkData.forEach(item => {
+        const meta = item?.response?.[0]?.meta;
+        if (meta) {
           const price = meta.regularMarketPrice;
           const prevClose = meta.chartPreviousClose || meta.previousClose;
           const change = price - prevClose;
           const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
-          return { symbol, price, prevClose, change, changePercent };
+          dataMap[item.symbol] = { price, prevClose, change, changePercent };
         }
-      } catch(e) {
-        console.log(`❌ Asia v8 ${symbol}: ${e.response?.status || e.message}`);
-      }
+      });
+      console.log(`✅ Asia spark: ${Object.keys(dataMap).length}/${symbols.length} symbols`);
+    } catch(e) {
+      console.log(`⚠️ Asia spark failed: ${e.response?.status || e.message}`);
+    }
 
-      // 嘗試 v6 quote API
-      try {
-        const url2 = `https://query2.finance.yahoo.com/v6/finance/quote?symbols=${encodeURIComponent(symbol)}`;
-        const response2 = await axios.get(url2, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': '*/*' },
-          timeout: 10000
+    // 方法2: 沒抓到的用 v8 chart 逐一補（限制併發）
+    const missing = symbols.filter(s => !dataMap[s]);
+    if (missing.length > 0 && missing.length <= symbols.length) {
+      console.log(`🔄 Asia fallback for ${missing.length} symbols...`);
+      // 每次最多 4 個並行，避免被擋
+      for (let i = 0; i < missing.length; i += 4) {
+        const batch = missing.slice(i, i + 4);
+        const results = await Promise.allSettled(batch.map(async (symbol) => {
+          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
+          const resp = await axios.get(url, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': '*/*' },
+            timeout: 8000
+          });
+          const meta = resp.data?.chart?.result?.[0]?.meta;
+          if (meta) {
+            const price = meta.regularMarketPrice;
+            const prevClose = meta.chartPreviousClose || meta.previousClose;
+            return { symbol, price, prevClose, change: price - prevClose, changePercent: prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0 };
+          }
+          return null;
+        }));
+        results.forEach(r => {
+          if (r.status === 'fulfilled' && r.value) dataMap[r.value.symbol] = r.value;
         });
-        const q = response2.data?.quoteResponse?.result?.[0];
-        if (q) {
-          const price = q.regularMarketPrice;
-          const prevClose = q.regularMarketPreviousClose || q.previousClose;
-          return { symbol, price, prevClose, change: q.regularMarketChange || (price - prevClose), changePercent: q.regularMarketChangePercent || 0 };
-        }
-      } catch(e2) {
-        console.log(`❌ Asia v6 ${symbol}: ${e2.response?.status || e2.message}`);
+        // 批次之間延遲 300ms
+        if (i + 4 < missing.length) await new Promise(r => setTimeout(r, 300));
       }
-
-      return null;
-    });
-
-    const fetchResults = await Promise.all(fetches);
-    const dataMap = {};
-    fetchResults.filter(Boolean).forEach(r => { dataMap[r.symbol] = r; });
+    }
 
     // 組裝結果
     const data = ASIA_INDICES.map(idx => {
@@ -415,6 +439,9 @@ app.get('/api/asia-indices', async (req, res) => {
         changePercent: d?.changePercent || 0
       };
     });
+
+    // 更新快取
+    asiaCache = { data, time: now };
 
     const now = new Date();
     const twNow = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
