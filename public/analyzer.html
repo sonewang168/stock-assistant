@@ -4591,24 +4591,38 @@
             <div id="asiaIndexDashboard" style="margin-top: 20px; border-top: 2px solid #ff6b6b; padding-top: 15px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="color: #ff6b6b; font-size: 1.1rem; font-weight: bold;">🇯🇵🇰🇷 日韓指數</span>
+                        <span style="color: #ff6b6b; font-size: 1.1rem; font-weight: bold;">🇯🇵🇰🇷 日韓市場 + 半導體</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span id="asiaIndexTime" style="font-size: 0.8rem; color: var(--text-muted);">● 載入中</span>
                         <button class="quick-btn" style="background: #1a1a2e; color: #ff6b6b; font-size: 0.85rem; padding: 5px 12px;" onclick="fetchAsiaIndices()">🔄 更新</button>
                     </div>
                 </div>
-                <!-- 🇯🇵 日本指數 -->
-                <div style="margin-bottom: 10px;">
-                    <div style="font-size: 0.85rem; color: #ff6b6b; font-weight: bold; margin-bottom: 8px;">🇯🇵 日本市場</div>
-                    <div id="japanIndicesGrid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+                <!-- 🇯🇵 日本大盤 -->
+                <div style="margin-bottom: 8px;">
+                    <div style="font-size: 0.85rem; color: #ff6b6b; font-weight: bold; margin-bottom: 6px;">🇯🇵 日本大盤</div>
+                    <div id="japanIndexGrid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
                         <div style="background: var(--bg-secondary); border-radius: 8px; padding: 10px; text-align: center;"><span style="color: var(--text-muted); font-size: 0.8rem;">載入中...</span></div>
                     </div>
                 </div>
-                <!-- 🇰🇷 韓國指數 -->
+                <!-- 🇯🇵 日本半導體 -->
+                <div style="margin-bottom: 12px;">
+                    <div style="font-size: 0.85rem; color: #ff6b6b; font-weight: bold; margin-bottom: 6px;">🔬 日本半導體設備 / 材料</div>
+                    <div id="japanSemiGrid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 10px; text-align: center;"><span style="color: var(--text-muted); font-size: 0.8rem;">載入中...</span></div>
+                    </div>
+                </div>
+                <!-- 🇰🇷 韓國大盤 -->
+                <div style="margin-bottom: 8px;">
+                    <div style="font-size: 0.85rem; color: #4ecdc4; font-weight: bold; margin-bottom: 6px;">🇰🇷 韓國大盤</div>
+                    <div id="koreaIndexGrid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+                        <div style="background: var(--bg-secondary); border-radius: 8px; padding: 10px; text-align: center;"><span style="color: var(--text-muted); font-size: 0.8rem;">載入中...</span></div>
+                    </div>
+                </div>
+                <!-- 🇰🇷 韓國半導體 -->
                 <div>
-                    <div style="font-size: 0.85rem; color: #4ecdc4; font-weight: bold; margin-bottom: 8px;">🇰🇷 韓國市場</div>
-                    <div id="koreaIndicesGrid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+                    <div style="font-size: 0.85rem; color: #4ecdc4; font-weight: bold; margin-bottom: 6px;">💾 韓國半導體 / 記憶體</div>
+                    <div id="koreaSemiGrid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
                         <div style="background: var(--bg-secondary); border-radius: 8px; padding: 10px; text-align: center;"><span style="color: var(--text-muted); font-size: 0.8rem;">載入中...</span></div>
                     </div>
                 </div>
@@ -12923,13 +12937,17 @@
                 const result = await resp.json();
                 
                 if (result.success && result.data) {
-                    const japan = result.data.filter(d => d.region === 'japan');
-                    const korea = result.data.filter(d => d.region === 'korea');
+                    const jpIndex = result.data.filter(d => d.region === 'japan' && d.cat === 'index');
+                    const jpSemi  = result.data.filter(d => d.region === 'japan' && d.cat === 'semi');
+                    const krIndex = result.data.filter(d => d.region === 'korea' && d.cat === 'index');
+                    const krSemi  = result.data.filter(d => d.region === 'korea' && d.cat === 'semi');
                     
-                    renderAsiaIndicesGrid('japanIndicesGrid', japan);
-                    renderAsiaIndicesGrid('koreaIndicesGrid', korea);
+                    renderAsiaIndicesGrid('japanIndexGrid', jpIndex, 2);
+                    renderAsiaIndicesGrid('japanSemiGrid', jpSemi, 3);
+                    renderAsiaIndicesGrid('koreaIndexGrid', krIndex, 2);
+                    renderAsiaIndicesGrid('koreaSemiGrid', krSemi, 3);
                     
-                    if (timeEl) timeEl.textContent = `● ${result.time || new Date().toLocaleTimeString('zh-TW')}`;
+                    if (timeEl) timeEl.textContent = `● ${result.time || new Date().toLocaleTimeString('zh-TW')} (${result.count}筆)`;
                 } else {
                     if (timeEl) timeEl.textContent = `❌ ${result.error || '無資料'}`;
                 }
@@ -12939,7 +12957,7 @@
             }
         }
 
-        function renderAsiaIndicesGrid(gridId, indices) {
+        function renderAsiaIndicesGrid(gridId, indices, cols) {
             const grid = document.getElementById(gridId);
             if (!grid || !indices || indices.length === 0) {
                 if (grid) grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-muted);font-size:0.85rem;">暫無資料</div>';
@@ -12948,7 +12966,7 @@
 
             // 日本紅跌綠漲（跟台灣相反），韓國也是紅跌綠漲
             // 但為了統一視覺，這裡用國際慣例：綠漲紅跌
-            grid.style.gridTemplateColumns = `repeat(${Math.min(indices.length, 4)}, 1fr)`;
+            grid.style.gridTemplateColumns = `repeat(${cols || Math.min(indices.length, 4)}, 1fr)`;
             
             grid.innerHTML = indices.map(s => {
                 if (s.price === null || s.price === undefined) {
@@ -12967,8 +12985,9 @@
                 const priceText = s.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 const changeAmt = `${isUp ? '+' : ''}${s.change.toFixed(2)}`;
                 const changePct = `${isUp ? '+' : ''}${s.changePercent.toFixed(2)}%`;
+                const tooltip = s.desc ? ` title="${s.desc}"` : '';
 
-                return `<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border: 1px solid ${borderColor}; border-radius: 10px; padding: 10px 6px; text-align: center; cursor: pointer; transition: all 0.3s;"
+                return `<div style="background: linear-gradient(135deg, #1a1a2e, #16213e); border: 1px solid ${borderColor}; border-radius: 10px; padding: 10px 6px; text-align: center; cursor: pointer; transition: all 0.3s;"${tooltip}
                     onclick="window.open('https://finance.yahoo.com/quote/${encodeURIComponent(s.symbol)}','_blank')"
                     onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 15px rgba(0,0,0,0.4)'"
                     onmouseleave="this.style.transform='';this.style.boxShadow=''">

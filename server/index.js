@@ -322,16 +322,26 @@ app.get('/api/finmind-test', async (req, res) => {
 
 // ==================== 🇯🇵🇰🇷 亞洲指數 Proxy ====================
 const ASIA_INDICES = [
-  // 🇯🇵 日本
-  { symbol: '^N225',     label: '日經225',     region: 'japan' },
-  { symbol: '1306.T',   label: 'TOPIX ETF',   region: 'japan' },
-  { symbol: '2516.T',   label: '東證REIT',    region: 'japan' },
-  { symbol: '1357.T',   label: '日經雙倍',    region: 'japan' },
-  // 🇰🇷 韓國
-  { symbol: '^KS11',    label: 'KOSPI',        region: 'korea' },
-  { symbol: '^KQ11',    label: 'KOSDAQ',       region: 'korea' },
-  { symbol: '069500.KS', label: 'KODEX 200',   region: 'korea' },
-  { symbol: '229200.KS', label: 'KODEX코스닥', region: 'korea' },
+  // 🇯🇵 日本 — 大盤
+  { symbol: '^N225',     label: '日經225',       region: 'japan', cat: 'index', desc: '日本主要大盤指數' },
+  { symbol: '1306.T',   label: 'TOPIX ETF',     region: 'japan', cat: 'index', desc: '東證一部全體' },
+  // 🇯🇵 日本 — 半導體
+  { symbol: '8035.T',   label: '東京威力科創',    region: 'japan', cat: 'semi', desc: '半導體設備全球第3→台積電設備商' },
+  { symbol: '6857.T',   label: '愛德萬測試',      region: 'japan', cat: 'semi', desc: 'IC測試設備→京元電/矽格' },
+  { symbol: '6146.T',   label: 'DISCO',          region: 'japan', cat: 'semi', desc: '晶圓切割研磨→先進封裝' },
+  { symbol: '6920.T',   label: 'Lasertec',       region: 'japan', cat: 'semi', desc: 'EUV光罩檢測→台積電N2' },
+  { symbol: '6723.T',   label: 'Renesas瑞薩',    region: 'japan', cat: 'semi', desc: '車用MCU龍頭→瑞昱/聯發科' },
+  { symbol: '4063.T',   label: '信越化學',        region: 'japan', cat: 'semi', desc: '矽晶圓全球第1→環球晶' },
+  // 🇰🇷 韓國 — 大盤
+  { symbol: '^KS11',    label: 'KOSPI',          region: 'korea', cat: 'index', desc: '韓國主要大盤指數' },
+  { symbol: '^KQ11',    label: 'KOSDAQ',         region: 'korea', cat: 'index', desc: '韓國科技成長股' },
+  // 🇰🇷 韓國 — 半導體
+  { symbol: '000660.KS', label: 'SK海力士',       region: 'korea', cat: 'semi', desc: 'HBM記憶體龍頭→南亞科' },
+  { symbol: '005930.KS', label: '三星電子',       region: 'korea', cat: 'semi', desc: '晶圓代工+記憶體→台積電競爭' },
+  { symbol: '042700.KQ', label: '韓美半導體',     region: 'korea', cat: 'semi', desc: '封測設備→日月光/力成' },
+  { symbol: '403870.KS', label: 'HPSP',          region: 'korea', cat: 'semi', desc: '高壓退火設備→先進製程' },
+  { symbol: '091160.KS', label: 'KODEX半導體',   region: 'korea', cat: 'semi', desc: '韓國半導體ETF→看整體趨勢' },
+  { symbol: '036930.KQ', label: '主星電子',       region: 'korea', cat: 'semi', desc: 'MLCC被動元件→國巨/華新科' },
 ];
 
 app.get('/api/asia-indices', async (req, res) => {
@@ -379,6 +389,8 @@ app.get('/api/asia-indices', async (req, res) => {
         symbol: idx.symbol,
         label: idx.label,
         region: idx.region,
+        cat: idx.cat,
+        desc: idx.desc,
         price: d?.price || null,
         prevClose: d?.prevClose || null,
         change: d?.change || 0,
