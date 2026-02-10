@@ -346,36 +346,54 @@ const ASIA_INDICES = [
 
 app.get('/api/asia-indices', async (req, res) => {
   try {
-    // 使用 Yahoo Finance v8 chart API
+    // 使用 Yahoo Finance API
     const symbols = [...new Set(ASIA_INDICES.map(i => i.symbol))];
     const results = [];
 
     // 並行抓取所有指數
     const fetches = symbols.map(async (symbol) => {
+      // 嘗試 v8 chart API
       try {
         const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d&includePrePost=false`;
         const response = await axios.get(url, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'application/json'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Accept': '*/*'
           },
           timeout: 10000
         });
 
         const chart = response.data?.chart?.result?.[0];
-        if (!chart) return null;
-
-        const meta = chart.meta;
-        const price = meta.regularMarketPrice;
-        const prevClose = meta.chartPreviousClose || meta.previousClose;
-        const change = price - prevClose;
-        const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
-
-        return { symbol, price, prevClose, change, changePercent };
+        if (chart) {
+          const meta = chart.meta;
+          const price = meta.regularMarketPrice;
+          const prevClose = meta.chartPreviousClose || meta.previousClose;
+          const change = price - prevClose;
+          const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+          return { symbol, price, prevClose, change, changePercent };
+        }
       } catch(e) {
-        console.log(`❌ Asia index ${symbol}: ${e.message}`);
-        return null;
+        console.log(`❌ Asia v8 ${symbol}: ${e.response?.status || e.message}`);
       }
+
+      // 嘗試 v6 quote API
+      try {
+        const url2 = `https://query2.finance.yahoo.com/v6/finance/quote?symbols=${encodeURIComponent(symbol)}`;
+        const response2 = await axios.get(url2, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': '*/*' },
+          timeout: 10000
+        });
+        const q = response2.data?.quoteResponse?.result?.[0];
+        if (q) {
+          const price = q.regularMarketPrice;
+          const prevClose = q.regularMarketPreviousClose || q.previousClose;
+          return { symbol, price, prevClose, change: q.regularMarketChange || (price - prevClose), changePercent: q.regularMarketChangePercent || 0 };
+        }
+      } catch(e2) {
+        console.log(`❌ Asia v6 ${symbol}: ${e2.response?.status || e2.message}`);
+      }
+
+      return null;
     });
 
     const fetchResults = await Promise.all(fetches);
