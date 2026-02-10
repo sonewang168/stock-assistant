@@ -12692,15 +12692,14 @@
         function initUSStockDashboard() {
             fetchUSIndices();
             fetchUSStockDashboard();
-            fetchAsiaIndices(); // 🇯🇵🇰🇷
+            fetchAsiaIndices(); // 🇯🇵🇰🇷 頁面打開先抓一次（顯示上次收盤數據）
             if (document.getElementById('usStockAutoRefresh')?.checked) {
                 startUSStockAutoRefresh();
             }
-            if (document.getElementById('asiaAutoRefresh')?.checked) {
-                startAsiaAutoRefresh();
-            }
-            // 每分鐘更新盤市狀態
-            setInterval(updateAsiaMarketBadge, 60000);
+            // 日韓：只在開盤時啟動自動更新
+            checkAndStartAsiaAutoRefresh();
+            // 每分鐘檢查盤市狀態（開盤時自動啟動、收盤時自動停止）
+            setInterval(checkAndStartAsiaAutoRefresh, 60000);
         }
 
         // 📊 四大指數（Twelve Data）
@@ -13042,11 +13041,11 @@
                     const cacheTag = result.cached ? ' [快取]' : '';
                     if (timeEl) timeEl.textContent = `${statusIcon} ${result.time || new Date().toLocaleTimeString('zh-TW')} (${result.count}筆${cacheTag})`;
                     
-                    // 啟動倒數（收盤後用較長間隔）
-                    const msNow = getAsiaMarketStatus();
-                    const effectiveInterval = (msNow.status === 'closed') ? Math.max(asiaIntervalSec, 300) : asiaIntervalSec;
-                    asiaCountdownVal = effectiveInterval;
-                    startAsiaCountdown();
+                    // 開盤中才顯示倒數
+                    if (ms.status === 'open' && asiaTimer) {
+                        asiaCountdownVal = asiaIntervalSec;
+                        startAsiaCountdown();
+                    }
                 } else {
                     if (timeEl) timeEl.textContent = `❌ ${result.error || '無資料'}`;
                 }
@@ -13056,34 +13055,56 @@
             }
         }
 
+        // 核心：根據盤市狀態自動啟停（每分鐘被呼叫一次）
+        let asiaWasOpen = false; // 追蹤上次狀態，避免重複啟動/停止
+        
+        function checkAndStartAsiaAutoRefresh() {
+            const ms = getAsiaMarketStatus();
+            updateAsiaMarketBadge();
+            const autoChecked = document.getElementById('asiaAutoRefresh')?.checked;
+            
+            if (ms.status === 'open' && autoChecked) {
+                if (!asiaWasOpen) {
+                    // 剛開盤 → 啟動自動更新 + 立即抓一次
+                    console.log('🟢 日韓開盤，啟動自動更新');
+                    fetchAsiaIndices();
+                    startAsiaAutoRefresh();
+                    asiaWasOpen = true;
+                }
+            } else {
+                if (asiaWasOpen || asiaTimer) {
+                    // 剛收盤 → 停止自動更新
+                    console.log('🔴 日韓收盤，停止自動更新');
+                    stopAsiaAutoRefresh();
+                    asiaWasOpen = false;
+                    const cdEl = document.getElementById('asiaCountdown');
+                    if (cdEl) cdEl.textContent = ms.status === 'closed' ? '⏸ 收盤中，自動更新已停止' : '';
+                }
+            }
+        }
+
         function startAsiaAutoRefresh() {
             stopAsiaAutoRefresh();
-            // 收盤後自動降低頻率（5分鐘），避免浪費 API 額度
-            const ms = getAsiaMarketStatus();
-            const effectiveInterval = (ms.status === 'closed') ? Math.max(asiaIntervalSec, 300) : asiaIntervalSec;
-            asiaTimer = setInterval(fetchAsiaIndices, effectiveInterval * 1000);
-            asiaCountdownVal = effectiveInterval;
+            asiaTimer = setInterval(fetchAsiaIndices, asiaIntervalSec * 1000);
+            asiaCountdownVal = asiaIntervalSec;
             startAsiaCountdown();
         }
 
         function stopAsiaAutoRefresh() {
             if (asiaTimer) { clearInterval(asiaTimer); asiaTimer = null; }
             if (asiaCountdownTimer) { clearInterval(asiaCountdownTimer); asiaCountdownTimer = null; }
-            const cdEl = document.getElementById('asiaCountdown');
-            if (cdEl) cdEl.textContent = '';
         }
 
         function toggleAsiaAutoRefresh() {
-            if (document.getElementById('asiaAutoRefresh')?.checked) {
-                startAsiaAutoRefresh();
-            } else {
-                stopAsiaAutoRefresh();
-            }
+            // 手動切換時，立即根據盤市狀態決定
+            checkAndStartAsiaAutoRefresh();
         }
 
         function updateAsiaInterval() {
             asiaIntervalSec = parseInt(document.getElementById('asiaInterval')?.value) || 60;
-            if (document.getElementById('asiaAutoRefresh')?.checked) {
+            // 開盤中才重啟
+            const ms = getAsiaMarketStatus();
+            if (ms.status === 'open' && asiaTimer) {
                 startAsiaAutoRefresh();
             }
         }
@@ -13091,11 +13112,9 @@
         function startAsiaCountdown() {
             if (asiaCountdownTimer) clearInterval(asiaCountdownTimer);
             const cdEl = document.getElementById('asiaCountdown');
-            const ms = getAsiaMarketStatus();
-            const closedHint = ms.status === 'closed' ? '（收盤模式）' : '';
             asiaCountdownTimer = setInterval(() => {
                 asiaCountdownVal--;
-                if (cdEl) cdEl.textContent = asiaCountdownVal > 0 ? `下次更新：${asiaCountdownVal}秒 ${closedHint}` : '';
+                if (cdEl) cdEl.textContent = asiaCountdownVal > 0 ? `下次更新：${asiaCountdownVal}秒` : '';
                 if (asiaCountdownVal <= 0) clearInterval(asiaCountdownTimer);
             }, 1000);
         }
