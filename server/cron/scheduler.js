@@ -3,6 +3,7 @@
  */
 
 const cron = require('node-cron');
+const axios = require('axios');
 const { pool } = require('../db');
 const stockService = require('../services/stockService');
 const technicalService = require('../services/technicalService');
@@ -11,6 +12,15 @@ const lineService = require('../services/lineService');
 const chipService = require('../services/chipService');
 const smartAlertService = require('../services/smartAlertService');
 const performanceService = require('../services/performanceService');
+
+// yahoo-finance2 for Japan/Korea data
+let yahooFinance = null;
+try {
+  const YF = require('yahoo-finance2').default;
+  yahooFinance = (typeof YF === 'function') ? new YF({ suppressNotices: ['yahooSurvey'] }) : YF;
+} catch(e) {
+  console.log('⚠️ yahoo-finance2 未安裝，日韓數據將跳過');
+}
 
 class Scheduler {
 
@@ -32,6 +42,15 @@ class Scheduler {
       timezone: 'Asia/Taipei'
     });
     this.jobs.push(twMarketOpen);
+
+    // 🌏 全球市場日報（每日 08:30）
+    // 美股前一夜收盤 + 日韓前一日收盤 → LINE Flex 卡片
+    const globalDailyReport = cron.schedule('30 8 * * 1-6', () => {
+      this.sendGlobalMarketDailyReport();
+    }, {
+      timezone: 'Asia/Taipei'
+    });
+    this.jobs.push(globalDailyReport);
 
     // 盤中監控（週一到週五 09:00-13:30，每 5 分鐘）
     const marketCheck = cron.schedule('*/5 9-13 * * 1-5', () => {
@@ -142,6 +161,7 @@ class Scheduler {
 
     console.log('✅ 排程任務已啟動：');
     console.log('   🔔 台股開盤提醒：08:30 啟動（根據設定）');
+    console.log('   🌏 全球市場日報：08:30（美股+日韓）');
     console.log('   📊 盤中監控：09:00-13:30 每 5 分鐘');
     console.log('   🔔 智能通知：09:30-13:30 每 15 分鐘');
     console.log('   🎯 停利停損：09:30-13:30 每 10 分鐘');
@@ -689,6 +709,403 @@ class Scheduler {
 
       await lineService.sendFlexMessage(userId, flexMessage);
       await this.sleep(1000);
+    }
+  }
+
+  /**
+   * 🌏 全球市場日報（美股 + 日韓）→ LINE Flex Carousel
+   * 每日 08:30 發送前一日收盤數據
+   */
+  async sendGlobalMarketDailyReport() {
+    console.log(`\n🌏 全球市場日報 ${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}`);
+
+    try {
+      const userId = await this.getLineUserId();
+      if (!userId) {
+        console.log('   ⚠️ 未設定 LINE User ID');
+        return;
+      }
+
+      const FINNHUB_KEY = process.env.FINNHUB_API_KEY || 'd63hnppr01qnpqg154e0d63hnppr01qnpqg154eg';
+      const CF_WORKER_URL = process.env.CF_INDICES_URL;
+      const today = new Date().toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric', weekday: 'short' });
+
+      // =============================================
+      // 1️⃣ 美股四大指數
+      // =============================================
+      const usIndices = [
+        { symbol: '^DJI',  label: '道瓊工業',   etf: 'DIA' },
+        { symbol: '^GSPC', label: 'S&P 500',    etf: 'SPY' },
+        { symbol: '^IXIC', label: '那斯達克',   etf: 'QQQ' },
+        { symbol: '^SOX',  label: '費城半導體', etf: 'SOXX' }
+      ];
+      const indexResults = [];
+
+      // 嘗試 CF Worker
+      if (CF_WORKER_URL) {
+        try {
+          const symbolStr = usIndices.map(i => i.symbol).join(',');
+          const resp = await axios.get(`${CF_WORKER_URL}/?symbols=${encodeURIComponent(symbolStr)}`, { timeout: 10000 });
+          if (resp.data?.success && resp.data.data?.length > 0) {
+            for (const idx of usIndices) {
+              const d = resp.data.data.find(r => r.symbol === idx.symbol);
+              if (d && d.price > 0) {
+                indexResults.push({ label: idx.label, price: d.price, change: d.change, changePercent: d.changePercent, isReal: true });
+              }
+            }
+          }
+        } catch(e) { console.log(`   ⚠️ CF Worker: ${e.message?.substring(0,50)}`); }
+      }
+
+      // Fallback: Finnhub ETF
+      if (indexResults.length < 3) {
+        for (const idx of usIndices) {
+          if (indexResults.find(r => r.label === idx.label)) continue;
+          try {
+            const resp = await axios.get(`https://finnhub.io/api/v1/quote?symbol=${idx.etf}&token=${FINNHUB_KEY}`, { timeout: 8000 });
+            if (resp.data?.c > 0) {
+              indexResults.push({ label: `${idx.label}(${idx.etf})`, price: resp.data.c, change: resp.data.d || 0, changePercent: resp.data.dp || 0, isReal: false });
+            }
+          } catch(e) { /* skip */ }
+          await this.sleep(150);
+        }
+      }
+      console.log(`   🇺🇸 指數: ${indexResults.length}/4`);
+
+      // =============================================
+      // 2️⃣ 美股個股
+      // =============================================
+      const usStocks = [
+        { id: 'NVDA', label: '輝達' },
+        { id: 'TSM',  label: '台積ADR' },
+        { id: 'AVGO', label: '博通' },
+        { id: 'MU',   label: '美光' },
+        { id: 'AMD',  label: 'AMD' },
+        { id: 'UVXY', label: 'VIX恐慌' }
+      ];
+      const stockResults = [];
+
+      for (const sym of usStocks) {
+        try {
+          const resp = await axios.get(`https://finnhub.io/api/v1/quote?symbol=${sym.id}&token=${FINNHUB_KEY}`, { timeout: 8000 });
+          if (resp.data?.c > 0) {
+            stockResults.push({ id: sym.id, label: sym.label, price: resp.data.c, change: resp.data.d || 0, changePercent: resp.data.dp || 0 });
+          }
+        } catch(e) { /* skip */ }
+        await this.sleep(150);
+      }
+      console.log(`   🇺🇸 個股: ${stockResults.length}/6`);
+
+      // =============================================
+      // 3️⃣ 日韓數據
+      // =============================================
+      const asiaSymbols = [
+        { symbol: '^N225',     label: '日經225',     region: 'japan', cat: 'index' },
+        { symbol: '8035.T',   label: '東京威力科創', region: 'japan', cat: 'semi' },
+        { symbol: '6857.T',   label: '愛德萬測試',   region: 'japan', cat: 'semi' },
+        { symbol: '6146.T',   label: 'DISCO',        region: 'japan', cat: 'semi' },
+        { symbol: '6920.T',   label: 'Lasertec',     region: 'japan', cat: 'semi' },
+        { symbol: '4063.T',   label: '信越化學',     region: 'japan', cat: 'semi' },
+        { symbol: '^KS11',    label: 'KOSPI',        region: 'korea', cat: 'index' },
+        { symbol: '000660.KS', label: 'SK海力士',    region: 'korea', cat: 'semi' },
+        { symbol: '005930.KS', label: '三星電子',    region: 'korea', cat: 'semi' },
+        { symbol: '042700.KQ', label: '韓美半導體',  region: 'korea', cat: 'semi' },
+        { symbol: '403870.KS', label: 'HPSP',        region: 'korea', cat: 'semi' },
+        { symbol: '091160.KS', label: 'KODEX半導體', region: 'korea', cat: 'semi' }
+      ];
+      const asiaResults = [];
+
+      if (yahooFinance) {
+        try {
+          const symbols = asiaSymbols.map(s => s.symbol);
+          const quotes = await yahooFinance.quote(symbols);
+          const quoteArr = Array.isArray(quotes) ? quotes : [quotes];
+          quoteArr.forEach(q => {
+            if (q?.regularMarketPrice) {
+              const def = asiaSymbols.find(s => s.symbol === q.symbol);
+              if (def) {
+                asiaResults.push({
+                  symbol: q.symbol, label: def.label, region: def.region, cat: def.cat,
+                  price: q.regularMarketPrice, change: q.regularMarketChange || 0, changePercent: q.regularMarketChangePercent || 0
+                });
+              }
+            }
+          });
+        } catch(e) {
+          console.log(`   ⚠️ yf2 batch: ${e.message?.substring(0,50)}`);
+          // 逐一 fallback
+          for (const s of asiaSymbols) {
+            try {
+              const q = await yahooFinance.quote(s.symbol);
+              if (q?.regularMarketPrice) {
+                asiaResults.push({
+                  symbol: s.symbol, label: s.label, region: s.region, cat: s.cat,
+                  price: q.regularMarketPrice, change: q.regularMarketChange || 0, changePercent: q.regularMarketChangePercent || 0
+                });
+              }
+            } catch(e2) { /* skip */ }
+          }
+        }
+      }
+      console.log(`   🇯🇵🇰🇷 日韓: ${asiaResults.length}/${asiaSymbols.length}`);
+
+      // =============================================
+      // 🎨 建立 Carousel Flex Message
+      // =============================================
+      const bubbles = [];
+
+      // ---- Bubble 1: 🇺🇸 美股指數 ----
+      if (indexResults.length > 0) {
+        const indexUp = indexResults.filter(r => r.change >= 0).length;
+        const indexDown = indexResults.length - indexUp;
+        const spx = indexResults.find(r => r.label.includes('S&P'));
+        const headerColor = spx && spx.change >= 0 ? '#1B5E20' : '#B71C1C';
+
+        const indexRows = indexResults.map(r => {
+          const up = r.change >= 0;
+          const color = up ? '#4CAF50' : '#F44336';
+          const arrow = up ? '▲' : '▼';
+          return {
+            type: 'box', layout: 'horizontal', margin: 'md',
+            contents: [
+              { type: 'text', text: r.label, size: 'sm', flex: 4, color: '#333333' },
+              { type: 'text', text: r.price.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }), size: 'sm', flex: 3, align: 'end', color: '#333333' },
+              { type: 'text', text: `${arrow}${Math.abs(r.changePercent).toFixed(2)}%`, size: 'sm', flex: 3, align: 'end', color, weight: 'bold' }
+            ]
+          };
+        });
+
+        bubbles.push({
+          type: 'bubble', size: 'mega',
+          header: {
+            type: 'box', layout: 'vertical',
+            contents: [
+              { type: 'text', text: '🇺🇸 美股指數收盤', size: 'lg', weight: 'bold', color: '#ffffff' },
+              {
+                type: 'box', layout: 'horizontal', margin: 'sm',
+                contents: [
+                  { type: 'text', text: `${today} | 綠漲紅跌`, size: 'xs', color: '#ffffffaa', flex: 3 },
+                  { type: 'text', text: `📈${indexUp} 📉${indexDown}`, size: 'xs', color: '#ffffffcc', align: 'end', flex: 2 }
+                ]
+              }
+            ],
+            backgroundColor: headerColor, paddingAll: '18px'
+          },
+          body: {
+            type: 'box', layout: 'vertical',
+            contents: [
+              {
+                type: 'box', layout: 'horizontal',
+                contents: [
+                  { type: 'text', text: '指數', size: 'xs', color: '#999999', flex: 4 },
+                  { type: 'text', text: '收盤價', size: 'xs', color: '#999999', flex: 3, align: 'end' },
+                  { type: 'text', text: '漲跌', size: 'xs', color: '#999999', flex: 3, align: 'end' }
+                ]
+              },
+              { type: 'separator', margin: 'sm' },
+              ...indexRows
+            ],
+            paddingAll: '18px'
+          }
+        });
+      }
+
+      // ---- Bubble 2: 🇺🇸 美股個股 ----
+      if (stockResults.length > 0) {
+        const stockUp = stockResults.filter(r => r.change >= 0).length;
+        const stockDown = stockResults.length - stockUp;
+        const nvda = stockResults.find(r => r.id === 'NVDA');
+        const headerColor2 = nvda && nvda.change >= 0 ? '#1A237E' : '#4A148C';
+
+        const stockRows = stockResults.map(r => {
+          const up = r.change >= 0;
+          const color = up ? '#4CAF50' : '#F44336';
+          const arrow = up ? '▲' : '▼';
+          return {
+            type: 'box', layout: 'horizontal', margin: 'md',
+            contents: [
+              { type: 'text', text: `${r.label}`, size: 'sm', flex: 3, color: '#333333' },
+              { type: 'text', text: r.id, size: 'xs', flex: 2, color: '#888888', align: 'center' },
+              { type: 'text', text: `$${r.price.toFixed(2)}`, size: 'sm', flex: 3, align: 'end', color: '#333333' },
+              { type: 'text', text: `${arrow}${Math.abs(r.changePercent).toFixed(2)}%`, size: 'sm', flex: 3, align: 'end', color, weight: 'bold' }
+            ]
+          };
+        });
+
+        bubbles.push({
+          type: 'bubble', size: 'mega',
+          header: {
+            type: 'box', layout: 'vertical',
+            contents: [
+              { type: 'text', text: '🇺🇸 美股關鍵個股', size: 'lg', weight: 'bold', color: '#ffffff' },
+              {
+                type: 'box', layout: 'horizontal', margin: 'sm',
+                contents: [
+                  { type: 'text', text: `${today} | 綠漲紅跌`, size: 'xs', color: '#ffffffaa', flex: 3 },
+                  { type: 'text', text: `📈${stockUp} 📉${stockDown}`, size: 'xs', color: '#ffffffcc', align: 'end', flex: 2 }
+                ]
+              }
+            ],
+            backgroundColor: headerColor2, paddingAll: '18px'
+          },
+          body: {
+            type: 'box', layout: 'vertical',
+            contents: [
+              {
+                type: 'box', layout: 'horizontal',
+                contents: [
+                  { type: 'text', text: '名稱', size: 'xs', color: '#999999', flex: 3 },
+                  { type: 'text', text: '代碼', size: 'xs', color: '#999999', flex: 2, align: 'center' },
+                  { type: 'text', text: '收盤', size: 'xs', color: '#999999', flex: 3, align: 'end' },
+                  { type: 'text', text: '漲跌', size: 'xs', color: '#999999', flex: 3, align: 'end' }
+                ]
+              },
+              { type: 'separator', margin: 'sm' },
+              ...stockRows
+            ],
+            paddingAll: '18px'
+          }
+        });
+      }
+
+      // ---- Bubble 3: 🇯🇵 日本半導體 ----
+      const jpData = asiaResults.filter(r => r.region === 'japan');
+      if (jpData.length > 0) {
+        const jpUp = jpData.filter(r => r.change >= 0).length;
+        const n225 = jpData.find(r => r.symbol === '^N225');
+        const jpColor = n225 && n225.change >= 0 ? '#C62828' : '#D32F2F';
+
+        const jpRows = jpData.map(r => {
+          const up = r.change >= 0;
+          const color = up ? '#4CAF50' : '#F44336';
+          const arrow = up ? '▲' : '▼';
+          const tag = r.cat === 'index' ? '📊' : '🔬';
+          return {
+            type: 'box', layout: 'horizontal', margin: 'md',
+            contents: [
+              { type: 'text', text: `${tag}${r.label}`, size: 'sm', flex: 4, color: '#333333' },
+              { type: 'text', text: r.price.toLocaleString('en-US', { maximumFractionDigits: 0 }), size: 'sm', flex: 3, align: 'end', color: '#333333' },
+              { type: 'text', text: `${arrow}${Math.abs(r.changePercent).toFixed(2)}%`, size: 'sm', flex: 3, align: 'end', color, weight: 'bold' }
+            ]
+          };
+        });
+
+        bubbles.push({
+          type: 'bubble', size: 'mega',
+          header: {
+            type: 'box', layout: 'vertical',
+            contents: [
+              { type: 'text', text: '🇯🇵 日本市場 + 半導體', size: 'lg', weight: 'bold', color: '#ffffff' },
+              {
+                type: 'box', layout: 'horizontal', margin: 'sm',
+                contents: [
+                  { type: 'text', text: `${today} 收盤`, size: 'xs', color: '#ffffffaa', flex: 3 },
+                  { type: 'text', text: `📈${jpUp} 📉${jpData.length - jpUp}`, size: 'xs', color: '#ffffffcc', align: 'end', flex: 2 }
+                ]
+              }
+            ],
+            backgroundColor: jpColor, paddingAll: '18px'
+          },
+          body: {
+            type: 'box', layout: 'vertical',
+            contents: [
+              {
+                type: 'box', layout: 'horizontal',
+                contents: [
+                  { type: 'text', text: '名稱', size: 'xs', color: '#999999', flex: 4 },
+                  { type: 'text', text: '收盤價', size: 'xs', color: '#999999', flex: 3, align: 'end' },
+                  { type: 'text', text: '漲跌', size: 'xs', color: '#999999', flex: 3, align: 'end' }
+                ]
+              },
+              { type: 'separator', margin: 'sm' },
+              ...jpRows
+            ],
+            paddingAll: '18px'
+          }
+        });
+      }
+
+      // ---- Bubble 4: 🇰🇷 韓國半導體 ----
+      const krData = asiaResults.filter(r => r.region === 'korea');
+      if (krData.length > 0) {
+        const krUp = krData.filter(r => r.change >= 0).length;
+        const kospi = krData.find(r => r.symbol === '^KS11');
+        const krColor = kospi && kospi.change >= 0 ? '#00695C' : '#004D40';
+
+        const krRows = krData.map(r => {
+          const up = r.change >= 0;
+          const color = up ? '#4CAF50' : '#F44336';
+          const arrow = up ? '▲' : '▼';
+          const tag = r.cat === 'index' ? '📊' : '💾';
+          return {
+            type: 'box', layout: 'horizontal', margin: 'md',
+            contents: [
+              { type: 'text', text: `${tag}${r.label}`, size: 'sm', flex: 4, color: '#333333' },
+              { type: 'text', text: r.price.toLocaleString('en-US', { maximumFractionDigits: 0 }), size: 'sm', flex: 3, align: 'end', color: '#333333' },
+              { type: 'text', text: `${arrow}${Math.abs(r.changePercent).toFixed(2)}%`, size: 'sm', flex: 3, align: 'end', color, weight: 'bold' }
+            ]
+          };
+        });
+
+        bubbles.push({
+          type: 'bubble', size: 'mega',
+          header: {
+            type: 'box', layout: 'vertical',
+            contents: [
+              { type: 'text', text: '🇰🇷 韓國市場 + 半導體', size: 'lg', weight: 'bold', color: '#ffffff' },
+              {
+                type: 'box', layout: 'horizontal', margin: 'sm',
+                contents: [
+                  { type: 'text', text: `${today} 收盤`, size: 'xs', color: '#ffffffaa', flex: 3 },
+                  { type: 'text', text: `📈${krUp} 📉${krData.length - krUp}`, size: 'xs', color: '#ffffffcc', align: 'end', flex: 2 }
+                ]
+              }
+            ],
+            backgroundColor: krColor, paddingAll: '18px'
+          },
+          body: {
+            type: 'box', layout: 'vertical',
+            contents: [
+              {
+                type: 'box', layout: 'horizontal',
+                contents: [
+                  { type: 'text', text: '名稱', size: 'xs', color: '#999999', flex: 4 },
+                  { type: 'text', text: '收盤價', size: 'xs', color: '#999999', flex: 3, align: 'end' },
+                  { type: 'text', text: '漲跌', size: 'xs', color: '#999999', flex: 3, align: 'end' }
+                ]
+              },
+              { type: 'separator', margin: 'sm' },
+              ...krRows
+            ],
+            paddingAll: '18px'
+          }
+        });
+      }
+
+      // =============================================
+      // 📤 發送
+      // =============================================
+      if (bubbles.length === 0) {
+        console.log('   ⚠️ 沒有任何數據，跳過發送');
+        return;
+      }
+
+      const totalStocks = indexResults.length + stockResults.length + asiaResults.length;
+
+      const flexMessage = {
+        type: 'flex',
+        altText: `🌏 全球市場日報 ${today} | 美股+日韓 (${totalStocks}筆)`,
+        contents: bubbles.length === 1 ? bubbles[0] : {
+          type: 'carousel',
+          contents: bubbles
+        }
+      };
+
+      await lineService.sendFlexMessage(userId, flexMessage);
+      console.log(`   ✅ 全球市場日報已發送 (${bubbles.length}張卡片, ${totalStocks}筆數據)`);
+
+    } catch (error) {
+      console.error('❌ 全球市場日報錯誤:', error.message);
     }
   }
 
