@@ -815,16 +815,39 @@ class Scheduler {
       ];
       const asiaResults = [];
 
-      // 方法1: yahoo-finance2
-      if (yahooFinance) {
+      // ★ 方法1: CF Worker（最可靠！Railway 直連 Yahoo 會被擋）
+      if (CF_WORKER_URL) {
         try {
-          const symbols = asiaSymbols.map(s => s.symbol);
+          const symbolStr = asiaSymbols.map(s => s.symbol).join(',');
+          const resp = await axios.get(`${CF_WORKER_URL}/?symbols=${encodeURIComponent(symbolStr)}`, { timeout: 15000 });
+          if (resp.data?.success && resp.data.data?.length > 0) {
+            resp.data.data.forEach(d => {
+              const def = asiaSymbols.find(s => s.symbol === d.symbol);
+              if (def && d.price > 0) {
+                asiaResults.push({
+                  symbol: d.symbol, label: def.label, region: def.region, cat: def.cat,
+                  price: d.price, change: d.change || 0, changePercent: d.changePercent || 0
+                });
+              }
+            });
+          }
+          console.log(`   🇯🇵🇰🇷 CF Worker: ${asiaResults.length}/${asiaSymbols.length}`);
+        } catch(e) {
+          console.log(`   ⚠️ CF Worker Asia: ${e.message?.substring(0,60)}`);
+        }
+      }
+
+      // 方法2: yahoo-finance2（CF Worker 沒設定或部分失敗時補抓）
+      const missingAfterCF = asiaSymbols.filter(s => !asiaResults.find(r => r.symbol === s.symbol));
+      if (missingAfterCF.length > 0 && yahooFinance) {
+        try {
+          const symbols = missingAfterCF.map(s => s.symbol);
           const quotes = await yahooFinance.quote(symbols);
           const quoteArr = Array.isArray(quotes) ? quotes : [quotes];
           quoteArr.forEach(q => {
             if (q?.regularMarketPrice) {
               const def = asiaSymbols.find(s => s.symbol === q.symbol);
-              if (def) {
+              if (def && !asiaResults.find(r => r.symbol === q.symbol)) {
                 asiaResults.push({
                   symbol: q.symbol, label: def.label, region: def.region, cat: def.cat,
                   price: q.regularMarketPrice, change: q.regularMarketChange || 0, changePercent: q.regularMarketChangePercent || 0
@@ -832,61 +855,9 @@ class Scheduler {
               }
             }
           });
-          console.log(`   🇯🇵🇰🇷 yf2: ${asiaResults.length}/${asiaSymbols.length}`);
+          console.log(`   🇯🇵🇰🇷 yf2 補抓: ${asiaResults.length}/${asiaSymbols.length}`);
         } catch(e) {
-          console.log(`   ⚠️ yf2 failed: ${e.message?.substring(0,60)}`);
-        }
-      }
-
-      // 方法2: axios v8 chart fallback（yf2 沒裝或失敗時）
-      const missingAsia = asiaSymbols.filter(s => !asiaResults.find(r => r.symbol === s.symbol));
-      if (missingAsia.length > 0) {
-        console.log(`   🔄 axios fallback for ${missingAsia.length} Asia symbols...`);
-        for (let i = 0; i < missingAsia.length; i += 4) {
-          const batch = missingAsia.slice(i, i + 4);
-          const results = await Promise.allSettled(batch.map(async (s) => {
-            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s.symbol)}?interval=1d&range=2d&includePrePost=false`;
-            const resp = await axios.get(url, {
-              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36', 'Accept': '*/*' },
-              timeout: 10000
-            });
-            const meta = resp.data?.chart?.result?.[0]?.meta;
-            if (meta?.regularMarketPrice) {
-              const price = meta.regularMarketPrice;
-              const prevClose = meta.chartPreviousClose || meta.previousClose || 0;
-              return {
-                symbol: s.symbol, label: s.label, region: s.region, cat: s.cat,
-                price, change: price - prevClose, changePercent: prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0
-              };
-            }
-            return null;
-          }));
-          results.forEach(r => {
-            if (r.status === 'fulfilled' && r.value) asiaResults.push(r.value);
-          });
-          if (i + 4 < missingAsia.length) await this.sleep(500);
-        }
-        console.log(`   🇯🇵🇰🇷 axios: ${asiaResults.length}/${asiaSymbols.length}`);
-      }
-
-      // 方法3: CF Worker fallback（如果上面全失敗，嘗試透過 index.js 的 /api/asia-indices）
-      if (asiaResults.length === 0) {
-        try {
-          const port = process.env.PORT || 3000;
-          const resp = await axios.get(`http://localhost:${port}/api/asia-indices`, { timeout: 15000 });
-          if (resp.data?.success && resp.data.data) {
-            resp.data.data.forEach(d => {
-              if (d.price) {
-                asiaResults.push({
-                  symbol: d.symbol, label: d.label, region: d.region, cat: d.cat,
-                  price: d.price, change: d.change || 0, changePercent: d.changePercent || 0
-                });
-              }
-            });
-            console.log(`   🇯🇵🇰🇷 local API: ${asiaResults.length}/${asiaSymbols.length}`);
-          }
-        } catch(e) {
-          console.log(`   ❌ local API: ${e.message?.substring(0,50)}`);
+          console.log(`   ⚠️ yf2: ${e.message?.substring(0,50)}`);
         }
       }
 
