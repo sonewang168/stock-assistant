@@ -443,8 +443,8 @@ app.get('/api/asia-indices', async (req, res) => {
     // 更新快取
     asiaCache = { data, time: now };
 
-    const now = new Date();
-    const twNow = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+    const nowDate = new Date();
+    const twNow = new Date(nowDate.getTime() + (nowDate.getTimezoneOffset() + 480) * 60000);
     const twH = twNow.getHours(), twM = twNow.getMinutes();
     const twMin = twH * 60 + twM;
     const dayOfWeek = twNow.getDay();
