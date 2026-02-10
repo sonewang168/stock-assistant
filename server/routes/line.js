@@ -11,6 +11,14 @@ const lineService = require('../services/lineService');
 const twStocks = require('../data/twStocks');
 const { pool } = require('../db');
 
+// 📅 排程器（用於手動觸發全球日報）
+let scheduler;
+try {
+  scheduler = require('../cron/scheduler');
+} catch(e) {
+  console.log('⚠️ scheduler 載入失敗:', e.message);
+}
+
 // 🌊 引入進階波浪分析模組
 let elliottWaveAdvanced;
 try {
@@ -272,9 +280,6 @@ async function handleCommand(message, userId) {
     '報價看板': () => getRealtimeWebLink(),
     '即時看盤': () => getRealtimeWebLink(),
     '熱門美股': () => getHotUSStocksFlex(),
-    '美股數據': () => getUSStockDashboardFlex(),
-    '美股卡片': () => getUSStockDashboardFlex(),
-    '美股即時': () => getUSStockDashboardFlex(),
     '美股指數': () => getUSMarketReply(),
     '美股分析': () => getUSMarketDeepAnalysisFlex(),
     'US分析': () => getUSMarketDeepAnalysisFlex(),
@@ -312,9 +317,16 @@ async function handleCommand(message, userId) {
     '查預約': () => getReservationList(),
     '熱門': () => getHotStocksFlex(),
     '美股': () => getUSMarketReply(),
+    '全球日報': () => triggerGlobalDailyReport(),
+    '國際日報': () => triggerGlobalDailyReport(),
+    '美股日報': () => triggerGlobalDailyReport(),
+    '日韓日報': () => triggerGlobalDailyReport(),
+    '全球市場': () => triggerGlobalDailyReport(),
+    '美日韓': () => triggerGlobalDailyReport(),
+    '海外日報': () => triggerGlobalDailyReport(),
     '績效': () => getPerformanceFlex(),
     '持股': () => getPortfolioFlex(),
-    '監控': () => getWatchlistWithUSFlex(),
+    '監控': () => getWatchlistFlex(),
     '看盤': () => getRealtimeWebLink(),
     '大盤': () => getMarketReply(),
     '指數': () => getMarketReply(),
@@ -7301,12 +7313,12 @@ function getTutorialMenuFlex() {
   ];
   
   const page2 = [
+    { icon: '🌏', title: '全球日報', cmd: '全球日報', desc: '美股+日韓半導體收盤卡片' },
     { icon: '💰', title: '股息試算', cmd: '教學股息', desc: '殖利率/預估股息' },
     { icon: '🏆', title: '排行榜', cmd: '教學排行', desc: '漲跌/成交排行' },
     { icon: '📰', title: '新聞快訊', cmd: '教學新聞', desc: '股市相關新聞' },
     { icon: '🎮', title: '模擬交易', cmd: '教學模擬', desc: '虛擬資金練習' },
-    { icon: '📈', title: 'K線走勢', cmd: '教學K線', desc: '股票走勢圖' },
-    { icon: '📊', title: '回測分析', cmd: '教學回測', desc: '策略績效回測' }
+    { icon: '📈', title: 'K線走勢', cmd: '教學K線', desc: '股票走勢圖' }
   ];
 
   const createRows = (items) => items.map(t => ({
@@ -8054,12 +8066,11 @@ function getTutorialUS() {
             ]
           },
           { type: 'separator', margin: 'lg' },
-          { type: 'text', text: '📌 美股數據卡片', weight: 'bold', size: 'md', margin: 'lg' },
+          { type: 'text', text: '📌 美股監控', weight: 'bold', size: 'md', margin: 'lg' },
           { type: 'box', layout: 'vertical', margin: 'md', backgroundColor: '#f5f5f5', cornerRadius: 'md', paddingAll: '10px',
             contents: [
-              { type: 'text', text: '美股數據', size: 'sm', color: '#1DB446' },
-              { type: 'text', text: '→ 8大美股即時數據+趨勢指標', size: 'xs', color: '#888888' },
-              { type: 'text', text: '+AAPL → 加入監控', size: 'sm', color: '#1DB446', margin: 'xs' },
+              { type: 'text', text: '+AAPL → 加入監控', size: 'sm', color: '#1DB446' },
+              { type: 'text', text: '-AAPL → 移除監控', size: 'sm', color: '#1DB446', margin: 'xs' },
               { type: 'text', text: '→ 美股也能加入監控清單', size: 'xs', color: '#888888' }
             ]
           }
@@ -9195,7 +9206,7 @@ async function getWatchlistFlex() {
   const result = await pool.query(watchlistSql);
   
   if (result.rows.length === 0) {
-    return { type: 'text', text: '📭 目前沒有監控股票\n\n輸入「+2330」加入台股\n輸入「+AAPL」加入美股\n輸入「美股數據」看即時卡片' };
+    return { type: 'text', text: '📭 目前沒有監控股票\n\n輸入「+2330」加入台股監控\n輸入「+AAPL」加入美股監控' };
   }
   
   // 取得即時價格
@@ -9256,7 +9267,7 @@ async function getWatchlistFlex() {
           type: 'text', 
           text: displayText, 
           size: 'sm', 
-          flex: 4,
+          flex: 4,  // 股票名稱
           color: isHolding ? '#D4AF37' : '#333333',
           weight: isHolding ? 'bold' : 'regular'
         },
@@ -9277,8 +9288,8 @@ async function getWatchlistFlex() {
   const usCount = result.rows.filter(r => /^[A-Za-z]{1,5}$/.test(r.stock_id)).length;
   const subText = [
     `共 ${result.rows.length} 支股票`,
-    holdingCount > 0 ? `💼${holdingCount}持股` : '',
-    usCount > 0 ? `🇺🇸${usCount}美股` : ''
+    holdingCount > 0 ? `💼 ${holdingCount} 支持股中` : '',
+    usCount > 0 ? `🇺🇸 ${usCount} 支美股` : ''
   ].filter(Boolean).join(' | ');
   
   return {
@@ -9326,14 +9337,22 @@ async function getWatchlistFlex() {
             contents: [
               { 
                 type: 'text', 
-                text: '💡 +代碼 加入｜-代碼 移除（支援美股）', 
+                text: '💡 +代碼 加入｜-代碼 移除', 
                 size: 'xs', 
                 color: '#888888',
                 align: 'center'
               },
               { 
                 type: 'text', 
-                text: '💼=持股 🇺🇸=美股（綠漲紅跌）', 
+                text: '🇺🇸 支援美股：+AAPL 或 -TSLA', 
+                size: 'xs', 
+                color: '#888888',
+                align: 'center',
+                margin: 'xs'
+              },
+              { 
+                type: 'text', 
+                text: '💼 = 持股中　🇺🇸 = 美股（綠漲紅跌）', 
                 size: 'xs', 
                 color: '#D4AF37',
                 align: 'center',
@@ -9354,314 +9373,6 @@ async function getWatchlistFlex() {
       }
     }
   };
-}
-
-/**
- * 🇺🇸 美股數據卡片 + 趨勢指標（2張 Flex Bubble）
- * 卡片1：8大美股即時報價（DIA, SPY, SOXX, VIX, NVDA, TSM, AVGO, MU）
- * 卡片2：趨勢指標分析
- */
-async function getUSStockDashboardFlex() {
-  try {
-    console.log('🇺🇸 取得美股數據卡片（全 Finnhub）...');
-    const FINNHUB_KEY = process.env.FINNHUB_API_KEY || 'd63hnppr01qnpqg154e0d63hnppr01qnpqg154eg';
-    
-    // 指數 ETF + 個股 — 全部用 Finnhub
-    const allSymbols = [
-      // 指數 ETF（上半部）
-      { id: 'DIA',  label: '道瓊 DIA',  isIdx: true },
-      { id: 'SPY',  label: 'S&P SPY',   isIdx: true },
-      { id: 'QQQ',  label: '那指 QQQ',  isIdx: true },
-      { id: 'SOXX', label: '費半 SOXX', isIdx: true },
-      // 個股（下半部）
-      { id: 'NVDA', label: '輝達 NVDA', isIdx: false },
-      { id: 'TSM',  label: '台積ADR',   isIdx: false },
-      { id: 'AVGO', label: '博通 AVGO', isIdx: false },
-      { id: 'MU',   label: '美光 MU',   isIdx: false },
-      // VIX + AMD
-      { id: 'UVXY', label: 'VIX 恐慌',  isIdx: false, isVIX: true },
-      { id: 'AMD',  label: 'AMD',       isIdx: false }
-    ];
-
-    const stocksData = [];
-    for (const sym of allSymbols) {
-      try {
-        const url = `https://finnhub.io/api/v1/quote?symbol=${sym.id}&token=${FINNHUB_KEY}`;
-        const res = await axios.get(url, { timeout: 8000 });
-        const q = res.data;
-        if (q && q.c > 0) {
-          stocksData.push({
-            ...sym,
-            data: {
-              id: sym.id, price: q.c,
-              change: q.d || 0,
-              changePercent: (q.dp || 0).toFixed(2),
-              market: 'US'
-            }
-          });
-          console.log(`✅ ${sym.id}: $${q.c} (${q.d >= 0 ? '+' : ''}${q.d})`);
-        } else {
-          stocksData.push({ ...sym, data: null });
-        }
-      } catch (e) {
-        console.log(`⚠️ ${sym.id} 抓取失敗: ${e.message}`);
-        stocksData.push({ ...sym, data: null });
-      }
-      await new Promise(r => setTimeout(r, 120));
-    }
-
-    // 分開：指數 ETF vs 個股
-    const indicesData = stocksData.filter(s => s.isIdx);
-    const stocksList = stocksData.filter(s => !s.isIdx);
-    const symbols = stocksList; // for backward compat in trend section
-
-    // 建立格子卡片
-    const makeRow = (items) => ({
-      type: 'box', layout: 'horizontal', margin: 'md', spacing: 'sm',
-      contents: items.map(item => {
-        const d = item.data;
-        const price = d ? `$${parseFloat(d.price).toFixed(2)}` : 'N/A';
-        const changeAmt = d ? `${d.change >= 0 ? '+' : ''}${parseFloat(d.change).toFixed(2)}` : '--';
-        const pct = d ? `${d.change >= 0 ? '+' : ''}${d.changePercent}%` : '--';
-        const isVIX = item.isVIX;
-        const isUp = d ? d.change >= 0 : false;
-        const color = isVIX 
-          ? (isUp ? '#ff4444' : '#00C851')
-          : (isUp ? '#00C851' : '#ff4444');
-
-        return {
-          type: 'box', layout: 'vertical', flex: 1,
-          backgroundColor: item.isIdx ? '#0f1923' : '#1a1a2e',
-          cornerRadius: 'md',
-          paddingAll: '8px',
-          contents: [
-            { type: 'text', text: item.label, size: 'xxs', color: item.isIdx ? '#f0883e' : '#aaaaaa', align: 'center', weight: item.isIdx ? 'bold' : 'regular' },
-            { type: 'text', text: `${price}`, size: 'sm', weight: 'bold', color: color, align: 'center', margin: 'xs' },
-            { type: 'text', text: changeAmt, size: 'xxs', color: color, align: 'center' },
-            { type: 'text', text: pct, size: 'xxs', color: color, align: 'center' }
-          ]
-        };
-      })
-    });
-
-    const idxRow = makeRow(indicesData.slice(0, 4));
-    const stockRow1 = makeRow(stocksList.slice(0, 4));
-    const stockRow2 = stocksList.length > 4 ? makeRow(stocksList.slice(4, 8)) : null;
-
-    const bodyContents = [
-      { type: 'text', text: `● 即時數據｜${getTaiwanTime()}`, size: 'xxs', color: '#8b949e', margin: 'none' },
-      { type: 'text', text: '📊 指數 ETF', size: 'xxs', color: '#f0883e', margin: 'md', weight: 'bold' },
-      idxRow,
-      { type: 'separator', margin: 'md', color: '#30363d' },
-      { type: 'text', text: '📈 關鍵個股', size: 'xxs', color: '#58a6ff', margin: 'md', weight: 'bold' },
-      stockRow1
-    ];
-    if (stockRow2) bodyContents.push(stockRow2);
-
-    const card1 = {
-      type: 'bubble', size: 'mega',
-      header: {
-        type: 'box', layout: 'horizontal',
-        backgroundColor: '#0d1117',
-        paddingAll: '15px',
-        contents: [
-          { type: 'box', layout: 'vertical', flex: 0, backgroundColor: '#00C851', cornerRadius: 'sm', paddingAll: '4px', paddingStart: '8px', paddingEnd: '8px',
-            contents: [{ type: 'text', text: 'LIVE', size: 'xxs', color: '#ffffff', weight: 'bold' }]
-          },
-          { type: 'text', text: '  美股即時數據', color: '#58a6ff', size: 'md', weight: 'bold', gravity: 'center' }
-        ]
-      },
-      body: {
-        type: 'box', layout: 'vertical',
-        backgroundColor: '#0d1117',
-        paddingAll: '12px',
-        contents: bodyContents
-      },
-      footer: {
-        type: 'box', layout: 'horizontal',
-        backgroundColor: '#0d1117',
-        paddingAll: '10px',
-        contents: [
-          { type: 'text', text: '👉 滑動看趨勢指標', size: 'xs', color: '#8b949e', align: 'center' }
-        ]
-      }
-    };
-
-    // 卡片 2：趨勢指標
-    const trendItems = [];
-    
-    // 道瓊 DIA
-    const dia = stocksData.find(s => s.id === 'DIA')?.data;
-    if (dia) {
-      const isUp = dia.change >= 0;
-      const color = isUp ? '#00C851' : '#ff4444';
-      const arrow = isUp ? '▲' : '▼';
-      trendItems.push({
-        type: 'box', layout: 'horizontal', margin: 'md',
-        contents: [
-          { type: 'text', text: '🔥', size: 'sm', flex: 0 },
-          { type: 'text', text: `道瓊 DIA $${parseFloat(dia.price).toFixed(2)}`, size: 'sm', color, weight: 'bold', flex: 5 },
-          { type: 'text', text: `${arrow}${isUp?'+':''}${dia.changePercent}%`, size: 'xs', color, align: 'end', flex: 3 }
-        ]
-      });
-    }
-    
-    // 費半 SOXX
-    const soxx = stocksData.find(s => s.id === 'SOXX')?.data;
-    if (soxx) {
-      const isUp = soxx.change >= 0;
-      const color = isUp ? '#00C851' : '#ff4444';
-      const hint = isUp ? '半導體反攻 → 台股科技跟漲' : '半導體回落 → 台股科技承壓';
-      trendItems.push({
-        type: 'box', layout: 'vertical', margin: 'md',
-        contents: [
-          { type: 'box', layout: 'horizontal',
-            contents: [
-              { type: 'text', text: '🔥', size: 'sm', flex: 0 },
-              { type: 'text', text: `費半 SOXX ${isUp?'+':''}${soxx.changePercent}%`, size: 'sm', color, weight: 'bold', flex: 4 },
-              { type: 'text', text: `${isUp?'+':''}$${Math.abs(soxx.change).toFixed(2)}`, size: 'xs', color, align: 'end', flex: 3 }
-            ]
-          },
-          { type: 'text', text: hint, size: 'xs', color: '#8b949e', margin: 'xs' }
-        ]
-      });
-    }
-    
-    // TSM (台積ADR)
-    const tsm = stocksData.find(s => s.id === 'TSM')?.data;
-    if (tsm) {
-      const isUp = tsm.change >= 0;
-      const color = isUp ? '#00C851' : '#ff4444';
-      const twPrice = (parseFloat(tsm.price) * 6.5).toFixed(0);
-      trendItems.push({
-        type: 'box', layout: 'vertical', margin: 'md',
-        contents: [
-          { type: 'box', layout: 'horizontal',
-            contents: [
-              { type: 'text', text: '🔥', size: 'sm', flex: 0 },
-              { type: 'text', text: `台積ADR $${parseFloat(tsm.price).toFixed(2)}`, size: 'sm', color, weight: 'bold', flex: 4 },
-              { type: 'text', text: `${isUp?'+':''}$${Math.abs(tsm.change).toFixed(2)}`, size: 'xs', color, align: 'end', flex: 3 }
-            ]
-          },
-          { type: 'text', text: `${isUp?'+':''}${tsm.changePercent}%｜換算約 ${twPrice} 元`, size: 'xs', color: '#8b949e', margin: 'xs' }
-        ]
-      });
-    }
-
-    // UVXY (VIX 恐慌)
-    const vix = stocksData.find(s => s.id === 'UVXY')?.data;
-    if (vix) {
-      const isUp = vix.change >= 0;
-      const vColor = isUp ? '#ff4444' : '#00C851'; // VIX漲=紅(危險)
-      trendItems.push({
-        type: 'box', layout: 'vertical', margin: 'md',
-        contents: [
-          { type: 'box', layout: 'horizontal',
-            contents: [
-              { type: 'text', text: '📊', size: 'sm', flex: 0 },
-              { type: 'text', text: `VIX $${parseFloat(vix.price).toFixed(2)}`, size: 'sm', color: vColor, weight: 'bold', flex: 3 },
-              { type: 'text', text: `${isUp?'+':''}${vix.changePercent}%`, size: 'xs', color: vColor, align: 'end', flex: 3 }
-            ]
-          }
-        ]
-      });
-    }
-
-    const card2 = {
-      type: 'bubble', size: 'mega',
-      header: {
-        type: 'box', layout: 'vertical',
-        backgroundColor: '#0d1117',
-        paddingAll: '15px',
-        contents: [
-          { type: 'text', text: '🔥 趨勢指標（即時）', color: '#f0883e', size: 'lg', weight: 'bold' },
-          { type: 'text', text: '美股對台股影響判讀', color: '#8b949e', size: 'xs', margin: 'xs' }
-        ]
-      },
-      body: {
-        type: 'box', layout: 'vertical',
-        backgroundColor: '#161b22',
-        paddingAll: '15px',
-        contents: trendItems.length > 0 ? trendItems : [
-          { type: 'text', text: '⏳ 資料載入中...', size: 'sm', color: '#8b949e' }
-        ]
-      },
-      footer: {
-        type: 'box', layout: 'horizontal',
-        backgroundColor: '#0d1117',
-        paddingAll: '10px',
-        contents: [
-          { type: 'text', text: `⏰ ${getTaiwanTime()} | 🇺🇸 綠漲紅跌`, size: 'xs', color: '#8b949e', align: 'center' }
-        ]
-      }
-    };
-
-    return {
-      type: 'flex',
-      altText: '🇺🇸 美股數據（即時）',
-      contents: { type: 'carousel', contents: [card1, card2] }
-    };
-
-  } catch (error) {
-    console.error('取得美股數據卡片錯誤:', error);
-    return { type: 'text', text: '⚠️ 取得美股數據失敗，請稍後再試' };
-  }
-}
-
-/**
- * 📋 監控清單 + 美股數據 輪播（輸入「監控」觸發）
- */
-async function getWatchlistWithUSFlex() {
-  try {
-    // 同時取得監控清單和美股數據
-    const [watchlistReply, usDashboardReply] = await Promise.all([
-      getWatchlistFlex(),
-      getUSStockDashboardFlex()
-    ]);
-
-    // 如果監控清單是文字（空清單），只回美股數據
-    if (watchlistReply.type === 'text') {
-      // 把文字訊息和美股卡片組合
-      if (usDashboardReply.type === 'flex') {
-        return usDashboardReply;
-      }
-      return watchlistReply;
-    }
-
-    // 監控清單是 flex bubble，美股數據是 flex carousel
-    // 組合成一個大 carousel
-    const carouselContents = [];
-    
-    // 加入監控清單 bubble
-    if (watchlistReply.type === 'flex' && watchlistReply.contents) {
-      carouselContents.push(watchlistReply.contents);
-    }
-    
-    // 加入美股數據 bubbles
-    if (usDashboardReply.type === 'flex' && usDashboardReply.contents) {
-      if (usDashboardReply.contents.type === 'carousel') {
-        carouselContents.push(...usDashboardReply.contents.contents);
-      } else {
-        carouselContents.push(usDashboardReply.contents);
-      }
-    }
-
-    if (carouselContents.length === 0) {
-      return { type: 'text', text: '⚠️ 無法取得資料' };
-    }
-
-    // LINE carousel 最多 12 個 bubble
-    return {
-      type: 'flex',
-      altText: '📋 監控清單 + 🇺🇸 美股數據',
-      contents: { type: 'carousel', contents: carouselContents.slice(0, 12) }
-    };
-
-  } catch (error) {
-    console.error('取得監控+美股數據錯誤:', error);
-    // 降級：只回監控清單
-    return await getWatchlistFlex();
-  }
 }
 
 /**
@@ -10760,7 +10471,10 @@ function getFullFeatureList() {
               { type: 'text', text: '台積電現在多少\n鴻海漲還跌\n幫我查聯發科', size: 'xs', color: '#666666', wrap: true, margin: 'sm' },
               { type: 'separator', margin: 'lg' },
               { type: 'text', text: '⏰ 自動通知', weight: 'bold', size: 'sm', color: '#F39C12', margin: 'lg' },
-              { type: 'text', text: '09:00 開盤提醒\n盤中 價格警報\n13:35 收盤摘要\n15:00 法人買賣超\n🇺🇸 21:30 美股開盤預告', size: 'xs', color: '#666666', wrap: true, margin: 'sm' }
+              { type: 'text', text: '🌏 08:30 全球市場日報\n　（美股指數+個股+日韓半導體）\n09:00 開盤提醒\n盤中 價格警報\n13:35 收盤摘要\n15:00 法人買賣超\n🇺🇸 21:30 美股開盤預告', size: 'xs', color: '#666666', wrap: true, margin: 'sm' },
+              { type: 'separator', margin: 'lg' },
+              { type: 'text', text: '🌏 手動觸發', weight: 'bold', size: 'sm', color: '#F39C12', margin: 'lg' },
+              { type: 'text', text: '全球日報 → 美股+日韓卡片\n美股日報 / 日韓日報 / 國際日報', size: 'xs', color: '#666666', wrap: true, margin: 'sm' }
             ],
             paddingAll: '15px'
           },
@@ -10768,11 +10482,11 @@ function getFullFeatureList() {
             type: 'box',
             layout: 'horizontal',
             contents: [
-              { type: 'button', style: 'primary', color: '#F39C12', height: 'sm',
-                action: { type: 'message', label: '教學', text: '教學' }
+              { type: 'button', style: 'primary', color: '#1A237E', height: 'sm',
+                action: { type: 'message', label: '🌏 全球日報', text: '全球日報' }
               },
               { type: 'button', style: 'secondary', height: 'sm', margin: 'sm',
-                action: { type: 'message', label: '說明', text: '說明' }
+                action: { type: 'message', label: '教學', text: '教學' }
               }
             ],
             paddingAll: '10px'
@@ -11329,13 +11043,31 @@ async function getSettingsPageFlex() {
 }
 
 /**
+ * 🌏 手動觸發全球市場日報
+ */
+async function triggerGlobalDailyReport() {
+  try {
+    if (!scheduler || !scheduler.sendGlobalMarketDailyReport) {
+      return { type: 'text', text: '❌ 排程模組未載入，無法觸發全球日報' };
+    }
+    // 非同步觸發，不阻塞回覆
+    scheduler.sendGlobalMarketDailyReport().catch(e => {
+      console.error('全球日報觸發失敗:', e.message);
+    });
+    return { type: 'text', text: '🌏 全球市場日報生成中...\n\n📤 稍後將發送 4 張卡片：\n🇺🇸 美股指數\n🇺🇸 美股個股\n🇯🇵 日本半導體\n🇰🇷 韓國半導體\n\n⏳ 約需 10~20 秒' };
+  } catch(e) {
+    return { type: 'text', text: '❌ 觸發失敗: ' + e.message };
+  }
+}
+
+/**
  * 取得說明回覆
  */
 function getHelpReply() {
   const help = `📱 股海秘書指令說明\n` +
     `━━━━━━━━━━━━━━\n` +
     `🔍 查詢：2330、AAPL、台積電現在多少\n` +
-    `📈 大盤：大盤、美股、美股數據\n` +
+    `📈 大盤：大盤、美股、全球日報\n` +
     `📊 分析：分析 2330、綜合分析\n` +
     `🏦 籌碼：籌碼 2330、外資買超\n` +
     `💼 持股：持股、收盤摘要\n` +
@@ -11349,6 +11081,7 @@ function getHelpReply() {
     `📋 取消預約 2330\n\n` +
     `🆕 進階功能\n` +
     `━━━━━━━━━━━━━━\n` +
+    `🌏 全球日報（美股+日韓卡片）\n` +
     `📊 即時報價（專業看盤網頁）\n` +
     `💰 股息：股息 2330、高殖利率\n` +
     `🌊 波浪：波浪 2330（分析）\n` +
