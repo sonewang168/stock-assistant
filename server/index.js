@@ -83,6 +83,15 @@ app.use('/webhook', express.raw({ type: 'application/json' }), lineRoutes);
 
 // ==================== TPEx Proxy (繞過 CORS + Cloudflare) ====================
 const axios = require('axios');
+// yahoo-finance2 (自動處理 cookie/crumb 認證)
+let yahooFinance = null;
+try {
+  const YF = require('yahoo-finance2').default;
+  yahooFinance = (typeof YF === 'function') ? new YF({ suppressNotices: ['yahooSurvey'] }) : YF;
+  console.log('✅ yahoo-finance2 loaded');
+} catch(e) {
+  console.log('⚠️ yahoo-finance2 未安裝，使用 axios fallback');
+}
 
 // TPEx 多域名 + OpenAPI 策略
 async function fetchTPExData(rocDate, stockId) {
@@ -368,35 +377,73 @@ app.get('/api/asia-indices', async (req, res) => {
     const symbols = [...new Set(ASIA_INDICES.map(i => i.symbol))];
     const dataMap = {};
 
-    // v8 chart 逐一查詢，每批 4 個並行 + 批次間延遲，避免被擋
-    for (let i = 0; i < symbols.length; i += 4) {
-      const batch = symbols.slice(i, i + 4);
-      const results = await Promise.allSettled(batch.map(async (symbol) => {
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d&includePrePost=false`;
-        const resp = await axios.get(url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-            'Accept': '*/*'
-          },
-          timeout: 10000
+    // === 方法1: yahoo-finance2（自動處理 crumb 認證）===
+    if (yahooFinance) {
+      try {
+        const quotes = await yahooFinance.quote(symbols);
+        const quoteArr = Array.isArray(quotes) ? quotes : [quotes];
+        quoteArr.forEach(q => {
+          if (q && q.symbol && q.regularMarketPrice) {
+            dataMap[q.symbol] = {
+              price: q.regularMarketPrice,
+              prevClose: q.regularMarketPreviousClose || 0,
+              change: q.regularMarketChange || 0,
+              changePercent: q.regularMarketChangePercent || 0
+            };
+          }
         });
-        const meta = resp.data?.chart?.result?.[0]?.meta;
-        if (meta) {
-          const price = meta.regularMarketPrice;
-          const prevClose = meta.chartPreviousClose || meta.previousClose;
-          const change = price - prevClose;
-          const changePercent = prevClose > 0 ? ((change / prevClose) * 100) : 0;
-          return { symbol, price, prevClose, change, changePercent };
+        console.log(`✅ Asia yf2: ${Object.keys(dataMap).length}/${symbols.length}`);
+      } catch(e) {
+        console.log(`⚠️ Asia yf2 batch failed: ${e.message?.substring(0, 80)}`);
+        // 逐一查詢 fallback
+        for (const symbol of symbols) {
+          if (dataMap[symbol]) continue;
+          try {
+            const q = await yahooFinance.quote(symbol);
+            if (q?.regularMarketPrice) {
+              dataMap[q.symbol || symbol] = {
+                price: q.regularMarketPrice,
+                prevClose: q.regularMarketPreviousClose || 0,
+                change: q.regularMarketChange || 0,
+                changePercent: q.regularMarketChangePercent || 0
+              };
+            }
+          } catch(e2) { /* skip */ }
         }
-        return null;
-      }));
-      results.forEach(r => {
-        if (r.status === 'fulfilled' && r.value) dataMap[r.value.symbol] = r.value;
-      });
-      // 批次間延遲 500ms
-      if (i + 4 < symbols.length) await new Promise(r => setTimeout(r, 500));
+        console.log(`⚠️ Asia yf2 single: ${Object.keys(dataMap).length}/${symbols.length}`);
+      }
     }
-    console.log(`✅ Asia indices: ${Object.keys(dataMap).length}/${symbols.length} symbols`);
+
+    // === 方法2: axios v8 chart fallback（沒裝 yf2 或 yf2 全失敗時）===
+    const missing = symbols.filter(s => !dataMap[s]);
+    if (missing.length > 0) {
+      console.log(`🔄 Asia axios fallback for ${missing.length} symbols...`);
+      for (let i = 0; i < missing.length; i += 4) {
+        const batch = missing.slice(i, i + 4);
+        const results = await Promise.allSettled(batch.map(async (symbol) => {
+          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d&includePrePost=false`;
+          const resp = await axios.get(url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+              'Accept': '*/*'
+            },
+            timeout: 10000
+          });
+          const meta = resp.data?.chart?.result?.[0]?.meta;
+          if (meta) {
+            const price = meta.regularMarketPrice;
+            const prevClose = meta.chartPreviousClose || meta.previousClose;
+            return { symbol, price, prevClose, change: price - prevClose, changePercent: prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0 };
+          }
+          return null;
+        }));
+        results.forEach(r => {
+          if (r.status === 'fulfilled' && r.value) dataMap[r.value.symbol] = r.value;
+        });
+        if (i + 4 < missing.length) await new Promise(r => setTimeout(r, 500));
+      }
+      console.log(`📊 Asia total: ${Object.keys(dataMap).length}/${symbols.length}`);
+    }
 
     // 組裝結果
     const data = ASIA_INDICES.map(idx => {
