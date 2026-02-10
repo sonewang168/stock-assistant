@@ -320,6 +320,87 @@ app.get('/api/finmind-test', async (req, res) => {
   }
 });
 
+// ==================== 🇯🇵🇰🇷 亞洲指數 Proxy ====================
+const ASIA_INDICES = [
+  // 🇯🇵 日本
+  { symbol: '^N225',     label: '日經225',     region: 'japan' },
+  { symbol: '1306.T',   label: 'TOPIX ETF',   region: 'japan' },
+  { symbol: '2516.T',   label: '東證REIT',    region: 'japan' },
+  { symbol: '1357.T',   label: '日經雙倍',    region: 'japan' },
+  // 🇰🇷 韓國
+  { symbol: '^KS11',    label: 'KOSPI',        region: 'korea' },
+  { symbol: '^KQ11',    label: 'KOSDAQ',       region: 'korea' },
+  { symbol: '069500.KS', label: 'KODEX 200',   region: 'korea' },
+  { symbol: '229200.KS', label: 'KODEX코스닥', region: 'korea' },
+];
+
+app.get('/api/asia-indices', async (req, res) => {
+  try {
+    // 使用 Yahoo Finance v8 chart API
+    const symbols = [...new Set(ASIA_INDICES.map(i => i.symbol))];
+    const results = [];
+
+    // 並行抓取所有指數
+    const fetches = symbols.map(async (symbol) => {
+      try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d&includePrePost=false`;
+        const response = await axios.get(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json'
+          },
+          timeout: 10000
+        });
+
+        const chart = response.data?.chart?.result?.[0];
+        if (!chart) return null;
+
+        const meta = chart.meta;
+        const price = meta.regularMarketPrice;
+        const prevClose = meta.chartPreviousClose || meta.previousClose;
+        const change = price - prevClose;
+        const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+
+        return { symbol, price, prevClose, change, changePercent };
+      } catch(e) {
+        console.log(`❌ Asia index ${symbol}: ${e.message}`);
+        return null;
+      }
+    });
+
+    const fetchResults = await Promise.all(fetches);
+    const dataMap = {};
+    fetchResults.filter(Boolean).forEach(r => { dataMap[r.symbol] = r; });
+
+    // 組裝結果
+    const data = ASIA_INDICES.map(idx => {
+      const d = dataMap[idx.symbol];
+      return {
+        symbol: idx.symbol,
+        label: idx.label,
+        region: idx.region,
+        price: d?.price || null,
+        prevClose: d?.prevClose || null,
+        change: d?.change || 0,
+        changePercent: d?.changePercent || 0
+      };
+    });
+
+    const now = new Date();
+    const twTime = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+
+    res.json({
+      success: true,
+      data,
+      time: twTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
+      count: data.filter(d => d.price !== null).length
+    });
+  } catch(e) {
+    console.error('亞洲指數錯誤:', e.message);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // ==================== 健康檢查 ====================
 
 app.get('/api/health', async (req, res) => {
