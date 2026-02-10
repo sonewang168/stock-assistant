@@ -364,65 +364,39 @@ app.get('/api/asia-indices', async (req, res) => {
       });
     }
 
-    // 所有 symbol 合併成一次請求
+    // 所有 symbol（去重）
     const symbols = [...new Set(ASIA_INDICES.map(i => i.symbol))];
-    const symbolStr = symbols.map(s => encodeURIComponent(s)).join(',');
     const dataMap = {};
 
-    // 方法1: v8 batch（一次請求全部）
-    try {
-      const url = `https://query1.finance.yahoo.com/v8/finance/spark?symbols=${symbolStr}&range=2d&interval=1d`;
-      const response = await axios.get(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-          'Accept': '*/*'
-        },
-        timeout: 12000
-      });
-      const sparkData = response.data?.spark?.result || [];
-      sparkData.forEach(item => {
-        const meta = item?.response?.[0]?.meta;
+    // v8 chart 逐一查詢，每批 4 個並行 + 批次間延遲，避免被擋
+    for (let i = 0; i < symbols.length; i += 4) {
+      const batch = symbols.slice(i, i + 4);
+      const results = await Promise.allSettled(batch.map(async (symbol) => {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d&includePrePost=false`;
+        const resp = await axios.get(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Accept': '*/*'
+          },
+          timeout: 10000
+        });
+        const meta = resp.data?.chart?.result?.[0]?.meta;
         if (meta) {
           const price = meta.regularMarketPrice;
           const prevClose = meta.chartPreviousClose || meta.previousClose;
           const change = price - prevClose;
-          const changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
-          dataMap[item.symbol] = { price, prevClose, change, changePercent };
+          const changePercent = prevClose > 0 ? ((change / prevClose) * 100) : 0;
+          return { symbol, price, prevClose, change, changePercent };
         }
+        return null;
+      }));
+      results.forEach(r => {
+        if (r.status === 'fulfilled' && r.value) dataMap[r.value.symbol] = r.value;
       });
-      console.log(`✅ Asia spark: ${Object.keys(dataMap).length}/${symbols.length} symbols`);
-    } catch(e) {
-      console.log(`⚠️ Asia spark failed: ${e.response?.status || e.message}`);
+      // 批次間延遲 500ms
+      if (i + 4 < symbols.length) await new Promise(r => setTimeout(r, 500));
     }
-
-    // 方法2: 沒抓到的用 v8 chart 逐一補（限制併發）
-    const missing = symbols.filter(s => !dataMap[s]);
-    if (missing.length > 0 && missing.length <= symbols.length) {
-      console.log(`🔄 Asia fallback for ${missing.length} symbols...`);
-      // 每次最多 4 個並行，避免被擋
-      for (let i = 0; i < missing.length; i += 4) {
-        const batch = missing.slice(i, i + 4);
-        const results = await Promise.allSettled(batch.map(async (symbol) => {
-          const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
-          const resp = await axios.get(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': '*/*' },
-            timeout: 8000
-          });
-          const meta = resp.data?.chart?.result?.[0]?.meta;
-          if (meta) {
-            const price = meta.regularMarketPrice;
-            const prevClose = meta.chartPreviousClose || meta.previousClose;
-            return { symbol, price, prevClose, change: price - prevClose, changePercent: prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0 };
-          }
-          return null;
-        }));
-        results.forEach(r => {
-          if (r.status === 'fulfilled' && r.value) dataMap[r.value.symbol] = r.value;
-        });
-        // 批次之間延遲 300ms
-        if (i + 4 < missing.length) await new Promise(r => setTimeout(r, 300));
-      }
-    }
+    console.log(`✅ Asia indices: ${Object.keys(dataMap).length}/${symbols.length} symbols`);
 
     // 組裝結果
     const data = ASIA_INDICES.map(idx => {
