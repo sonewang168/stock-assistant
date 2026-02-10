@@ -815,6 +815,7 @@ class Scheduler {
       ];
       const asiaResults = [];
 
+      // 方法1: yahoo-finance2
       if (yahooFinance) {
         try {
           const symbols = asiaSymbols.map(s => s.symbol);
@@ -831,23 +832,65 @@ class Scheduler {
               }
             }
           });
+          console.log(`   🇯🇵🇰🇷 yf2: ${asiaResults.length}/${asiaSymbols.length}`);
         } catch(e) {
-          console.log(`   ⚠️ yf2 batch: ${e.message?.substring(0,50)}`);
-          // 逐一 fallback
-          for (const s of asiaSymbols) {
-            try {
-              const q = await yahooFinance.quote(s.symbol);
-              if (q?.regularMarketPrice) {
-                asiaResults.push({
-                  symbol: s.symbol, label: s.label, region: s.region, cat: s.cat,
-                  price: q.regularMarketPrice, change: q.regularMarketChange || 0, changePercent: q.regularMarketChangePercent || 0
-                });
-              }
-            } catch(e2) { /* skip */ }
-          }
+          console.log(`   ⚠️ yf2 failed: ${e.message?.substring(0,60)}`);
         }
       }
-      console.log(`   🇯🇵🇰🇷 日韓: ${asiaResults.length}/${asiaSymbols.length}`);
+
+      // 方法2: axios v8 chart fallback（yf2 沒裝或失敗時）
+      const missingAsia = asiaSymbols.filter(s => !asiaResults.find(r => r.symbol === s.symbol));
+      if (missingAsia.length > 0) {
+        console.log(`   🔄 axios fallback for ${missingAsia.length} Asia symbols...`);
+        for (let i = 0; i < missingAsia.length; i += 4) {
+          const batch = missingAsia.slice(i, i + 4);
+          const results = await Promise.allSettled(batch.map(async (s) => {
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s.symbol)}?interval=1d&range=2d&includePrePost=false`;
+            const resp = await axios.get(url, {
+              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36', 'Accept': '*/*' },
+              timeout: 10000
+            });
+            const meta = resp.data?.chart?.result?.[0]?.meta;
+            if (meta?.regularMarketPrice) {
+              const price = meta.regularMarketPrice;
+              const prevClose = meta.chartPreviousClose || meta.previousClose || 0;
+              return {
+                symbol: s.symbol, label: s.label, region: s.region, cat: s.cat,
+                price, change: price - prevClose, changePercent: prevClose > 0 ? ((price - prevClose) / prevClose * 100) : 0
+              };
+            }
+            return null;
+          }));
+          results.forEach(r => {
+            if (r.status === 'fulfilled' && r.value) asiaResults.push(r.value);
+          });
+          if (i + 4 < missingAsia.length) await this.sleep(500);
+        }
+        console.log(`   🇯🇵🇰🇷 axios: ${asiaResults.length}/${asiaSymbols.length}`);
+      }
+
+      // 方法3: CF Worker fallback（如果上面全失敗，嘗試透過 index.js 的 /api/asia-indices）
+      if (asiaResults.length === 0) {
+        try {
+          const port = process.env.PORT || 3000;
+          const resp = await axios.get(`http://localhost:${port}/api/asia-indices`, { timeout: 15000 });
+          if (resp.data?.success && resp.data.data) {
+            resp.data.data.forEach(d => {
+              if (d.price) {
+                asiaResults.push({
+                  symbol: d.symbol, label: d.label, region: d.region, cat: d.cat,
+                  price: d.price, change: d.change || 0, changePercent: d.changePercent || 0
+                });
+              }
+            });
+            console.log(`   🇯🇵🇰🇷 local API: ${asiaResults.length}/${asiaSymbols.length}`);
+          }
+        } catch(e) {
+          console.log(`   ❌ local API: ${e.message?.substring(0,50)}`);
+        }
+      }
+
+      console.log(`   🇯🇵🇰🇷 日韓合計: ${asiaResults.length}/${asiaSymbols.length}`);
 
       // =============================================
       // 🎨 建立 Carousel Flex Message
