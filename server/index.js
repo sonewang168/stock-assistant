@@ -488,6 +488,20 @@ app.get('/api/asia-indices', async (req, res) => {
   }
 });
 
+// ==================== 手動測試 ====================
+
+// 🌏 手動觸發全球市場日報（測試用）
+app.get('/api/test/global-daily', async (req, res) => {
+  try {
+    console.log('🧪 手動觸發全球市場日報...');
+    await scheduler.sendGlobalMarketDailyReport();
+    res.json({ success: true, message: '全球市場日報已發送，請檢查 LINE' });
+  } catch(e) {
+    console.error('測試失敗:', e.message);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // ==================== 健康檢查 ====================
 
 app.get('/api/health', async (req, res) => {
