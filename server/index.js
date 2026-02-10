@@ -399,13 +399,22 @@ app.get('/api/asia-indices', async (req, res) => {
     });
 
     const now = new Date();
-    const twTime = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+    const twNow = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+    const twH = twNow.getHours(), twM = twNow.getMinutes();
+    const twMin = twH * 60 + twM;
+    const dayOfWeek = twNow.getDay();
+    let marketStatus = 'closed';
+    if (dayOfWeek > 0 && dayOfWeek < 6) {
+      if (twMin >= 480 && twMin < 870) marketStatus = 'open';
+      else if (twMin < 480) marketStatus = 'pre';
+    }
 
     res.json({
       success: true,
       data,
-      time: twTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
-      count: data.filter(d => d.price !== null).length
+      time: twNow.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
+      count: data.filter(d => d.price !== null).length,
+      marketStatus
     });
   } catch(e) {
     console.error('亞洲指數錯誤:', e.message);

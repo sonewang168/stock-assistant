@@ -4591,13 +4591,25 @@
             <div id="asiaIndexDashboard" style="margin-top: 20px; border-top: 2px solid #ff6b6b; padding-top: 15px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
+                        <span id="asiaMarketBadge" style="background: #666; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">⏸ 休市</span>
                         <span style="color: #ff6b6b; font-size: 1.1rem; font-weight: bold;">🇯🇵🇰🇷 日韓市場 + 半導體</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span id="asiaIndexTime" style="font-size: 0.8rem; color: var(--text-muted);">● 載入中</span>
+                        <select id="asiaInterval" onchange="updateAsiaInterval()" style="padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.8rem;">
+                            <option value="30">30秒</option>
+                            <option value="60" selected>60秒</option>
+                            <option value="120">2分鐘</option>
+                            <option value="300">5分鐘</option>
+                        </select>
+                        <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--text-secondary); cursor: pointer;">
+                            <input type="checkbox" id="asiaAutoRefresh" onchange="toggleAsiaAutoRefresh()" checked>
+                            自動
+                        </label>
                         <button class="quick-btn" style="background: #1a1a2e; color: #ff6b6b; font-size: 0.85rem; padding: 5px 12px;" onclick="fetchAsiaIndices()">🔄 更新</button>
                     </div>
                 </div>
+                <div id="asiaCountdown" style="text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;"></div>
                 <!-- 🇯🇵 日本大盤 -->
                 <div style="margin-bottom: 8px;">
                     <div style="font-size: 0.85rem; color: #ff6b6b; font-weight: bold; margin-bottom: 6px;">🇯🇵 日本大盤</div>
@@ -12684,6 +12696,11 @@
             if (document.getElementById('usStockAutoRefresh')?.checked) {
                 startUSStockAutoRefresh();
             }
+            if (document.getElementById('asiaAutoRefresh')?.checked) {
+                startAsiaAutoRefresh();
+            }
+            // 每分鐘更新盤市狀態
+            setInterval(updateAsiaMarketBadge, 60000);
         }
 
         // 📊 四大指數（Twelve Data）
@@ -12928,9 +12945,82 @@
         }
 
         // ===== 🇯🇵🇰🇷 日韓指數面板 =====
+        let asiaTimer = null;
+        let asiaIntervalSec = 60;
+        let asiaCountdownTimer = null;
+        let asiaCountdownVal = 0;
+
+        // 判斷日韓市場狀態
+        // 日本: 09:00-11:30 前場, 12:30-15:00 後場 (JST = UTC+9 = 台灣+1)
+        // 韓國: 09:00-15:30 (KST = UTC+9 = 台灣+1)
+        function getAsiaMarketStatus() {
+            const now = new Date();
+            // 台灣時間
+            const twHour = now.getHours();
+            const twMin = now.getMinutes();
+            const twTime = twHour * 60 + twMin;
+            const day = now.getDay();
+            
+            if (day === 0 || day === 6) return { status: 'closed', text: '休市（週末）', color: '#666' };
+            
+            // 日本時間 = 台灣+1h → 日本 09:00 = 台灣 08:00, 日本 15:00 = 台灣 14:00
+            // 韓國時間 = 台灣+1h → 韓國 09:00 = 台灣 08:00, 韓國 15:30 = 台灣 14:30
+            const jpMorningOpen = 8*60;      // 台灣 08:00 = 日本 09:00
+            const jpMorningClose = 10*60+30;  // 台灣 10:30 = 日本 11:30
+            const jpAfternoonOpen = 11*60+30; // 台灣 11:30 = 日本 12:30
+            const jpAfternoonClose = 14*60;   // 台灣 14:00 = 日本 15:00
+            const krClose = 14*60+30;         // 台灣 14:30 = 韓國 15:30
+
+            // 盤前
+            if (twTime < jpMorningOpen) return { status: 'pre', text: '盤前', color: '#f0883e' };
+            
+            // 日本前場
+            if (twTime >= jpMorningOpen && twTime < jpMorningClose) {
+                return { status: 'open', text: '🇯🇵前場 🇰🇷開盤中', color: '#00C851' };
+            }
+            
+            // 日本午休 韓國交易中
+            if (twTime >= jpMorningClose && twTime < jpAfternoonOpen) {
+                return { status: 'open', text: '🇯🇵午休 🇰🇷開盤中', color: '#f0883e' };
+            }
+            
+            // 日本後場 + 韓國交易中
+            if (twTime >= jpAfternoonOpen && twTime < jpAfternoonClose) {
+                return { status: 'open', text: '🇯🇵後場 🇰🇷開盤中', color: '#00C851' };
+            }
+            
+            // 日本收盤 韓國還在
+            if (twTime >= jpAfternoonClose && twTime < krClose) {
+                return { status: 'open', text: '🇯🇵收盤 🇰🇷尾盤', color: '#f0883e' };
+            }
+            
+            // 全部收盤
+            return { status: 'closed', text: '收盤', color: '#666' };
+        }
+
+        function updateAsiaMarketBadge() {
+            const badge = document.getElementById('asiaMarketBadge');
+            if (!badge) return;
+            const ms = getAsiaMarketStatus();
+            if (ms.status === 'open') {
+                badge.style.background = ms.color;
+                badge.style.animation = 'livePulse 2s infinite';
+                badge.textContent = ms.text;
+            } else if (ms.status === 'pre') {
+                badge.style.background = ms.color;
+                badge.style.animation = 'none';
+                badge.textContent = '⏳ ' + ms.text;
+            } else {
+                badge.style.background = ms.color;
+                badge.style.animation = 'none';
+                badge.textContent = '⏸ ' + ms.text;
+            }
+        }
+
         async function fetchAsiaIndices() {
             const timeEl = document.getElementById('asiaIndexTime');
             if (timeEl) timeEl.textContent = '⏳ 更新中...';
+            updateAsiaMarketBadge();
             
             try {
                 const resp = await fetchWithTimeout('/api/asia-indices', 15000);
@@ -12947,7 +13037,13 @@
                     renderAsiaIndicesGrid('koreaIndexGrid', krIndex, 2);
                     renderAsiaIndicesGrid('koreaSemiGrid', krSemi, 3);
                     
-                    if (timeEl) timeEl.textContent = `● ${result.time || new Date().toLocaleTimeString('zh-TW')} (${result.count}筆)`;
+                    const ms = getAsiaMarketStatus();
+                    const statusIcon = ms.status === 'open' ? '🟢' : ms.status === 'pre' ? '🟡' : '🔴';
+                    if (timeEl) timeEl.textContent = `${statusIcon} ${result.time || new Date().toLocaleTimeString('zh-TW')} (${result.count}筆)`;
+                    
+                    // 啟動倒數
+                    asiaCountdownVal = asiaIntervalSec;
+                    startAsiaCountdown();
                 } else {
                     if (timeEl) timeEl.textContent = `❌ ${result.error || '無資料'}`;
                 }
@@ -12955,6 +13051,45 @@
                 console.error('亞洲指數更新失敗:', e);
                 if (timeEl) timeEl.textContent = '❌ 網路錯誤';
             }
+        }
+
+        function startAsiaAutoRefresh() {
+            stopAsiaAutoRefresh();
+            asiaTimer = setInterval(fetchAsiaIndices, asiaIntervalSec * 1000);
+            asiaCountdownVal = asiaIntervalSec;
+            startAsiaCountdown();
+        }
+
+        function stopAsiaAutoRefresh() {
+            if (asiaTimer) { clearInterval(asiaTimer); asiaTimer = null; }
+            if (asiaCountdownTimer) { clearInterval(asiaCountdownTimer); asiaCountdownTimer = null; }
+            const cdEl = document.getElementById('asiaCountdown');
+            if (cdEl) cdEl.textContent = '';
+        }
+
+        function toggleAsiaAutoRefresh() {
+            if (document.getElementById('asiaAutoRefresh')?.checked) {
+                startAsiaAutoRefresh();
+            } else {
+                stopAsiaAutoRefresh();
+            }
+        }
+
+        function updateAsiaInterval() {
+            asiaIntervalSec = parseInt(document.getElementById('asiaInterval')?.value) || 60;
+            if (document.getElementById('asiaAutoRefresh')?.checked) {
+                startAsiaAutoRefresh();
+            }
+        }
+
+        function startAsiaCountdown() {
+            if (asiaCountdownTimer) clearInterval(asiaCountdownTimer);
+            const cdEl = document.getElementById('asiaCountdown');
+            asiaCountdownTimer = setInterval(() => {
+                asiaCountdownVal--;
+                if (cdEl) cdEl.textContent = asiaCountdownVal > 0 ? `下次自動更新：${asiaCountdownVal}秒` : '';
+                if (asiaCountdownVal <= 0) clearInterval(asiaCountdownTimer);
+            }, 1000);
         }
 
         function renderAsiaIndicesGrid(gridId, indices, cols) {
