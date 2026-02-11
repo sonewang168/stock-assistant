@@ -841,6 +841,7 @@ const TW_STOCKS = {
   '3652': { name: '精聯', market: 'OTC' },
   '3658': { name: '漢微科', market: 'OTC' },
   '3662': { name: '樂陞', market: 'OTC' },
+  '3663': { name: '鑫科', market: 'OTC' },
   '3664': { name: '安瑞-KY', market: 'OTC' },
   '3675': { name: '德微', market: 'OTC' },
   '3680': { name: '家登', market: 'OTC' },
