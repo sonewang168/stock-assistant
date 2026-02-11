@@ -15,10 +15,18 @@ router.get('/:stockId', async (req, res) => {
   try {
     const { stockId } = req.params;
     const days = parseInt(req.query.days) || 5;
-    const market = req.query.market || null;
     const force = req.query.force === '1';
 
-    const data = await chipService.getInstitutionalTrading(stockId, days, market, force);
+    // force=1 時跳過 DB 快取，直接抓取最新資料
+    if (force) {
+      console.log(`🔄 強制抓取 ${stockId} 三大法人...`);
+      const freshData = await chipService.fetchInstitutional(stockId);
+      if (freshData) {
+        await chipService.saveInstitutionalData(freshData);
+      }
+    }
+
+    const data = await chipService.getInstitutionalTrading(stockId, days);
 
     if (!data) {
       return res.status(404).json({ 
