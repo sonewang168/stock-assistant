@@ -377,13 +377,38 @@ app.get('/api/asia-indices', async (req, res) => {
     const symbols = [...new Set(ASIA_INDICES.map(i => i.symbol))];
     const dataMap = {};
 
-    // === 方法1: yahoo-finance2（自動處理 crumb 認證）===
-    if (yahooFinance) {
+    // === ★ 方法0: CF Worker（最可靠！Railway 直連 Yahoo 會被擋）===
+    const CF_WORKER_URL = process.env.CF_INDICES_URL;
+    if (CF_WORKER_URL) {
       try {
-        const quotes = await yahooFinance.quote(symbols);
+        const symbolStr = symbols.join(',');
+        const cfResp = await axios.get(`${CF_WORKER_URL}/?symbols=${encodeURIComponent(symbolStr)}`, { timeout: 15000 });
+        if (cfResp.data?.success && cfResp.data.data?.length > 0) {
+          cfResp.data.data.forEach(d => {
+            if (d.price > 0) {
+              dataMap[d.symbol] = {
+                price: d.price,
+                prevClose: d.prevClose || 0,
+                change: d.change || 0,
+                changePercent: d.changePercent || 0
+              };
+            }
+          });
+        }
+        console.log(`✅ Asia CF Worker: ${Object.keys(dataMap).length}/${symbols.length}`);
+      } catch(e) {
+        console.log(`⚠️ Asia CF Worker: ${e.message?.substring(0, 60)}`);
+      }
+    }
+
+    // === 方法1: yahoo-finance2（CF Worker 沒設定或部分失敗時補抓）===
+    const missingAfterCF = symbols.filter(s => !dataMap[s]);
+    if (missingAfterCF.length > 0 && yahooFinance) {
+      try {
+        const quotes = await yahooFinance.quote(missingAfterCF);
         const quoteArr = Array.isArray(quotes) ? quotes : [quotes];
         quoteArr.forEach(q => {
-          if (q && q.symbol && q.regularMarketPrice) {
+          if (q && q.symbol && q.regularMarketPrice && !dataMap[q.symbol]) {
             dataMap[q.symbol] = {
               price: q.regularMarketPrice,
               prevClose: q.regularMarketPreviousClose || 0,
@@ -392,25 +417,9 @@ app.get('/api/asia-indices', async (req, res) => {
             };
           }
         });
-        console.log(`✅ Asia yf2: ${Object.keys(dataMap).length}/${symbols.length}`);
+        console.log(`✅ Asia yf2 補抓: ${Object.keys(dataMap).length}/${symbols.length}`);
       } catch(e) {
-        console.log(`⚠️ Asia yf2 batch failed: ${e.message?.substring(0, 80)}`);
-        // 逐一查詢 fallback
-        for (const symbol of symbols) {
-          if (dataMap[symbol]) continue;
-          try {
-            const q = await yahooFinance.quote(symbol);
-            if (q?.regularMarketPrice) {
-              dataMap[q.symbol || symbol] = {
-                price: q.regularMarketPrice,
-                prevClose: q.regularMarketPreviousClose || 0,
-                change: q.regularMarketChange || 0,
-                changePercent: q.regularMarketChangePercent || 0
-              };
-            }
-          } catch(e2) { /* skip */ }
-        }
-        console.log(`⚠️ Asia yf2 single: ${Object.keys(dataMap).length}/${symbols.length}`);
+        console.log(`⚠️ Asia yf2: ${e.message?.substring(0, 60)}`);
       }
     }
 
