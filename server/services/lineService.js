@@ -767,6 +767,19 @@ class LineService {
   }
 
   /**
+   * 🆕 廣播訊息（發送給預設用戶）
+   * 用於排程通知（三大法人異動等）
+   */
+  async broadcastMessage(message) {
+    const userId = process.env.LINE_USER_ID;
+    if (!userId) {
+      console.log('⚠️ broadcastMessage: LINE_USER_ID 未設定');
+      return false;
+    }
+    return await this.sendFlexMessage(userId, message);
+  }
+
+  /**
    * 清理舊的音訊檔案
    */
   cleanupOldAudioFiles(audioDir, keepCount) {

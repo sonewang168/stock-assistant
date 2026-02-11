@@ -139,10 +139,15 @@ class StockService {
         if (closingData && closingData.price > 0 && closingData.price !== data.yesterday) {
           data.price = closingData.price;
           data.change = closingData.change || (data.price - data.yesterday);
-          // 修復：避免除以 0 產生 Infinity
           data.changePercent = (data.yesterday && data.yesterday > 0) 
             ? ((data.change / data.yesterday) * 100).toFixed(2) 
             : '0.00';
+          // 🆕 同步更新開高低（TWSE 回傳 - 時這些也可能是錯的）
+          if (closingData.open && closingData.open > 0) data.open = closingData.open;
+          if (closingData.high && closingData.high > 0) data.high = closingData.high;
+          if (closingData.low && closingData.low > 0) data.low = closingData.low;
+          if (closingData.volume && closingData.volume > 0) data.volume = closingData.volume;
+          console.log(`✅ ${stockId} Yahoo備援: 價=${data.price}, 開=${data.open}, 高=${data.high}, 低=${data.low}`);
         }
       }
       
@@ -365,7 +370,44 @@ class StockService {
    * 🇺🇸 取得美股即時股價（使用多個來源）
    */
   async getUSStockPrice(symbol) {
-    // 嘗試多個資料來源
+    // 🆕 優先透過 CF Worker 代理（Railway IP 被 Yahoo 擋 502）
+    const CF_WORKER_URL = process.env.CF_INDICES_URL;
+    if (CF_WORKER_URL) {
+      try {
+        const resp = await axios.get(`${CF_WORKER_URL}/?symbols=${encodeURIComponent(symbol)}&_t=${Date.now()}`, { timeout: 15000 });
+        if (resp.data?.success && resp.data.data?.length > 0) {
+          const d = resp.data.data[0];
+          const usStockNames = {
+            'AAPL': '蘋果', 'TSLA': '特斯拉', 'NVDA': '輝達', 'MSFT': '微軟',
+            'GOOGL': '谷歌', 'GOOG': '谷歌', 'AMZN': '亞馬遜', 'META': 'Meta',
+            'AMD': '超微', 'INTC': '英特爾', 'TSM': '台積電ADR', 'BABA': '阿里巴巴',
+            'JD': '京東', 'PDD': '拼多多', 'NIO': '蔚來', 'XPEV': '小鵬',
+            'LI': '理想', 'PLTR': 'Palantir', 'COIN': 'Coinbase', 'ROKU': 'Roku',
+            'SQ': 'Block', 'PYPL': 'PayPal', 'NFLX': 'Netflix', 'DIS': '迪士尼',
+            'BA': '波音', 'F': '福特', 'GM': '通用', 'JPM': '摩根大通',
+            'V': 'Visa', 'MA': 'Mastercard', 'WMT': '沃爾瑪', 'COST': '好市多',
+            'SPY': 'S&P500 ETF', 'QQQ': '納指100 ETF', 'VOO': 'Vanguard S&P500',
+            'AVGO': '博通', 'MU': '美光', 'UVXY': 'UVXY恐慌', 'ARM': 'ARM',
+            'QCOM': '高通', 'MRVL': 'Marvell', 'LRCX': '科磊', 'AMAT': '應材',
+            'KLAC': 'KLA', 'ASML': 'ASML', 'SMCI': '超微電腦', 'DELL': '戴爾',
+          };
+          console.log(`✅ CF Worker 美股 ${symbol}: $${d.price} (${d.changePercent > 0 ? '+' : ''}${d.changePercent}%)`);
+          return {
+            id: symbol, name: usStockNames[symbol] || symbol,
+            price: d.price, open: 0, high: 0, low: 0,
+            yesterday: d.prevClose, volume: 0,
+            change: d.change, changePercent: d.changePercent,
+            market: 'US', colorMode: 'us', currency: 'USD',
+            marketState: 'REGULAR',
+            time: new Date().toLocaleTimeString('zh-TW', { timeZone: 'America/New_York' })
+          };
+        }
+      } catch (e) {
+        console.log(`   CF Worker 美股 ${symbol} 失敗: ${e.message}`);
+      }
+    }
+
+    // 備援：直接呼叫 Yahoo（Railway IP 可能被擋）
     let data = await this.fetchUSStockFromYahoo(symbol);
     
     if (!data) {
@@ -728,53 +770,25 @@ class StockService {
         { symbol: '^SOX', name: '費城半導體', finageSymbol: 'SOX' }
       ];
 
-      // ===== 方法 0: Cloudflare Worker 代理 =====
-      const CF_WORKER_URL = process.env.CF_INDICES_URL;
-      if (CF_WORKER_URL) {
-        try {
-          const symbolStr = indices.map(i => i.symbol).join(',');
-          const url = `${CF_WORKER_URL}/?symbols=${encodeURIComponent(symbolStr)}`;
-          console.log(`📊 [CF Worker] LINE BOT 查詢四大指數...`);
-          const resp = await axios.get(url, { timeout: 10000 });
-
-          if (resp.data?.success && resp.data.data?.length >= 3) {
-            const results = [];
-            for (const idx of indices) {
-              const d = resp.data.data.find(r => r.symbol === idx.symbol);
-              if (d && d.price > 0) {
-                results.push({
-                  symbol: idx.symbol, name: idx.name,
-                  price: d.price, change: d.change,
-                  changePercent: d.changePercent
-                });
-              }
-            }
-            if (results.length >= 3) {
-              console.log(`📊 [CF Worker] 成功取得 ${results.length} 個指數`);
-              return results;
-            }
-          }
-          console.log(`⚠️ [CF Worker] 資料不足，降級 Yahoo`);
-        } catch (e) {
-          console.log(`❌ [CF Worker] 失敗: ${e.message}，降級 Yahoo`);
-        }
-      }
-
-      // ===== 降級: Yahoo Finance =====
       const results = [];
+      
       for (const index of indices) {
         let data = null;
         
+        // 嘗試方法 1: Yahoo v8 chart API
         data = await this.fetchIndexFromYahooV8(index);
         
+        // 嘗試方法 2: Yahoo v7 quote API
         if (!data) {
           data = await this.fetchIndexFromYahooV7(index);
         }
         
+        // 嘗試方法 3: Yahoo v6 quote API
         if (!data) {
           data = await this.fetchIndexFromYahooV6(index);
         }
         
+        // 嘗試方法 4: 使用 Google Finance 頁面解析
         if (!data) {
           data = await this.fetchIndexFromGoogle(index);
         }
