@@ -11,14 +11,6 @@ const lineService = require('../services/lineService');
 const twStocks = require('../data/twStocks');
 const { pool } = require('../db');
 
-// 📅 排程器（用於手動觸發全球日報）
-let scheduler;
-try {
-  scheduler = require('../cron/scheduler');
-} catch(e) {
-  console.log('⚠️ scheduler 載入失敗:', e.message);
-}
-
 // 🌊 引入進階波浪分析模組
 let elliottWaveAdvanced;
 try {
@@ -11043,15 +11035,13 @@ async function getSettingsPageFlex() {
 }
 
 /**
- * 🌏 手動觸發全球市場日報
+ * 🌏 手動觸發全球市場日報（透過 HTTP 呼叫，避免循環依賴）
  */
 async function triggerGlobalDailyReport() {
   try {
-    if (!scheduler || !scheduler.sendGlobalMarketDailyReport) {
-      return { type: 'text', text: '❌ 排程模組未載入，無法觸發全球日報' };
-    }
-    // 非同步觸發，不阻塞回覆
-    scheduler.sendGlobalMarketDailyReport().catch(e => {
+    const port = process.env.PORT || 3000;
+    // 非同步呼叫 test endpoint，不阻塞回覆
+    axios.get(`http://localhost:${port}/api/test/global-daily`, { timeout: 30000 }).catch(e => {
       console.error('全球日報觸發失敗:', e.message);
     });
     return { type: 'text', text: '🌏 全球市場日報生成中...\n\n📤 稍後將發送 4 張卡片：\n🇺🇸 美股指數\n🇺🇸 美股個股\n🇯🇵 日本半導體\n🇰🇷 韓國半導體\n\n⏳ 約需 10~20 秒' };
