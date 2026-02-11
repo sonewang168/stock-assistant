@@ -9,6 +9,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
+const axios = require('axios');
 
 // 資料庫
 const { pool, initDatabase, seedStocks, seedSettings } = require('./db');
@@ -120,6 +121,66 @@ app.get('/api/tpex-diag', async (req, res) => {
 
     res.json({ success: true, results });
   } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== 日韓亞洲指數 API ====================
+
+const ASIA_SYMBOLS = [
+  { symbol: '^N225',     label: '日經225',     region: 'japan', cat: 'index' },
+  { symbol: '8035.T',   label: '東京威力科創', region: 'japan', cat: 'semi' },
+  { symbol: '6857.T',   label: '愛德萬測試',   region: 'japan', cat: 'semi' },
+  { symbol: '6146.T',   label: 'DISCO',        region: 'japan', cat: 'semi' },
+  { symbol: '6920.T',   label: 'Lasertec',     region: 'japan', cat: 'semi' },
+  { symbol: '4063.T',   label: '信越化學',     region: 'japan', cat: 'semi' },
+  { symbol: '^KS11',    label: 'KOSPI',        region: 'korea', cat: 'index' },
+  { symbol: '000660.KS', label: 'SK海力士',    region: 'korea', cat: 'semi' },
+  { symbol: '005930.KS', label: '三星電子',    region: 'korea', cat: 'semi' },
+  { symbol: '042700.KQ', label: '韓美半導體',  region: 'korea', cat: 'semi' },
+  { symbol: '403870.KS', label: 'HPSP',        region: 'korea', cat: 'semi' },
+  { symbol: '091160.KS', label: 'KODEX半導體', region: 'korea', cat: 'semi' }
+];
+
+let asiaCache = { data: null, time: 0 };
+
+app.get('/api/asia-indices', async (req, res) => {
+  try {
+    const now = Date.now();
+    // 30 秒快取
+    if (asiaCache.data && (now - asiaCache.time) < 30000) {
+      return res.json({ ...asiaCache.data, cached: true });
+    }
+
+    const CF_WORKER_URL = process.env.CF_INDICES_URL;
+    if (!CF_WORKER_URL) {
+      return res.json({ success: false, error: 'CF_INDICES_URL 未設定' });
+    }
+
+    const symbolStr = ASIA_SYMBOLS.map(s => s.symbol).join(',');
+    const resp = await axios.get(`${CF_WORKER_URL}/?symbols=${encodeURIComponent(symbolStr)}&_t=${now}`, { timeout: 15000 });
+
+    const results = [];
+    if (resp.data?.success && resp.data.data?.length > 0) {
+      resp.data.data.forEach(d => {
+        const def = ASIA_SYMBOLS.find(s => s.symbol === d.symbol);
+        if (def && d.price > 0) {
+          results.push({
+            symbol: d.symbol, label: def.label, region: def.region, cat: def.cat,
+            price: d.price, change: d.change || 0, changePercent: d.changePercent || 0
+          });
+        }
+      });
+    }
+
+    const response = {
+      success: true, data: results, count: results.length,
+      time: new Date().toLocaleTimeString('zh-TW', { timeZone: 'Asia/Taipei' })
+    };
+    asiaCache = { data: response, time: now };
+    res.json(response);
+  } catch (error) {
+    console.error('Asia indices error:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
