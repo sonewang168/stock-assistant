@@ -745,7 +745,7 @@ class Scheduler {
       if (CF_WORKER_URL) {
         try {
           const symbolStr = usIndices.map(i => i.symbol).join(',');
-          const resp = await axios.get(`${CF_WORKER_URL}/?symbols=${encodeURIComponent(symbolStr)}`, { timeout: 10000 });
+          const resp = await axios.get(`${CF_WORKER_URL}/?symbols=${encodeURIComponent(symbolStr)}&_t=${Date.now()}`, { timeout: 10000 });
           if (resp.data?.success && resp.data.data?.length > 0) {
             for (const idx of usIndices) {
               const d = resp.data.data.find(r => r.symbol === idx.symbol);
@@ -819,7 +819,7 @@ class Scheduler {
       if (CF_WORKER_URL) {
         try {
           const symbolStr = asiaSymbols.map(s => s.symbol).join(',');
-          const resp = await axios.get(`${CF_WORKER_URL}/?symbols=${encodeURIComponent(symbolStr)}`, { timeout: 15000 });
+          const resp = await axios.get(`${CF_WORKER_URL}/?symbols=${encodeURIComponent(symbolStr)}&_t=${Date.now()}`, { timeout: 15000 });
           if (resp.data?.success && resp.data.data?.length > 0) {
             resp.data.data.forEach(d => {
               const def = asiaSymbols.find(s => s.symbol === d.symbol);

@@ -382,7 +382,7 @@ app.get('/api/asia-indices', async (req, res) => {
     if (CF_WORKER_URL) {
       try {
         const symbolStr = symbols.join(',');
-        const cfResp = await axios.get(`${CF_WORKER_URL}/?symbols=${encodeURIComponent(symbolStr)}`, { timeout: 15000 });
+        const cfResp = await axios.get(`${CF_WORKER_URL}/?symbols=${encodeURIComponent(symbolStr)}&_t=${Date.now()}`, { timeout: 15000 });
         if (cfResp.data?.success && cfResp.data.data?.length > 0) {
           cfResp.data.data.forEach(d => {
             if (d.price > 0) {
