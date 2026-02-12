@@ -556,6 +556,16 @@
                                 <input type="number" class="target-low" value="${h.target_price_low || ''}" placeholder="未設定" step="0.01">
                             </div>
                         </div>
+                        <div class="holding-targets" style="margin-top:6px;">
+                            <div class="target-item">
+                                <label>🔺 漲幅預警 %</label>
+                                <input type="number" class="alert-pct-up" value="${h.alert_percent_up || ''}" placeholder="如 5" step="0.1" min="0">
+                            </div>
+                            <div class="target-item">
+                                <label>🔻 跌幅預警 %</label>
+                                <input type="number" class="alert-pct-down" value="${h.alert_percent_down || ''}" placeholder="如 5" step="0.1" min="0">
+                            </div>
+                        </div>
                         
                         <div class="holding-actions">
                             <button class="notify-btn ${h.notify_enabled ? '' : 'off'}" onclick="toggleNotify(${h.id}, ${!h.notify_enabled})">
@@ -798,7 +808,9 @@
                 // 如果有輸入得標價，自動設為已得標
                 is_won: wonPrice && parseFloat(wonPrice) > 0 ? true : false,
                 target_price_high: card.querySelector('.target-high').value || null,
-                target_price_low: card.querySelector('.target-low').value || null
+                target_price_low: card.querySelector('.target-low').value || null,
+                alert_percent_up: card.querySelector('.alert-pct-up').value || null,
+                alert_percent_down: card.querySelector('.alert-pct-down').value || null
             };
             
             try {

@@ -218,6 +218,12 @@ async function handleCommand(message, userId) {
     return await addToWatchlist(/^[A-Za-z]+$/.test(stockId) ? stockId.toUpperCase() : stockId);
   }
   
+  // 🔔 全域漲跌幅預警門檻
+  // 格式：預警 5% 或 預警 5 或 預警5%
+  if (/^預警\s*(\d+\.?\d*)%?$/.test(msg)) {
+    return await setGlobalThreshold(msg);
+  }
+  
   // 🔔 警報設定指令
   // 格式：警報 2330 上1000 下900 漲5 跌3 或 警報 AAPL 上200 下150
   if (/^警報\s*(\d{4,6}|[A-Za-z]{1,5})/.test(msg)) {
@@ -9547,6 +9553,43 @@ async function removeFromWatchlist(stockId) {
   } catch (error) {
     console.error('移除監控錯誤:', error);
     return { type: 'text', text: '⚠️ 移除監控失敗' };
+  }
+}
+
+/**
+ * 🔔 設定全域漲跌幅預警門檻
+ * 格式：預警 5% 或 預警 3
+ */
+async function setGlobalThreshold(msg) {
+  try {
+    const match = msg.match(/預警\s*(\d+\.?\d*)%?/);
+    if (!match) {
+      return { type: 'text', text: '⚠️ 格式：預警 5%\n設定全域漲跌幅預警門檻' };
+    }
+    
+    const value = parseFloat(match[1]);
+    if (value <= 0 || value > 50) {
+      return { type: 'text', text: '⚠️ 請輸入 0.1 ~ 50 之間的數字' };
+    }
+    
+    // 更新 settings 表
+    await pool.query(`
+      INSERT INTO settings (key, value) VALUES ('price_threshold', $1)
+      ON CONFLICT (key) DO UPDATE SET value = $1
+    `, [value.toString()]);
+    
+    return { 
+      type: 'text', 
+      text: `✅ 全域漲跌幅預警已設定為 ${value}%\n` +
+            `━━━━━━━━━━━━━━\n` +
+            `📊 當任一監控股票單日漲跌幅超過 ${value}% 時\n` +
+            `將自動發送 LINE 通知\n\n` +
+            `💡 個股可單獨設定：\n` +
+            `警報 2330 漲5 跌3`
+    };
+  } catch (error) {
+    console.error('設定預警門檻錯誤:', error);
+    return { type: 'text', text: '❌ 設定失敗: ' + error.message };
   }
 }
 

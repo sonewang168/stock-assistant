@@ -46,7 +46,9 @@ async function ensureTable() {
       'ALTER TABLE holdings ADD COLUMN IF NOT EXISTS odd_shares INTEGER DEFAULT 0',
       'ALTER TABLE holdings ADD COLUMN IF NOT EXISTS is_sold BOOLEAN DEFAULT false',
       'ALTER TABLE holdings ADD COLUMN IF NOT EXISTS sold_price DECIMAL(10,2)',
-      'ALTER TABLE holdings ADD COLUMN IF NOT EXISTS sold_date DATE'
+      'ALTER TABLE holdings ADD COLUMN IF NOT EXISTS sold_date DATE',
+      'ALTER TABLE holdings ADD COLUMN IF NOT EXISTS alert_percent_up DECIMAL(5,2)',
+      'ALTER TABLE holdings ADD COLUMN IF NOT EXISTS alert_percent_down DECIMAL(5,2)'
     ];
     
     for (const sql of columns) {
@@ -356,6 +358,8 @@ router.put('/:id', async (req, res) => {
       sold_price,
       target_price_high,
       target_price_low,
+      alert_percent_up,
+      alert_percent_down,
       notify_enabled,
       notes
     } = req.body;
@@ -385,17 +389,19 @@ router.put('/:id', async (req, res) => {
         sold_date = COALESCE($9, sold_date),
         target_price_high = COALESCE($10, target_price_high),
         target_price_low = COALESCE($11, target_price_low),
-        notify_enabled = COALESCE($12, notify_enabled),
-        notes = COALESCE($13, notes),
+        alert_percent_up = COALESCE($12, alert_percent_up),
+        alert_percent_down = COALESCE($13, alert_percent_down),
+        notify_enabled = COALESCE($14, notify_enabled),
+        notes = COALESCE($15, notes),
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $14
+      WHERE id = $16
       RETURNING *
     `;
     
     const result = await pool.query(sql, [
       lots, odd_shares, totalShares, bid_price, won_price, is_won,
       is_sold, sold_price, soldDate,
-      target_price_high, target_price_low, notify_enabled, notes, id
+      target_price_high, target_price_low, alert_percent_up, alert_percent_down, notify_enabled, notes, id
     ]);
     
     if (result.rows.length === 0) {
