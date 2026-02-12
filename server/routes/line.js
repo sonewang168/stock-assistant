@@ -218,6 +218,14 @@ async function handleCommand(message, userId) {
     return await addToWatchlist(/^[A-Za-z]+$/.test(stockId) ? stockId.toUpperCase() : stockId);
   }
   
+  // 🔴 休市設定（颱風假/臨時停班停課）
+  if (/^(休市|設定休市|停班|颱風假)$/.test(msg)) {
+    return await setTempHoliday();
+  }
+  if (/^(取消休市|恢復交易|開市)$/.test(msg)) {
+    return await removeTempHoliday();
+  }
+  
   // 🔔 全域漲跌幅預警門檻
   // 格式：預警 5% 或 預警 5 或 預警5%
   if (/^預警\s*(\d+\.?\d*)%?$/.test(msg)) {
@@ -9553,6 +9561,86 @@ async function removeFromWatchlist(stockId) {
   } catch (error) {
     console.error('移除監控錯誤:', error);
     return { type: 'text', text: '⚠️ 移除監控失敗' };
+  }
+}
+
+/**
+ * 🔴 設定今日臨時休市（颱風假/停班停課）
+ */
+async function setTempHoliday() {
+  try {
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const today = `${y}-${m}-${d}`;
+
+    // 讀取現有臨時休市
+    let tempList = [];
+    try {
+      const result = await pool.query("SELECT value FROM settings WHERE key = 'temp_holidays'");
+      if (result.rows.length > 0) tempList = JSON.parse(result.rows[0].value || '[]');
+    } catch (e) {}
+
+    if (tempList.includes(today)) {
+      return { type: 'text', text: `⚠️ 今天（${today}）已設定為休市\n輸入「取消休市」可恢復` };
+    }
+
+    tempList.push(today);
+    await pool.query(`
+      INSERT INTO settings (key, value) VALUES ('temp_holidays', $1)
+      ON CONFLICT (key) DO UPDATE SET value = $1
+    `, [JSON.stringify(tempList)]);
+
+    return {
+      type: 'text',
+      text: `🔴 已設定 ${today} 為臨時休市\n` +
+            `━━━━━━━━━━━━━━\n` +
+            `📵 今日所有排程通知已停止：\n` +
+            `• 開盤提醒\n• 盤中監控\n• 收盤日報\n• 持股摘要\n• 法人/籌碼更新\n\n` +
+            `⚠️ 美股監控不受影響\n` +
+            `💡 輸入「取消休市」可恢復`
+    };
+  } catch (error) {
+    console.error('設定臨時休市錯誤:', error);
+    return { type: 'text', text: '❌ 設定失敗: ' + error.message };
+  }
+}
+
+/**
+ * 🟢 取消今日臨時休市
+ */
+async function removeTempHoliday() {
+  try {
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const today = `${y}-${m}-${d}`;
+
+    let tempList = [];
+    try {
+      const result = await pool.query("SELECT value FROM settings WHERE key = 'temp_holidays'");
+      if (result.rows.length > 0) tempList = JSON.parse(result.rows[0].value || '[]');
+    } catch (e) {}
+
+    if (!tempList.includes(today)) {
+      return { type: 'text', text: `ℹ️ 今天（${today}）沒有設定臨時休市` };
+    }
+
+    tempList = tempList.filter(d => d !== today);
+    await pool.query(`
+      INSERT INTO settings (key, value) VALUES ('temp_holidays', $1)
+      ON CONFLICT (key) DO UPDATE SET value = $1
+    `, [JSON.stringify(tempList)]);
+
+    return {
+      type: 'text',
+      text: `🟢 已取消 ${today} 臨時休市\n排程通知恢復正常`
+    };
+  } catch (error) {
+    console.error('取消臨時休市錯誤:', error);
+    return { type: 'text', text: '❌ 取消失敗: ' + error.message };
   }
 }
 

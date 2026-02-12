@@ -29,6 +29,75 @@ class Scheduler {
     this.isRunning = false;
   }
 
+  // ==================== 台股休市日判斷 ====================
+  
+  // 台股國定假日 2026-2030（平日才列，週末本來就休市）
+  static TW_HOLIDAYS = [
+    // 2026
+    '2026-01-01','2026-01-02','2026-02-16','2026-02-17','2026-02-18','2026-02-19','2026-02-20','2026-02-23',
+    '2026-02-27','2026-02-28','2026-04-02','2026-04-03','2026-04-04','2026-04-05','2026-04-06',
+    '2026-05-01','2026-06-19','2026-09-28','2026-10-09','2026-10-10',
+    // 2027
+    '2027-01-01','2027-02-05','2027-02-06','2027-02-07','2027-02-08','2027-02-09','2027-02-10',
+    '2027-02-28','2027-03-01','2027-04-04','2027-04-05','2027-04-06',
+    '2027-05-01','2027-06-09','2027-09-16','2027-09-17','2027-10-10','2027-10-11',
+    // 2028
+    '2028-01-01','2028-01-25','2028-01-26','2028-01-27','2028-01-28','2028-01-29','2028-02-01',
+    '2028-02-28','2028-02-29','2028-04-03','2028-04-04',
+    '2028-05-01','2028-05-27','2028-05-28','2028-05-29',
+    '2028-10-03','2028-10-04','2028-10-09','2028-10-10',
+    // 2029
+    '2029-01-01','2029-02-12','2029-02-13','2029-02-14','2029-02-15','2029-02-16','2029-02-19',
+    '2029-02-28','2029-04-03','2029-04-04',
+    '2029-05-01','2029-06-15','2029-06-16','2029-09-24','2029-10-10',
+    // 2030
+    '2030-01-01','2030-02-01','2030-02-02','2030-02-03','2030-02-04','2030-02-05','2030-02-06',
+    '2030-02-28','2030-03-01','2030-04-04','2030-04-05',
+    '2030-05-01','2030-06-05','2030-09-12','2030-09-13','2030-10-10','2030-10-11'
+  ];
+
+  static TW_HOLIDAY_NAMES = {
+    '2026-01-01':'元旦','2026-01-02':'彈性放假','2026-02-16':'春節調整','2026-02-17':'除夕',
+    '2026-02-18':'春節','2026-02-19':'春節','2026-02-20':'春節','2026-02-23':'春節補假',
+    '2026-02-27':'和平紀念日調整','2026-02-28':'和平紀念日',
+    '2026-04-02':'兒童節調整','2026-04-03':'兒童節','2026-04-04':'清明節調整','2026-04-05':'清明節','2026-04-06':'清明節補假',
+    '2026-05-01':'勞動節','2026-06-19':'端午節','2026-09-28':'中秋節','2026-10-09':'國慶日調整','2026-10-10':'國慶日',
+    '2027-01-01':'元旦','2027-02-05':'春節調整','2027-02-06':'除夕','2027-02-07':'春節','2027-02-08':'春節','2027-02-09':'春節','2027-02-10':'春節補假',
+    '2027-02-28':'和平紀念日','2027-03-01':'和平紀念日補假','2027-04-04':'兒童節','2027-04-05':'清明節','2027-04-06':'調整放假',
+    '2027-05-01':'勞動節','2027-06-09':'端午節','2027-09-16':'中秋節','2027-09-17':'中秋節補假','2027-10-10':'國慶日','2027-10-11':'國慶日補假'
+  };
+
+  /**
+   * 🔴 檢查今天是否為台股休市日
+   * @returns {string|false} 休市原因或 false
+   */
+  async isTWHoliday() {
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
+    const day = now.getDay();
+    if (day === 0 || day === 6) return '週末';
+
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${d}`;
+
+    // 國定假日
+    if (Scheduler.TW_HOLIDAYS.includes(dateStr)) {
+      return Scheduler.TW_HOLIDAY_NAMES[dateStr] || '國定假日';
+    }
+
+    // DB 臨時休市（颱風假、停班停課等）
+    try {
+      const result = await pool.query("SELECT value FROM settings WHERE key = 'temp_holidays'");
+      if (result.rows.length > 0) {
+        const tempList = JSON.parse(result.rows[0].value || '[]');
+        if (tempList.includes(dateStr)) return '臨時休市（停班停課）';
+      }
+    } catch (e) { /* ignore */ }
+
+    return false;
+  }
+
   /**
    * 啟動所有排程
    */
@@ -36,7 +105,9 @@ class Scheduler {
     console.log('⏰ 排程任務啟動中...');
 
     // 🔔 台股開盤前提醒（08:30 啟動，根據設定決定發送時間）
-    const twMarketOpen = cron.schedule('30 8 * * 1-5', () => {
+    const twMarketOpen = cron.schedule('30 8 * * 1-5', async () => {
+      const holiday = await this.isTWHoliday();
+      if (holiday) { console.log(`🔴 台股休市（${holiday}），跳過開盤提醒`); return; }
       this.scheduleTWMarketReminder();
     }, {
       timezone: 'Asia/Taipei'
@@ -45,7 +116,9 @@ class Scheduler {
 
     // 🌏 全球市場日報（每日 08:30）
     // 美股前一夜收盤 + 日韓前一日收盤 → LINE Flex 卡片
-    const globalDailyReport = cron.schedule('30 8 * * 1-6', () => {
+    const globalDailyReport = cron.schedule('30 8 * * 1-6', async () => {
+      const holiday = await this.isTWHoliday();
+      if (holiday) { console.log(`🔴 台股休市（${holiday}），跳過全球日報`); return; }
       this.sendGlobalMarketDailyReport();
     }, {
       timezone: 'Asia/Taipei'
@@ -53,7 +126,9 @@ class Scheduler {
     this.jobs.push(globalDailyReport);
 
     // 盤中監控（週一到週五 09:00-13:30，每 5 分鐘）
-    const marketCheck = cron.schedule('*/5 9-13 * * 1-5', () => {
+    const marketCheck = cron.schedule('*/5 9-13 * * 1-5', async () => {
+      const holiday = await this.isTWHoliday();
+      if (holiday) return;
       const now = new Date();
       const hour = now.getHours();
       const minute = now.getMinutes();
@@ -68,7 +143,9 @@ class Scheduler {
     this.jobs.push(marketCheck);
 
     // 🔔 智能通知檢查（週一到週五 09:30-13:30，每 15 分鐘）
-    const smartAlertCheck = cron.schedule('*/15 9-13 * * 1-5', () => {
+    const smartAlertCheck = cron.schedule('*/15 9-13 * * 1-5', async () => {
+      const holiday = await this.isTWHoliday();
+      if (holiday) return;
       const now = new Date();
       const hour = now.getHours();
       const minute = now.getMinutes();
@@ -82,7 +159,9 @@ class Scheduler {
     this.jobs.push(smartAlertCheck);
 
     // 📊 每日績效報告（週一到週五 13:35）
-    const dailyPerformance = cron.schedule('35 13 * * 1-5', () => {
+    const dailyPerformance = cron.schedule('35 13 * * 1-5', async () => {
+      const holiday = await this.isTWHoliday();
+      if (holiday) { console.log(`🔴 休市（${holiday}），跳過績效報告`); return; }
       this.sendPerformanceReport();
     }, {
       timezone: 'Asia/Taipei'
@@ -90,7 +169,9 @@ class Scheduler {
     this.jobs.push(dailyPerformance);
 
     // 收盤日報（週一到週五 13:40）
-    const dailyReport = cron.schedule('40 13 * * 1-5', () => {
+    const dailyReport = cron.schedule('40 13 * * 1-5', async () => {
+      const holiday = await this.isTWHoliday();
+      if (holiday) { console.log(`🔴 休市（${holiday}），跳過收盤日報`); return; }
       this.sendDailyReport();
     }, {
       timezone: 'Asia/Taipei'
@@ -98,7 +179,9 @@ class Scheduler {
     this.jobs.push(dailyReport);
 
     // 📈 持股收盤摘要（週一到週五 14:00）
-    const holdingsSummary = cron.schedule('0 14 * * 1-5', () => {
+    const holdingsSummary = cron.schedule('0 14 * * 1-5', async () => {
+      const holiday = await this.isTWHoliday();
+      if (holiday) { console.log(`🔴 休市（${holiday}），跳過持股摘要`); return; }
       this.sendHoldingsSummary();
     }, {
       timezone: 'Asia/Taipei'
@@ -106,7 +189,9 @@ class Scheduler {
     this.jobs.push(holdingsSummary);
 
     // 🎯 停利停損檢查（週一到週五 09:30-13:30，每 10 分鐘）
-    const stopLossCheck = cron.schedule('*/10 9-13 * * 1-5', () => {
+    const stopLossCheck = cron.schedule('*/10 9-13 * * 1-5', async () => {
+      const holiday = await this.isTWHoliday();
+      if (holiday) return;
       const now = new Date();
       const hour = now.getHours();
       const minute = now.getMinutes();
@@ -120,7 +205,9 @@ class Scheduler {
     this.jobs.push(stopLossCheck);
 
     // 🏦 三大法人更新（週一到週五 15:30）- TWSE 資料約 15:00 後更新
-    const institutionalUpdate = cron.schedule('30 15 * * 1-5', () => {
+    const institutionalUpdate = cron.schedule('30 15 * * 1-5', async () => {
+      const holiday = await this.isTWHoliday();
+      if (holiday) { console.log(`🔴 休市（${holiday}），跳過法人更新`); return; }
       this.updateInstitutionalData();
     }, {
       timezone: 'Asia/Taipei'
@@ -128,7 +215,9 @@ class Scheduler {
     this.jobs.push(institutionalUpdate);
 
     // 籌碼更新（週一到週五 16:00）
-    const chipUpdate = cron.schedule('0 16 * * 1-5', () => {
+    const chipUpdate = cron.schedule('0 16 * * 1-5', async () => {
+      const holiday = await this.isTWHoliday();
+      if (holiday) { console.log(`🔴 休市（${holiday}），跳過籌碼更新`); return; }
       this.updateChipData();
     }, {
       timezone: 'Asia/Taipei'
