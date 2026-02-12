@@ -207,32 +207,37 @@ app.get('/api/pe-river/:stockId', async (req, res) => {
 
     // 計算 period1/period2（UNIX timestamp）
     const endDate = Math.floor(Date.now() / 1000);
-    const startDate = endDate - (years * 365.25 * 24 * 60 * 60);
+    const startDate = Math.floor(endDate - (years * 365.25 * 24 * 60 * 60));
 
     // 嘗試 .TW 和 .TWO，query1 和 query2 備援
+    // interval 優先 1wk，fallback 1d
     let symbol = `${stockId}.TW`;
     let chartData = null;
 
     const suffixes = ['.TW', '.TWO'];
     const queries = ['query1', 'query2'];
+    const intervals = ['1wk', '1d'];
 
-    for (const query of queries) {
+    for (const interval of intervals) {
       if (chartData) break;
-      for (const suffix of suffixes) {
-        const sym = `${stockId}${suffix}`;
-        try {
-          const url = `https://${query}.finance.yahoo.com/v8/finance/chart/${sym}?period1=${Math.floor(startDate)}&period2=${endDate}&interval=1mo`;
-          console.log(`📊 PE River 嘗試 ${query} ${sym}...`);
-          const chartRes = await axios.get(url, { headers: YAHOO_HEADERS, timeout: 15000 });
-          const result = chartRes.data?.chart?.result?.[0];
-          if (result && result.timestamp && result.timestamp.length > 0) {
-            chartData = result;
-            symbol = sym;
-            console.log(`✅ PE River ${sym} 成功: ${result.timestamp.length} 筆`);
-            break;
+      for (const query of queries) {
+        if (chartData) break;
+        for (const suffix of suffixes) {
+          const sym = `${stockId}${suffix}`;
+          try {
+            const url = `https://${query}.finance.yahoo.com/v8/finance/chart/${sym}?period1=${startDate}&period2=${endDate}&interval=${interval}`;
+            console.log(`📊 PE River 嘗試 ${query} ${sym} interval=${interval}...`);
+            const chartRes = await axios.get(url, { headers: YAHOO_HEADERS, timeout: 15000 });
+            const result = chartRes.data?.chart?.result?.[0];
+            if (result && result.timestamp && result.timestamp.length > 0) {
+              chartData = result;
+              symbol = sym;
+              console.log(`✅ PE River ${sym} 成功: ${result.timestamp.length} 筆 (${interval})`);
+              break;
+            }
+          } catch (e) {
+            console.log(`PE River ${sym} (${query} ${interval}) 失敗: ${e.message}`);
           }
-        } catch (e) {
-          console.log(`PE River ${sym} (${query}) 失敗: ${e.message}`);
         }
       }
     }
@@ -301,22 +306,34 @@ app.get('/api/pe-river/:stockId', async (req, res) => {
       stockName = chartData.meta?.shortName || chartData.meta?.longName || stockId;
     }
 
-    // 5) 解析月線數據
+    // 5) 解析數據並彙整為月線
     const timestamps = chartData.timestamp || [];
     const closes = chartData.indicators?.quote?.[0]?.close || [];
     const currentPrice = chartData.meta?.regularMarketPrice || closes[closes.length - 1] || 0;
 
-    const monthlyData = [];
+    // 先收集所有有效數據點
+    const rawData = [];
     for (let i = 0; i < timestamps.length; i++) {
       const close = closes[i];
       if (close && close > 0) {
         const d = new Date(timestamps[i] * 1000);
-        monthlyData.push({
-          date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        rawData.push({
+          yearMonth: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
           close: parseFloat(close.toFixed(2))
         });
       }
     }
+
+    // 彙整為月線（每月取最後一筆收盤價）
+    const monthMap = new Map();
+    rawData.forEach(d => {
+      monthMap.set(d.yearMonth, d.close); // 後面的覆蓋前面 = 取月底最後收盤
+    });
+    const monthlyData = Array.from(monthMap.entries())
+      .map(([date, close]) => ({ date, close }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    console.log(`📊 PE River 月線: ${monthlyData.length} 個月 (原始 ${rawData.length} 筆)`);
 
     // 6) 計算 PE 河流帶
     // 如果有 EPS，計算固定 PE 倍數的價格線
