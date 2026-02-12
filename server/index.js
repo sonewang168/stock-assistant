@@ -185,6 +185,227 @@ app.get('/api/asia-indices', async (req, res) => {
   }
 });
 
+// ==================== 本益比河流圖 API ====================
+
+const peRiverCache = {};
+
+app.get('/api/pe-river/:stockId', async (req, res) => {
+  try {
+    const { stockId } = req.params;
+    const years = parseInt(req.query.years) || 5;
+    const cacheKey = `${stockId}_${years}`;
+    
+    // 5 分鐘快取
+    if (peRiverCache[cacheKey] && (Date.now() - peRiverCache[cacheKey].time) < 300000) {
+      return res.json({ ...peRiverCache[cacheKey].data, cached: true });
+    }
+
+    const YAHOO_HEADERS = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'application/json'
+    };
+
+    // 嘗試 .TW 和 .TWO
+    let symbol = `${stockId}.TW`;
+    let chartData = null;
+    let summaryData = null;
+
+    for (const suffix of ['.TW', '.TWO']) {
+      const sym = `${stockId}${suffix}`;
+      try {
+        // 1) 月線歷史價格
+        const chartRes = await axios.get(
+          `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=${years}y&interval=1mo`,
+          { headers: YAHOO_HEADERS, timeout: 15000 }
+        );
+        const result = chartRes.data?.chart?.result?.[0];
+        if (result && result.timestamp && result.timestamp.length > 0) {
+          chartData = result;
+          symbol = sym;
+          break;
+        }
+      } catch (e) { /* try next */ }
+    }
+
+    if (!chartData) {
+      return res.status(404).json({ success: false, error: `找不到 ${stockId} 的歷史數據` });
+    }
+
+    // 2) 取得 EPS / PE / 股名
+    let eps = null, currentPE = null, stockName = stockId;
+    try {
+      const sumRes = await axios.get(
+        `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=defaultKeyStatistics,financialData,price,earningsHistory`,
+        { headers: YAHOO_HEADERS, timeout: 15000 }
+      );
+      const modules = sumRes.data?.quoteSummary?.result?.[0];
+      if (modules) {
+        const fin = modules.financialData || {};
+        const stats = modules.defaultKeyStatistics || {};
+        const priceM = modules.price || {};
+        const earningsHist = modules.earningsHistory?.history || [];
+
+        stockName = priceM.shortName || priceM.longName || stockId;
+        
+        // 近四季 EPS
+        eps = stats.trailingEps?.raw || fin.earningsPerShare?.raw || null;
+        
+        // 嘗試從 earningsHistory 加總
+        if (!eps && earningsHist.length >= 4) {
+          const recent4 = earningsHist.slice(-4);
+          const sum = recent4.reduce((acc, q) => acc + (q.epsActual?.raw || 0), 0);
+          if (sum > 0) eps = parseFloat(sum.toFixed(2));
+        }
+
+        currentPE = stats.trailingPE?.raw || priceM.trailingPE?.raw || null;
+        
+        // 如果有 PE 和 price，反推 EPS
+        if (!eps && currentPE && currentPE > 0) {
+          const curPrice = priceM.regularMarketPrice?.raw || chartData.meta?.regularMarketPrice;
+          if (curPrice > 0) eps = parseFloat((curPrice / currentPE).toFixed(2));
+        }
+      }
+    } catch (e) { console.log(`PE summary fetch failed for ${stockId}:`, e.message); }
+
+    // 3) 用 v7 quote 再嘗試一次
+    if (!eps) {
+      try {
+        const quoteRes = await axios.get(
+          `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`,
+          { headers: YAHOO_HEADERS, timeout: 10000 }
+        );
+        const q = quoteRes.data?.quoteResponse?.result?.[0];
+        if (q) {
+          eps = q.epsTrailingTwelveMonths || null;
+          currentPE = q.trailingPE || currentPE;
+          stockName = q.shortName || q.longName || stockName;
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    // 4) 解析月線數據
+    const timestamps = chartData.timestamp || [];
+    const closes = chartData.indicators?.quote?.[0]?.close || [];
+    const currentPrice = chartData.meta?.regularMarketPrice || closes[closes.length - 1] || 0;
+
+    const monthlyData = [];
+    for (let i = 0; i < timestamps.length; i++) {
+      const close = closes[i];
+      if (close && close > 0) {
+        const d = new Date(timestamps[i] * 1000);
+        monthlyData.push({
+          date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+          close: parseFloat(close.toFixed(2))
+        });
+      }
+    }
+
+    // 5) 計算 PE 河流帶
+    // 如果有 EPS，計算固定 PE 倍數的價格線
+    // 如果沒有 EPS，用歷史價格分佈做百分位帶
+    let peBands = null;
+    let peMethod = 'none';
+
+    if (eps && eps > 0) {
+      peMethod = 'eps';
+      // 根據產業調整 PE 帶（半導體/電子 PE 偏高）
+      const allPEs = monthlyData.map(d => d.close / eps).filter(pe => pe > 0 && pe < 200);
+      const sortedPEs = [...allPEs].sort((a, b) => a - b);
+      
+      // 用歷史 PE 分佈的百分位
+      const p10 = sortedPEs[Math.floor(sortedPEs.length * 0.10)] || 8;
+      const p30 = sortedPEs[Math.floor(sortedPEs.length * 0.30)] || 12;
+      const p50 = sortedPEs[Math.floor(sortedPEs.length * 0.50)] || 16;
+      const p70 = sortedPEs[Math.floor(sortedPEs.length * 0.70)] || 20;
+      const p90 = sortedPEs[Math.floor(sortedPEs.length * 0.90)] || 28;
+
+      const levels = [
+        { pe: parseFloat(p10.toFixed(1)), label: '極低估', zone: 'deep-value' },
+        { pe: parseFloat(p30.toFixed(1)), label: '低估', zone: 'value' },
+        { pe: parseFloat(p50.toFixed(1)), label: '合理', zone: 'fair' },
+        { pe: parseFloat(p70.toFixed(1)), label: '偏高', zone: 'rich' },
+        { pe: parseFloat(p90.toFixed(1)), label: '極高估', zone: 'expensive' }
+      ];
+
+      // 每個月份對應各 PE 帶的價格
+      peBands = {
+        levels,
+        eps,
+        data: monthlyData.map(d => {
+          const pe = d.close / eps;
+          let zone = 'extreme';
+          if (pe <= levels[0].pe) zone = 'deep-value';
+          else if (pe <= levels[1].pe) zone = 'value';
+          else if (pe <= levels[2].pe) zone = 'fair-low';
+          else if (pe <= levels[3].pe) zone = 'fair-high';
+          else if (pe <= levels[4].pe) zone = 'rich';
+          else zone = 'expensive';
+          
+          return {
+            date: d.date,
+            close: d.close,
+            pe: parseFloat(pe.toFixed(2)),
+            zone,
+            bandPrices: levels.map(l => parseFloat((eps * l.pe).toFixed(2)))
+          };
+        })
+      };
+    } else {
+      // 無 EPS：用價格百分位（簡化版）
+      peMethod = 'percentile';
+      const prices = monthlyData.map(d => d.close).sort((a, b) => a - b);
+      const getPercentile = (arr, pct) => arr[Math.floor(arr.length * pct)] || 0;
+      
+      peBands = {
+        levels: [
+          { price: getPercentile(prices, 0.10), label: '極低價', zone: 'deep-value' },
+          { price: getPercentile(prices, 0.30), label: '低價', zone: 'value' },
+          { price: getPercentile(prices, 0.50), label: '合理價', zone: 'fair' },
+          { price: getPercentile(prices, 0.70), label: '偏高價', zone: 'rich' },
+          { price: getPercentile(prices, 0.90), label: '極高價', zone: 'expensive' }
+        ],
+        eps: null,
+        data: monthlyData
+      };
+    }
+
+    // 6) 判斷目前估值區間
+    let currentZone = '未知';
+    if (eps && eps > 0 && currentPrice > 0) {
+      const pe = currentPrice / eps;
+      const levels = peBands.levels;
+      if (pe <= levels[0].pe) currentZone = '極低估（買進）';
+      else if (pe <= levels[1].pe) currentZone = '低估（可買）';
+      else if (pe <= levels[2].pe) currentZone = '合理偏低';
+      else if (pe <= levels[3].pe) currentZone = '合理偏高';
+      else if (pe <= levels[4].pe) currentZone = '高估（考慮減碼）';
+      else currentZone = '極高估（賣出）';
+    }
+
+    const responseData = {
+      success: true,
+      stockId,
+      stockName,
+      symbol,
+      currentPrice: parseFloat(currentPrice.toFixed(2)),
+      eps,
+      currentPE: eps && eps > 0 && currentPrice > 0 ? parseFloat((currentPrice / eps).toFixed(2)) : currentPE,
+      currentZone,
+      peMethod,
+      peBands,
+      monthlyData,
+      dataPoints: monthlyData.length
+    };
+
+    peRiverCache[cacheKey] = { data: responseData, time: Date.now() };
+    res.json(responseData);
+
+  } catch (error) {
+    console.error('PE River error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // LINE Webhook（需要原始 body）
 app.use('/webhook', express.raw({ type: 'application/json' }), lineRoutes);
 
