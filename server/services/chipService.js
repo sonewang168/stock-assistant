@@ -53,39 +53,58 @@ class ChipService {
   // ==================== TWSE ====================
 
   async fetchInstitutionalFromTWSE(stockId, date = null) {
-    try {
-      if (!date) date = this.getRecentTradeDate();
-      console.log(`📡 查詢 TWSE 三大法人: ${stockId}, 日期: ${date}`);
-
-      const url = `https://www.twse.com.tw/rwd/zh/fund/T86?date=${date}&selectType=ALLBUT0999&response=json`;
-      const response = await axios.get(url, {
-        headers: { ...BROWSER_HEADERS, 'Referer': 'https://www.twse.com.tw/' },
-        timeout: 15000
-      });
-
-      if (response.data && response.data.data) {
-        const stockData = response.data.data.find(row => String(row[0]).trim() === stockId);
-        if (stockData) {
-          const p = (str) => parseInt(String(str).replace(/,/g, '')) || 0;
-          return {
-            stockId: String(stockData[0]).trim(),
-            stockName: String(stockData[1]).trim(),
-            date: this.toISODate(date),
-            foreign: { buy: p(stockData[2]), sell: p(stockData[3]), net: p(stockData[4]) },
-            trust:   { buy: p(stockData[5]), sell: p(stockData[6]), net: p(stockData[7]) },
-            dealer:  { buy: p(stockData[8]) + p(stockData[11]), sell: p(stockData[9]) + p(stockData[12]), net: p(stockData[10]) + p(stockData[13]) },
-            totalNet: p(stockData[4]) + p(stockData[7]) + p(stockData[10]) + p(stockData[13])
-          };
+    // 如果沒指定日期，嘗試最近 3 個交易日（盤中時今日 T86 尚無資料）
+    const datesToTry = [];
+    if (date) {
+      datesToTry.push(date);
+    } else {
+      const now = new Date();
+      const twNow = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+      for (let d = 0; d < 7 && datesToTry.length < 3; d++) {
+        const dt = new Date(twNow);
+        dt.setUTCDate(dt.getUTCDate() - d);
+        const day = dt.getUTCDay();
+        if (day !== 0 && day !== 6) {
+          const y = dt.getUTCFullYear();
+          const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+          const dd = String(dt.getUTCDate()).padStart(2, '0');
+          datesToTry.push(`${y}${m}${dd}`);
         }
-        console.log(`⚠️ TWSE 找不到 ${stockId}（共 ${response.data.data.length} 筆）`);
-      } else {
-        console.log(`⚠️ TWSE 回傳無資料（假日或尚未更新）`);
       }
-      return null;
-    } catch (error) {
-      console.error(`抓取 TWSE 三大法人失敗: [${error.response?.status || 'N/A'}] ${error.message}`);
-      return null;
     }
+
+    for (const tryDate of datesToTry) {
+      try {
+        console.log(`📡 查詢 TWSE 三大法人: ${stockId}, 日期: ${tryDate}`);
+        const url = `https://www.twse.com.tw/rwd/zh/fund/T86?date=${tryDate}&selectType=ALLBUT0999&response=json`;
+        const response = await axios.get(url, {
+          headers: { ...BROWSER_HEADERS, 'Referer': 'https://www.twse.com.tw/' },
+          timeout: 15000
+        });
+
+        if (response.data && response.data.data) {
+          const stockData = response.data.data.find(row => String(row[0]).trim() === stockId);
+          if (stockData) {
+            const p = (str) => parseInt(String(str).replace(/,/g, '')) || 0;
+            return {
+              stockId: String(stockData[0]).trim(),
+              stockName: String(stockData[1]).trim(),
+              date: this.toISODate(tryDate),
+              foreign: { buy: p(stockData[2]), sell: p(stockData[3]), net: p(stockData[4]) },
+              trust:   { buy: p(stockData[5]), sell: p(stockData[6]), net: p(stockData[7]) },
+              dealer:  { buy: p(stockData[8]) + p(stockData[11]), sell: p(stockData[9]) + p(stockData[12]), net: p(stockData[10]) + p(stockData[13]) },
+              totalNet: p(stockData[4]) + p(stockData[7]) + p(stockData[10]) + p(stockData[13])
+            };
+          }
+          console.log(`⚠️ TWSE ${tryDate} 找不到 ${stockId}（共 ${response.data.data.length} 筆）`);
+        } else {
+          console.log(`⚠️ TWSE ${tryDate} 回傳無資料（假日或尚未更新）`);
+        }
+      } catch (error) {
+        console.error(`抓取 TWSE 三大法人失敗 ${tryDate}: [${error.response?.status || 'N/A'}] ${error.message}`);
+      }
+    }
+    return null;
   }
 
   // ==================== TPEX 多重備援 ====================
