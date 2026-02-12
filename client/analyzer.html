@@ -20818,15 +20818,12 @@ ${analysisContext}
                     for (const fn of fns) {
                         try {
                             const result = await fn(s.code, date);
-                            if (result && (result.foreignNet !== 0 || result.trustNet !== 0 || result.dealerNet !== 0)) {
+                            if (result) {
                                 s.instData = result;
                                 if (!foundDate) foundDate = date;
                                 got = true;
                                 console.log(`✅ ${s.code} 法人（前端 ${fn.name}）外=${result.foreignNet} 投=${result.trustNet} 自=${result.dealerNet}`);
                                 break;
-                            } else if (result) {
-                                // 有回傳但全0，可能該日無資料，繼續嘗試
-                                console.log(`⚠️ ${s.code} ${date} ${fn.name} 回傳全0，嘗試下一日`);
                             }
                         } catch(e) {
                             console.log(`❌ ${s.code} ${fn.name} 失敗:`, e.message);
