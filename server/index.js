@@ -205,26 +205,36 @@ app.get('/api/pe-river/:stockId', async (req, res) => {
       'Accept': 'application/json'
     };
 
-    // 嘗試 .TW 和 .TWO
+    // 計算 period1/period2（UNIX timestamp）
+    const endDate = Math.floor(Date.now() / 1000);
+    const startDate = endDate - (years * 365.25 * 24 * 60 * 60);
+
+    // 嘗試 .TW 和 .TWO，query1 和 query2 備援
     let symbol = `${stockId}.TW`;
     let chartData = null;
-    let summaryData = null;
 
-    for (const suffix of ['.TW', '.TWO']) {
-      const sym = `${stockId}${suffix}`;
-      try {
-        // 1) 月線歷史價格
-        const chartRes = await axios.get(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=${years}y&interval=1mo`,
-          { headers: YAHOO_HEADERS, timeout: 15000 }
-        );
-        const result = chartRes.data?.chart?.result?.[0];
-        if (result && result.timestamp && result.timestamp.length > 0) {
-          chartData = result;
-          symbol = sym;
-          break;
+    const suffixes = ['.TW', '.TWO'];
+    const queries = ['query1', 'query2'];
+
+    for (const query of queries) {
+      if (chartData) break;
+      for (const suffix of suffixes) {
+        const sym = `${stockId}${suffix}`;
+        try {
+          const url = `https://${query}.finance.yahoo.com/v8/finance/chart/${sym}?period1=${Math.floor(startDate)}&period2=${endDate}&interval=1mo`;
+          console.log(`📊 PE River 嘗試 ${query} ${sym}...`);
+          const chartRes = await axios.get(url, { headers: YAHOO_HEADERS, timeout: 15000 });
+          const result = chartRes.data?.chart?.result?.[0];
+          if (result && result.timestamp && result.timestamp.length > 0) {
+            chartData = result;
+            symbol = sym;
+            console.log(`✅ PE River ${sym} 成功: ${result.timestamp.length} 筆`);
+            break;
+          }
+        } catch (e) {
+          console.log(`PE River ${sym} (${query}) 失敗: ${e.message}`);
         }
-      } catch (e) { /* try next */ }
+      }
     }
 
     if (!chartData) {
@@ -233,57 +243,65 @@ app.get('/api/pe-river/:stockId', async (req, res) => {
 
     // 2) 取得 EPS / PE / 股名
     let eps = null, currentPE = null, stockName = stockId;
-    try {
-      const sumRes = await axios.get(
-        `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=defaultKeyStatistics,financialData,price,earningsHistory`,
-        { headers: YAHOO_HEADERS, timeout: 15000 }
-      );
-      const modules = sumRes.data?.quoteSummary?.result?.[0];
-      if (modules) {
-        const fin = modules.financialData || {};
-        const stats = modules.defaultKeyStatistics || {};
-        const priceM = modules.price || {};
-        const earningsHist = modules.earningsHistory?.history || [];
+    for (const query of ['query2', 'query1']) {
+      if (eps) break;
+      try {
+        const sumRes = await axios.get(
+          `https://${query}.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=defaultKeyStatistics,financialData,price,earningsHistory`,
+          { headers: YAHOO_HEADERS, timeout: 15000 }
+        );
+        const modules = sumRes.data?.quoteSummary?.result?.[0];
+        if (modules) {
+          const fin = modules.financialData || {};
+          const stats = modules.defaultKeyStatistics || {};
+          const priceM = modules.price || {};
+          const earningsHist = modules.earningsHistory?.history || [];
 
-        stockName = priceM.shortName || priceM.longName || stockId;
-        
-        // 近四季 EPS
-        eps = stats.trailingEps?.raw || fin.earningsPerShare?.raw || null;
-        
-        // 嘗試從 earningsHistory 加總
-        if (!eps && earningsHist.length >= 4) {
-          const recent4 = earningsHist.slice(-4);
-          const sum = recent4.reduce((acc, q) => acc + (q.epsActual?.raw || 0), 0);
-          if (sum > 0) eps = parseFloat(sum.toFixed(2));
-        }
+          stockName = priceM.shortName || priceM.longName || stockId;
+          
+          eps = stats.trailingEps?.raw || fin.earningsPerShare?.raw || null;
+          
+          if (!eps && earningsHist.length >= 4) {
+            const recent4 = earningsHist.slice(-4);
+            const sum = recent4.reduce((acc, q) => acc + (q.epsActual?.raw || 0), 0);
+            if (sum > 0) eps = parseFloat(sum.toFixed(2));
+          }
 
-        currentPE = stats.trailingPE?.raw || priceM.trailingPE?.raw || null;
-        
-        // 如果有 PE 和 price，反推 EPS
-        if (!eps && currentPE && currentPE > 0) {
-          const curPrice = priceM.regularMarketPrice?.raw || chartData.meta?.regularMarketPrice;
-          if (curPrice > 0) eps = parseFloat((curPrice / currentPE).toFixed(2));
+          currentPE = stats.trailingPE?.raw || priceM.trailingPE?.raw || null;
+          
+          if (!eps && currentPE && currentPE > 0) {
+            const curPrice = priceM.regularMarketPrice?.raw || chartData.meta?.regularMarketPrice;
+            if (curPrice > 0) eps = parseFloat((curPrice / currentPE).toFixed(2));
+          }
         }
-      }
-    } catch (e) { console.log(`PE summary fetch failed for ${stockId}:`, e.message); }
+      } catch (e) { console.log(`PE summary (${query}) failed for ${stockId}:`, e.message); }
+    }
 
     // 3) 用 v7 quote 再嘗試一次
     if (!eps) {
-      try {
-        const quoteRes = await axios.get(
-          `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`,
-          { headers: YAHOO_HEADERS, timeout: 10000 }
-        );
-        const q = quoteRes.data?.quoteResponse?.result?.[0];
-        if (q) {
-          eps = q.epsTrailingTwelveMonths || null;
-          currentPE = q.trailingPE || currentPE;
-          stockName = q.shortName || q.longName || stockName;
-        }
-      } catch (e) { /* ignore */ }
+      for (const query of ['query1', 'query2']) {
+        if (eps) break;
+        try {
+          const quoteRes = await axios.get(
+            `https://${query}.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`,
+            { headers: YAHOO_HEADERS, timeout: 10000 }
+          );
+          const q = quoteRes.data?.quoteResponse?.result?.[0];
+          if (q) {
+            eps = q.epsTrailingTwelveMonths || null;
+            currentPE = q.trailingPE || currentPE;
+            stockName = q.shortName || q.longName || stockName;
+          }
+        } catch (e) { /* ignore */ }
+      }
     }
 
-    // 4) 解析月線數據
+    // 4) stockName fallback from chart meta
+    if (stockName === stockId) {
+      stockName = chartData.meta?.shortName || chartData.meta?.longName || stockId;
+    }
+
+    // 5) 解析月線數據
     const timestamps = chartData.timestamp || [];
     const closes = chartData.indicators?.quote?.[0]?.close || [];
     const currentPrice = chartData.meta?.regularMarketPrice || closes[closes.length - 1] || 0;
@@ -300,7 +318,7 @@ app.get('/api/pe-river/:stockId', async (req, res) => {
       }
     }
 
-    // 5) 計算 PE 河流帶
+    // 6) 計算 PE 河流帶
     // 如果有 EPS，計算固定 PE 倍數的價格線
     // 如果沒有 EPS，用歷史價格分佈做百分位帶
     let peBands = null;
@@ -369,7 +387,7 @@ app.get('/api/pe-river/:stockId', async (req, res) => {
       };
     }
 
-    // 6) 判斷目前估值區間
+    // 7) 判斷目前估值區間
     let currentZone = '未知';
     if (eps && eps > 0 && currentPrice > 0) {
       const pe = currentPrice / eps;
