@@ -246,56 +246,84 @@ app.get('/api/pe-river/:stockId', async (req, res) => {
       return res.status(404).json({ success: false, error: `找不到 ${stockId} 的歷史數據` });
     }
 
-    // 2) 取得 EPS / PE / 股名
+    // 2) 取得 EPS / PE / 股名 —— 優先用 TWSE/TPEx 本益比 API
     let eps = null, currentPE = null, stockName = stockId;
-    for (const query of ['query2', 'query1']) {
-      if (eps) break;
-      try {
-        const sumRes = await axios.get(
-          `https://${query}.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=defaultKeyStatistics,financialData,price,earningsHistory`,
-          { headers: YAHOO_HEADERS, timeout: 15000 }
-        );
-        const modules = sumRes.data?.quoteSummary?.result?.[0];
-        if (modules) {
-          const fin = modules.financialData || {};
-          const stats = modules.defaultKeyStatistics || {};
-          const priceM = modules.price || {};
-          const earningsHist = modules.earningsHistory?.history || [];
+    const currentPrice = chartData.meta?.regularMarketPrice || 0;
 
-          stockName = priceM.shortName || priceM.longName || stockId;
-          
-          eps = stats.trailingEps?.raw || fin.earningsPerShare?.raw || null;
-          
-          if (!eps && earningsHist.length >= 4) {
-            const recent4 = earningsHist.slice(-4);
-            const sum = recent4.reduce((acc, q) => acc + (q.epsActual?.raw || 0), 0);
-            if (sum > 0) eps = parseFloat(sum.toFixed(2));
+    // 方法A：TWSE BWIBBU API（上市股票本益比）
+    if (!eps) {
+      // 嘗試最近 5 個交易日
+      const now = new Date();
+      const twNow = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+      for (let d = 0; d < 7 && !eps; d++) {
+        const dt = new Date(twNow);
+        dt.setUTCDate(dt.getUTCDate() - d);
+        if (dt.getUTCDay() === 0 || dt.getUTCDay() === 6) continue;
+        const dateStr = `${dt.getUTCFullYear()}${String(dt.getUTCMonth()+1).padStart(2,'0')}${String(dt.getUTCDate()).padStart(2,'0')}`;
+        try {
+          const url = `https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU?date=${dateStr}&stockNo=${stockId}&response=json`;
+          console.log(`📊 PE River TWSE BWIBBU ${stockId} date=${dateStr}...`);
+          const res = await axios.get(url, { headers: YAHOO_HEADERS, timeout: 10000 });
+          if (res.data?.stat === 'OK' && res.data?.data?.length > 0) {
+            // 取最後一天的資料
+            const lastRow = res.data.data[res.data.data.length - 1];
+            // 欄位: [0]日期 [1]殖利率(%) [2]股利年度 [3]本益比 [4]股價淨值比 [5]財報年/季
+            const pe = parseFloat(String(lastRow[3]).replace(/,/g, ''));
+            if (pe > 0 && currentPrice > 0) {
+              currentPE = pe;
+              eps = parseFloat((currentPrice / pe).toFixed(2));
+              // 嘗試從 title 取得股名
+              if (res.data.title) {
+                const nameMatch = res.data.title.match(/\d+\s+(.+?)\s/);
+                if (nameMatch) stockName = nameMatch[1];
+              }
+              console.log(`✅ TWSE BWIBBU: PE=${pe}, EPS=${eps}, name=${stockName}`);
+            }
           }
-
-          currentPE = stats.trailingPE?.raw || priceM.trailingPE?.raw || null;
-          
-          if (!eps && currentPE && currentPE > 0) {
-            const curPrice = priceM.regularMarketPrice?.raw || chartData.meta?.regularMarketPrice;
-            if (curPrice > 0) eps = parseFloat((curPrice / currentPE).toFixed(2));
-          }
-        }
-      } catch (e) { console.log(`PE summary (${query}) failed for ${stockId}:`, e.message); }
+        } catch (e) { console.log(`TWSE BWIBBU ${dateStr} failed:`, e.message); }
+      }
     }
 
-    // 3) 用 v7 quote 再嘗試一次
+    // 方法B：TPEx API（上櫃股票本益比）
     if (!eps) {
-      for (const query of ['query1', 'query2']) {
+      try {
+        const url = `https://www.tpex.org.tw/openapi/v1/tpex_mainboard_peratio_analysis`;
+        console.log(`📊 PE River TPEx peratio ${stockId}...`);
+        const res = await axios.get(url, { headers: YAHOO_HEADERS, timeout: 15000 });
+        if (Array.isArray(res.data)) {
+          const row = res.data.find(r => String(r.SecuritiesCompanyCode || r['公司代號']).trim() === stockId);
+          if (row) {
+            const pe = parseFloat(row.PriceEarningRatio || row['本益比'] || 0);
+            stockName = row.CompanyName || row['公司名稱'] || stockName;
+            if (pe > 0 && currentPrice > 0) {
+              currentPE = pe;
+              eps = parseFloat((currentPrice / pe).toFixed(2));
+              console.log(`✅ TPEx PE: PE=${pe}, EPS=${eps}, name=${stockName}`);
+            }
+          }
+        }
+      } catch (e) { console.log(`TPEx peratio failed:`, e.message); }
+    }
+
+    // 方法C：Yahoo Finance fallback（保留）
+    if (!eps) {
+      for (const query of ['query2', 'query1']) {
         if (eps) break;
         try {
-          const quoteRes = await axios.get(
-            `https://${query}.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`,
+          const sumRes = await axios.get(
+            `https://${query}.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=defaultKeyStatistics,financialData,price`,
             { headers: YAHOO_HEADERS, timeout: 10000 }
           );
-          const q = quoteRes.data?.quoteResponse?.result?.[0];
-          if (q) {
-            eps = q.epsTrailingTwelveMonths || null;
-            currentPE = q.trailingPE || currentPE;
-            stockName = q.shortName || q.longName || stockName;
+          const modules = sumRes.data?.quoteSummary?.result?.[0];
+          if (modules) {
+            const stats = modules.defaultKeyStatistics || {};
+            const priceM = modules.price || {};
+            stockName = priceM.shortName || priceM.longName || stockName;
+            eps = stats.trailingEps?.raw || null;
+            currentPE = stats.trailingPE?.raw || priceM.trailingPE?.raw || currentPE;
+            if (!eps && currentPE > 0 && currentPrice > 0) {
+              eps = parseFloat((currentPrice / currentPE).toFixed(2));
+            }
           }
         } catch (e) { /* ignore */ }
       }
@@ -309,7 +337,8 @@ app.get('/api/pe-river/:stockId', async (req, res) => {
     // 5) 解析數據並彙整為月線
     const timestamps = chartData.timestamp || [];
     const closes = chartData.indicators?.quote?.[0]?.close || [];
-    const currentPrice = chartData.meta?.regularMarketPrice || closes[closes.length - 1] || 0;
+    // 如果 meta 沒有 price，用最後一筆收盤補上
+    const finalPrice = currentPrice > 0 ? currentPrice : (closes[closes.length - 1] || 0);
 
     // 先收集所有有效數據點
     const rawData = [];
@@ -406,8 +435,8 @@ app.get('/api/pe-river/:stockId', async (req, res) => {
 
     // 7) 判斷目前估值區間
     let currentZone = '未知';
-    if (eps && eps > 0 && currentPrice > 0) {
-      const pe = currentPrice / eps;
+    if (eps && eps > 0 && finalPrice > 0) {
+      const pe = finalPrice / eps;
       const levels = peBands.levels;
       if (pe <= levels[0].pe) currentZone = '極低估（買進）';
       else if (pe <= levels[1].pe) currentZone = '低估（可買）';
@@ -422,9 +451,9 @@ app.get('/api/pe-river/:stockId', async (req, res) => {
       stockId,
       stockName,
       symbol,
-      currentPrice: parseFloat(currentPrice.toFixed(2)),
+      currentPrice: parseFloat(finalPrice.toFixed(2)),
       eps,
-      currentPE: eps && eps > 0 && currentPrice > 0 ? parseFloat((currentPrice / eps).toFixed(2)) : currentPE,
+      currentPE: eps && eps > 0 && finalPrice > 0 ? parseFloat((finalPrice / eps).toFixed(2)) : currentPE,
       currentZone,
       peMethod,
       peBands,
