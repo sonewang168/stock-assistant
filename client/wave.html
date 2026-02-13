@@ -567,6 +567,20 @@
     .ai3-btn{background:#238636;border:none;border-radius:8px;color:#fff;padding:10px 24px;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px}
     .ai3-btn:hover{background:#2ea043;transform:translateY(-1px)}
     .ai3-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .ai3-pos{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap}
+    .ai3-pos-opt{display:flex;align-items:center;gap:6px;padding:10px 18px;border-radius:10px;border:2px solid #30363d;background:#0d1117;cursor:pointer;transition:all .25s;user-select:none}
+    .ai3-pos-opt:hover{border-color:#484f58;background:#161b22}
+    .ai3-pos-opt.selected{border-color:var(--pc,#58a6ff);background:var(--pbg,rgba(88,166,255,.1));transform:scale(1.03)}
+    .ai3-pos-opt .pos-icon{font-size:1.4rem}
+    .ai3-pos-opt .pos-text{font-weight:700;font-size:.85rem;color:#c9d1d9}
+    .ai3-pos-opt .pos-desc{font-size:.7rem;color:#8b949e}
+    .ai3-focus{margin:10px 0}
+    .ai3-focus-title{font-size:.78rem;color:#8b949e;margin-bottom:8px;font-weight:600}
+    .ai3-focus-checks{display:flex;gap:8px;flex-wrap:wrap}
+    .ai3-fck{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;border:1px solid #30363d;background:#0d1117;font-size:.78rem;color:#8b949e;cursor:pointer;transition:all .2s;user-select:none}
+    .ai3-fck:hover{border-color:#484f58}
+    .ai3-fck.on{background:rgba(35,134,54,.1);border-color:rgba(35,134,54,.3);color:#3fb950}
+    .ai3-fck input{display:none}
     .ai3-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
     .ai3-card{background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:16px;position:relative;overflow:hidden}
     .ai3-card-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
@@ -579,7 +593,7 @@
     .ai3-card-status.error{background:rgba(248,81,73,.15);color:#f85149}
     .ai3-card-verdict{font-size:1.1rem;font-weight:700;margin:8px 0;min-height:1.5em}
     .ai3-card-score{font-size:.8rem;color:#8b949e;margin-bottom:8px}
-    .ai3-card-body{font-size:.78rem;color:#8b949e;line-height:1.6;max-height:200px;overflow-y:auto;white-space:pre-wrap}
+    .ai3-card-body{font-size:.78rem;color:#8b949e;line-height:1.6;max-height:400px;overflow-y:auto;white-space:pre-wrap}
     .ai3-vote{display:flex;justify-content:center;gap:24px;margin:20px 0;padding:16px;background:#0d1117;border:1px solid #30363d;border-radius:10px}
     .ai3-vote-item{text-align:center;min-width:80px}
     .ai3-vote-icon{font-size:1.5rem;margin-bottom:4px}
@@ -867,7 +881,38 @@
       <!-- 3AI Valuation Analysis -->
       <div class="ai3-panel" id="perAI3Panel">
         <div class="ai3-title">🤖 3AI 本益比估值分析與建議</div>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <!-- Position Selector -->
+        <div style="font-size:.82rem;color:#8b949e;margin-bottom:6px;font-weight:600">📌 我目前的持股狀態：</div>
+        <div class="ai3-pos" id="perPosSelector">
+          <label class="ai3-pos-opt" style="--pc:#3fb950;--pbg:rgba(63,185,80,.1)" onclick="perSelectPos(this,'holding')">
+            <span class="pos-icon">💰</span>
+            <div><div class="pos-text">已持有</div><div class="pos-desc">我持有這檔股票</div></div>
+          </label>
+          <label class="ai3-pos-opt selected" style="--pc:#58a6ff;--pbg:rgba(88,166,255,.1)" onclick="perSelectPos(this,'want_buy')">
+            <span class="pos-icon">🛒</span>
+            <div><div class="pos-text">想買進</div><div class="pos-desc">考慮進場中</div></div>
+          </label>
+          <label class="ai3-pos-opt" style="--pc:#d29922;--pbg:rgba(210,153,34,.1)" onclick="perSelectPos(this,'watching')">
+            <span class="pos-icon">👀</span>
+            <div><div class="pos-text">觀望中</div><div class="pos-desc">先觀察再決定</div></div>
+          </label>
+        </div>
+        <!-- Focus Areas -->
+        <div class="ai3-focus">
+          <div class="ai3-focus-title">🔍 我想了解的面向（可多選）：</div>
+          <div class="ai3-focus-checks" id="perFocusChecks">
+            <label class="ai3-fck on" onclick="this.classList.toggle('on')"><input type="checkbox" value="pe_valuation" checked>📊 本益比估值</label>
+            <label class="ai3-fck on" onclick="this.classList.toggle('on')"><input type="checkbox" value="eps_trend" checked>📈 EPS成長趨勢</label>
+            <label class="ai3-fck on" onclick="this.classList.toggle('on')"><input type="checkbox" value="entry_exit" checked>🎯 進出場策略</label>
+            <label class="ai3-fck" onclick="this.classList.toggle('on')"><input type="checkbox" value="risk">⚠️ 風險評估</label>
+            <label class="ai3-fck" onclick="this.classList.toggle('on')"><input type="checkbox" value="industry">🏭 產業前景</label>
+            <label class="ai3-fck" onclick="this.classList.toggle('on')"><input type="checkbox" value="dividend">💵 殖利率與配息</label>
+            <label class="ai3-fck" onclick="this.classList.toggle('on')"><input type="checkbox" value="compare">🔄 同業比較</label>
+            <label class="ai3-fck" onclick="this.classList.toggle('on')"><input type="checkbox" value="short_term">⚡ 短線技術面</label>
+          </div>
+        </div>
+        <!-- Button -->
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px">
           <button class="ai3-btn" id="perAI3Btn" onclick="perStartAI3()" disabled>🚀 開始 3AI 估值分析</button>
           <span style="font-size:.75rem;color:#6e7681" id="perAI3Hint">請先查詢股票後再分析</span>
         </div>
@@ -2127,6 +2172,10 @@
     let perAI3Running=false;
     let perAI3Results={claude:null,gemini:null,openai:null};
 
+    let perUserPos='want_buy'; // default
+    function perSelectPos(el,pos){perUserPos=pos;document.querySelectorAll('.ai3-pos-opt').forEach(o=>o.classList.remove('selected'));el.classList.add('selected')}
+    function perGetFocusAreas(){const out=[];document.querySelectorAll('#perFocusChecks .ai3-fck.on input').forEach(c=>out.push(c.value));return out}
+
     function perBuildPrompt(){
       if(!PER.data.length)return'';
       const L=PER.data[PER.data.length-1],sorted=[...PER.pe].sort((a,b)=>a-b);
@@ -2134,10 +2183,38 @@
       const mid=Math.floor(pes.length/2),median=pes.length%2?pes[mid]:(pes[mid-1]+pes[mid])/2;
       const zone=perGetZone(L.currentPE,sorted);
       const below=pes.filter(p=>p<=L.currentPE).length,pct=((below/pes.length)*100).toFixed(0);
-      const first5=PER.data.slice(0,5).map(d=>`${d.label}: PE=${d.currentPE.toFixed(1)}x 價=${d.price}`).join('\n');
-      const last5=PER.data.slice(-5).map(d=>`${d.label}: PE=${d.currentPE.toFixed(1)}x 價=${d.price}`).join('\n');
+      const first5=PER.data.slice(0,5).map(d=>`${d.label}: PE=${d.currentPE.toFixed(1)}x 價=$${d.price}`).join('\n');
+      const last5=PER.data.slice(-5).map(d=>`${d.label}: PE=${d.currentPE.toFixed(1)}x 價=$${d.price}`).join('\n');
       const epsTable=PER.eps.slice(-8).map(e=>`${e.year}Q${e.quarter}: $${e.eps.toFixed(2)}`).join(', ');
-      return `你是專業台股本益比（PE Ratio）估值分析師。請根據以下數據，對 ${PER.id} ${PER.name} 進行全面的本益比估值分析。
+      // PE min/max/avg
+      const peMin=pes[0],peMax=pes[pes.length-1],peAvg=(pes.reduce((s,v)=>s+v,0)/pes.length);
+      // EPS growth
+      const recentEPS=PER.eps.slice(-4),prevEPS=PER.eps.slice(-8,-4);
+      let epsGrowth='';
+      if(recentEPS.length===4&&prevEPS.length===4){const rSum=recentEPS.reduce((s,e)=>s+e.eps,0),pSum=prevEPS.reduce((s,e)=>s+e.eps,0);epsGrowth=pSum>0?`${((rSum/pSum-1)*100).toFixed(1)}%`:'N/A'}
+
+      // Position context
+      const posMap={holding:'我目前【已持有】這檔股票，請針對持有者的角度給建議（是否續抱、加碼、停利、停損）',want_buy:'我目前【想買進】這檔股票，請針對準備進場者的角度給建議（適合的進場價位、分批策略、等待時機）',watching:'我目前【觀望中】，請客觀分析這檔股票值不值得關注（基本面亮點與隱憂、何時適合介入）'};
+      const posText=posMap[perUserPos]||posMap.want_buy;
+
+      // Focus areas
+      const focusAreas=perGetFocusAreas();
+      const focusMap={
+        pe_valuation:'📊 本益比估值：目前PE位置 vs 歷史中位數、是否偏貴或便宜、河流圖位置意義',
+        eps_trend:'📈 EPS成長趨勢：近8季EPS變化、年增率、未來展望預估',
+        entry_exit:'🎯 進出場策略：具體建議價位（用PE×EPS計算）、分批進場點、停利停損價',
+        risk:'⚠️ 風險評估：下檔風險、最大虧損估算、景氣循環影響、黑天鵝情境',
+        industry:'🏭 產業前景：所屬產業趨勢、上下游供應鏈、競爭格局、政策影響',
+        dividend:'💵 殖利率與配息：歷史配息紀錄、目前殖利率估算、存股價值評估',
+        compare:'🔄 同業比較：同產業主要競爭對手PE比較、估值是否合理',
+        short_term:'⚡ 短線技術面：近期量價關係、均線排列、短線支撐壓力位'
+      };
+      let focusText=focusAreas.map(k=>focusMap[k]||'').filter(Boolean).join('\n');
+      if(!focusText)focusText='請進行全面分析';
+
+      return `你是專業台股投資分析師，擅長本益比（PE Ratio）河流圖估值分析。
+
+🧑 投資人狀態：${posText}
 
 📊 基本數據：
 - 股票：${PER.id} ${PER.name}
@@ -2145,36 +2222,40 @@
 - 近四季 TTM EPS：$${L.eps?.toFixed(2)}
 - 目前本益比：${L.currentPE?.toFixed(1)}x
 - 歷史中位數 PE：${median?.toFixed(1)}x
-- PE 百分位：${pct}%（歷史 ${PER.data.length} 個月中排第 ${below} 位）
-- 估值區間：${zone.l}
-- 自動計算 PE 河流帶：${sorted.join('x, ')}x
+- PE 百分位：${pct}%（${PER.data.length} 個月中排名第 ${below}）
+- PE 歷史範圍：${peMin?.toFixed(1)}x ~ ${peMax?.toFixed(1)}x（平均 ${peAvg?.toFixed(1)}x）
+- 估值區間判斷：${zone.l}
+- 河流圖 PE 帶：${sorted.join('x, ')}x
+${epsGrowth?`- EPS 年增率（近4季 vs 前4季）：${epsGrowth}`:''}
 
-📈 最近 EPS：${epsTable}
+📈 近8季 EPS：${epsTable}
 
-📉 歷史 PE 走勢（首尾各5月）：
+📉 歷史 PE 走勢（首5月 & 末5月）：
 ${first5}
 ...
 ${last5}
 
-📋 請回覆以下格式（嚴格遵守）：
+🔍 請重點分析以下面向：
+${focusText}
+
+📋 回覆格式（嚴格遵守，每項分析至少 300 字，總回覆不少於 500 字）：
 
 【投資建議】（僅填一個：買進 / 加碼 / 持有 / 觀望 / 減碼 / 賣出）
 【評分】（0-100 分，50=中性，>70 偏多，<30 偏空）
-【估值判斷】（1-2 句話：目前處於什麼位置）
+【一句話總結】（15字以內的核心觀點）
+
 【分析內容】
-1. PE 估值位置分析（與歷史中位數比較、目前百分位意義）
-2. EPS 趨勢分析（成長/衰退/轉折）
-3. 合理 PE 區間建議（給出具體數字）
-4. 目標價位（以合理 PE × TTM EPS 計算上下限）
-5. 風險提醒
-6. 操作建議（具體的進出場策略）`;
+（針對上方指定的每個面向逐一詳細分析，每個面向至少100字，包含具體數據和計算。如果涉及目標價，必須用 PE × EPS 算出具體數字。）
+
+【具體操作建議】
+（根據投資人目前狀態，給出 3~5 條明確可執行的行動建議，包含具體價格和比例。）`;
     }
 
     async function perCallClaude(prompt,apiKey){
       const model=localStorage.getItem(PER_AI_MODELS.claude)||'claude-sonnet-4-20250514';
       const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
         headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model,max_tokens:2000,temperature:0.7,messages:[{role:'user',content:prompt}]})});
+        body:JSON.stringify({model,max_tokens:4000,temperature:0.7,messages:[{role:'user',content:prompt}]})});
       if(!r.ok)throw new Error(`Claude HTTP ${r.status}`);
       const d=await r.json();return d.content?.[0]?.text||'';
     }
@@ -2183,7 +2264,7 @@ ${last5}
       const model=localStorage.getItem(PER_AI_MODELS.gemini)||'gemini-2.0-flash';
       const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,{method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:2000,temperature:0.7}})});
+        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:4000,temperature:0.7}})});
       if(!r.ok)throw new Error(`Gemini HTTP ${r.status}`);
       const d=await r.json();return d.candidates?.[0]?.content?.parts?.[0]?.text||'';
     }
@@ -2192,7 +2273,7 @@ ${last5}
       const model=localStorage.getItem(PER_AI_MODELS.openai)||'gpt-4o';
       const r=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',
         headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
-        body:JSON.stringify({model,max_tokens:2000,temperature:0.7,messages:[{role:'system',content:'你是專業台股本益比估值分析師。'},{role:'user',content:prompt}]})});
+        body:JSON.stringify({model,max_tokens:4000,temperature:0.7,messages:[{role:'system',content:'你是專業台股本益比河流圖估值分析師，擅長根據投資人持股狀態給出個人化的深度建議。回覆請以繁體中文，至少500字。'},{role:'user',content:prompt}]})});
       if(!r.ok)throw new Error(`OpenAI HTTP ${r.status}`);
       const d=await r.json();return d.choices?.[0]?.message?.content||'';
     }
@@ -2222,7 +2303,7 @@ ${last5}
       if(!cnt){alert('請先在「分析系統」(analyzer.html) 設定至少一個 API Key！\n\nClaude / Gemini / OpenAI 任一即可。');return}
       perAI3Running=true;
       document.getElementById('perAI3Btn').disabled=true;document.getElementById('perAI3Btn').textContent='⏳ 分析中...';
-      document.getElementById('perAI3Hint').textContent=`分析 ${PER.id} ${PER.name}...（${cnt} 個 AI）`;
+      document.getElementById('perAI3Hint').textContent=`分析 ${PER.id} ${PER.name}...（${cnt} 個 AI，${perGetFocusAreas().length} 個面向）`;
       perAI3Results={claude:null,gemini:null,openai:null};
       document.getElementById('perAI3Vote').style.display='none';
       document.getElementById('perAI3Final').style.display='none';
@@ -2285,7 +2366,9 @@ ${last5}
 
       // Composite summary
       const avgScore=Math.round(results.reduce((s,r)=>s+r.score,0)/results.length);
-      let summary=`📊 ${PER.id} ${PER.name} 3AI 本益比估值總評\n\n`;
+      const posLabel={holding:'💰 已持有',want_buy:'🛒 想買進',watching:'👀 觀望中'}[perUserPos]||'';
+      let summary=`📊 ${PER.id} ${PER.name} 3AI 本益比估值總評\n`;
+      summary+=`📌 投資人狀態：${posLabel}\n\n`;
       summary+=`🎯 平均評分：${avgScore}/100（${results.length} 個 AI 參與）\n`;
       summary+=`📈 買進/加碼：${buy} 票 | ⏸️ 持有/觀望：${hold} 票 | 📉 賣出/減碼：${sell} 票\n\n`;
       ['claude','gemini','openai'].forEach(ai=>{
@@ -2295,6 +2378,8 @@ ${last5}
       });
       summary+=`\n📍 目前 PE ${PER.data[PER.data.length-1]?.currentPE?.toFixed(1)}x（中位數 ${(perMedian()||0).toFixed(1)}x）\n`;
       summary+=`💰 股價 $${PER.lastPrice} | TTM EPS $${PER.data[PER.data.length-1]?.eps?.toFixed(2)}\n`;
+      const focusTxt=perGetFocusAreas().length?`🔍 分析面向：${perGetFocusAreas().length} 項`:'';
+      if(focusTxt)summary+=`${focusTxt}\n`;
       summary+=`📅 分析時間：${new Date().toLocaleString('zh-TW')}`;
       document.getElementById('perFinalBody').textContent=summary;
       document.getElementById('perAI3Final').style.display='block';
@@ -2304,7 +2389,7 @@ ${last5}
 
     // Enable AI3 button after data loads
     const origPerRenderStats=perRenderStats;
-    perRenderStats=function(){origPerRenderStats();const btn=document.getElementById('perAI3Btn');if(btn&&PER.data.length){btn.disabled=false;document.getElementById('perAI3Hint').textContent=`✅ 可分析 ${PER.id} ${PER.name}`}};
+    perRenderStats=function(){origPerRenderStats();const btn=document.getElementById('perAI3Btn');if(btn&&PER.data.length){btn.disabled=false;const pl={holding:'💰已持有',want_buy:'🛒想買進',watching:'👀觀望中'}[perUserPos]||'';document.getElementById('perAI3Hint').textContent=`✅ ${PER.id} ${PER.name} | ${pl} | 可開始分析`}};
 
     let perInitDone=false;
     function perOnTabShow(){
