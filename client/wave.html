@@ -561,6 +561,37 @@
     .per-token-saved{color:#3fb950;font-size:.7rem;font-weight:600}
     .per-log{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px;max-height:120px;overflow-y:auto;font-family:monospace;font-size:.7rem;color:#484f58;line-height:1.7}
     .per-log .ok{color:#3fb950}.per-log .er{color:#f85149}.per-log .wn{color:#d29922}.per-log .in{color:#6e7681}
+    /* ===== 3AI Analysis ===== */
+    .ai3-panel{background:linear-gradient(135deg,rgba(35,134,54,.08),rgba(88,166,255,.08));border:1px solid #30363d;border-radius:12px;padding:20px;margin-top:16px}
+    .ai3-title{font-size:1rem;font-weight:700;color:#c9d1d9;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+    .ai3-btn{background:#238636;border:none;border-radius:8px;color:#fff;padding:10px 24px;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px}
+    .ai3-btn:hover{background:#2ea043;transform:translateY(-1px)}
+    .ai3-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .ai3-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+    .ai3-card{background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:16px;position:relative;overflow:hidden}
+    .ai3-card-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+    .ai3-card-icon{font-size:1.3rem}
+    .ai3-card-name{font-weight:700;font-size:.85rem;color:#c9d1d9}
+    .ai3-card-status{font-size:.7rem;padding:3px 8px;border-radius:4px;margin-left:auto}
+    .ai3-card-status.waiting{background:rgba(139,148,158,.15);color:#8b949e}
+    .ai3-card-status.running{background:rgba(88,166,255,.15);color:#58a6ff;animation:perPulse 1.5s infinite}
+    .ai3-card-status.done{background:rgba(63,185,80,.15);color:#3fb950}
+    .ai3-card-status.error{background:rgba(248,81,73,.15);color:#f85149}
+    .ai3-card-verdict{font-size:1.1rem;font-weight:700;margin:8px 0;min-height:1.5em}
+    .ai3-card-score{font-size:.8rem;color:#8b949e;margin-bottom:8px}
+    .ai3-card-body{font-size:.78rem;color:#8b949e;line-height:1.6;max-height:200px;overflow-y:auto;white-space:pre-wrap}
+    .ai3-vote{display:flex;justify-content:center;gap:24px;margin:20px 0;padding:16px;background:#0d1117;border:1px solid #30363d;border-radius:10px}
+    .ai3-vote-item{text-align:center;min-width:80px}
+    .ai3-vote-icon{font-size:1.5rem;margin-bottom:4px}
+    .ai3-vote-label{font-size:.75rem;color:#8b949e}
+    .ai3-vote-count{font-size:1.5rem;font-weight:900;margin-top:2px}
+    .ai3-vote-count.buy{color:#3fb950}.ai3-vote-count.hold{color:#d29922}.ai3-vote-count.sell{color:#f85149}
+    .ai3-final{background:linear-gradient(135deg,rgba(35,134,54,.1),rgba(88,166,255,.05));border:1px solid #30363d;border-radius:10px;padding:20px;margin-top:16px}
+    .ai3-final-title{font-size:.9rem;font-weight:700;color:#d29922;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+    .ai3-final-verdict{font-size:1.3rem;font-weight:900;margin-bottom:12px;min-height:1.5em}
+    .ai3-final-body{font-size:.82rem;color:#c9d1d9;line-height:1.8;white-space:pre-wrap}
+    .ai3-note{font-size:.7rem;color:#484f58;margin-top:12px;text-align:center}
+    @media(max-width:768px){.ai3-cards{grid-template-columns:1fr}}
     .per-table table{width:100%;border-collapse:collapse}
     .per-table th{font-size:.7rem;font-weight:600;color:#6e7681;padding:8px 10px;text-align:right;border-bottom:1px solid #30363d;font-family:monospace}
     .per-table th:first-child{text-align:left}
@@ -832,6 +863,49 @@
       </div>
       <!-- Log -->
       <details style="margin-top:16px"><summary style="cursor:pointer;font-size:.8rem;color:#6e7681">📋 API 查詢日誌</summary><div class="per-log" id="perLogBox"></div></details>
+
+      <!-- 3AI Valuation Analysis -->
+      <div class="ai3-panel" id="perAI3Panel">
+        <div class="ai3-title">🤖 3AI 本益比估值分析與建議</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <button class="ai3-btn" id="perAI3Btn" onclick="perStartAI3()" disabled>🚀 開始 3AI 估值分析</button>
+          <span style="font-size:.75rem;color:#6e7681" id="perAI3Hint">請先查詢股票後再分析</span>
+        </div>
+        <!-- 3 AI Cards -->
+        <div class="ai3-cards">
+          <div class="ai3-card" id="perAI3Claude">
+            <div class="ai3-card-header"><span class="ai3-card-icon">🤖</span><span class="ai3-card-name">Claude</span><span class="ai3-card-status waiting" id="perClaudeStatus">待命</span></div>
+            <div class="ai3-card-verdict" id="perClaudeVerdict">—</div>
+            <div class="ai3-card-score" id="perClaudeScore"></div>
+            <div class="ai3-card-body" id="perClaudeBody">等待分析...</div>
+          </div>
+          <div class="ai3-card" id="perAI3Gemini">
+            <div class="ai3-card-header"><span class="ai3-card-icon">✨</span><span class="ai3-card-name">Gemini</span><span class="ai3-card-status waiting" id="perGeminiStatus">待命</span></div>
+            <div class="ai3-card-verdict" id="perGeminiVerdict">—</div>
+            <div class="ai3-card-score" id="perGeminiScore"></div>
+            <div class="ai3-card-body" id="perGeminiBody">等待分析...</div>
+          </div>
+          <div class="ai3-card" id="perAI3Openai">
+            <div class="ai3-card-header"><span class="ai3-card-icon">🧠</span><span class="ai3-card-name">GPT</span><span class="ai3-card-status waiting" id="perOpenaiStatus">待命</span></div>
+            <div class="ai3-card-verdict" id="perOpenaiVerdict">—</div>
+            <div class="ai3-card-score" id="perOpenaiScore"></div>
+            <div class="ai3-card-body" id="perOpenaiBody">等待分析...</div>
+          </div>
+        </div>
+        <!-- Vote -->
+        <div class="ai3-vote" id="perAI3Vote" style="display:none">
+          <div class="ai3-vote-item"><div class="ai3-vote-icon">📈</div><div class="ai3-vote-label">買進/加碼</div><div class="ai3-vote-count buy" id="perVoteBuy">0</div></div>
+          <div class="ai3-vote-item"><div class="ai3-vote-icon">⏸️</div><div class="ai3-vote-label">觀望/持有</div><div class="ai3-vote-count hold" id="perVoteHold">0</div></div>
+          <div class="ai3-vote-item"><div class="ai3-vote-icon">📉</div><div class="ai3-vote-label">賣出/減碼</div><div class="ai3-vote-count sell" id="perVoteSell">0</div></div>
+        </div>
+        <!-- Final Verdict -->
+        <div class="ai3-final" id="perAI3Final" style="display:none">
+          <div class="ai3-final-title">🏆【3AI 估值總評】</div>
+          <div class="ai3-final-verdict" id="perFinalVerdict"></div>
+          <div class="ai3-final-body" id="perFinalBody"></div>
+        </div>
+        <div class="ai3-note">⚠️ AI 分析僅供參考，不構成投資建議。API Key 共用「分析系統」設定（localStorage）</div>
+      </div>
     </div>
 
     <div id="portfolioTab" class="hidden">
@@ -2044,6 +2118,193 @@
     function perRenderPEE(){const sorted=[...PER.pe].sort((a,b)=>a-b);const el=document.getElementById('perPEEditor');if(!el)return;el.innerHTML=sorted.map(pe=>`<span class="per-pe-tag">${pe}x<span class="x" onclick="perRemovePE(${pe})">×</span></span>`).join('')+`<input class="per-pe-input" id="perNewPE" placeholder="新增" onkeydown="if(event.key==='Enter')perAddPE()"><button class="per-pe-add" onclick="perAddPE()">+</button>`}
     function perAddPE(){const v=parseFloat(document.getElementById('perNewPE').value);if(v>0&&!PER.pe.includes(v)&&v<200){PER.pe.push(v);perBuildData();perDraw();perDrawPE();perRenderStats();perRenderPEE();document.getElementById('perNewPE').value=''}}
     function perRemovePE(pe){if(PER.pe.length<=2)return;PER.pe=PER.pe.filter(p=>p!==pe);perBuildData();perDraw();perDrawPE();perRenderStats();perRenderPEE()}
+
+    // =====================================================================
+    // 🤖 3AI 本益比估值分析引擎
+    // =====================================================================
+    const PER_AI_KEYS={claude:'portfolio_claude_api_key',gemini:'portfolio_gemini_api_key',openai:'portfolio_openai_api_key'};
+    const PER_AI_MODELS={claude:'portfolio_claude_model',gemini:'portfolio_gemini_model',openai:'portfolio_openai_model'};
+    let perAI3Running=false;
+    let perAI3Results={claude:null,gemini:null,openai:null};
+
+    function perBuildPrompt(){
+      if(!PER.data.length)return'';
+      const L=PER.data[PER.data.length-1],sorted=[...PER.pe].sort((a,b)=>a-b);
+      const pes=PER.data.map(d=>d.currentPE).filter(Boolean).sort((a,b)=>a-b);
+      const mid=Math.floor(pes.length/2),median=pes.length%2?pes[mid]:(pes[mid-1]+pes[mid])/2;
+      const zone=perGetZone(L.currentPE,sorted);
+      const below=pes.filter(p=>p<=L.currentPE).length,pct=((below/pes.length)*100).toFixed(0);
+      const first5=PER.data.slice(0,5).map(d=>`${d.label}: PE=${d.currentPE.toFixed(1)}x 價=${d.price}`).join('\n');
+      const last5=PER.data.slice(-5).map(d=>`${d.label}: PE=${d.currentPE.toFixed(1)}x 價=${d.price}`).join('\n');
+      const epsTable=PER.eps.slice(-8).map(e=>`${e.year}Q${e.quarter}: $${e.eps.toFixed(2)}`).join(', ');
+      return `你是專業台股本益比（PE Ratio）估值分析師。請根據以下數據，對 ${PER.id} ${PER.name} 進行全面的本益比估值分析。
+
+📊 基本數據：
+- 股票：${PER.id} ${PER.name}
+- 最新股價：$${L.price?.toFixed(0)}（${PER.lastDate}）
+- 近四季 TTM EPS：$${L.eps?.toFixed(2)}
+- 目前本益比：${L.currentPE?.toFixed(1)}x
+- 歷史中位數 PE：${median?.toFixed(1)}x
+- PE 百分位：${pct}%（歷史 ${PER.data.length} 個月中排第 ${below} 位）
+- 估值區間：${zone.l}
+- 自動計算 PE 河流帶：${sorted.join('x, ')}x
+
+📈 最近 EPS：${epsTable}
+
+📉 歷史 PE 走勢（首尾各5月）：
+${first5}
+...
+${last5}
+
+📋 請回覆以下格式（嚴格遵守）：
+
+【投資建議】（僅填一個：買進 / 加碼 / 持有 / 觀望 / 減碼 / 賣出）
+【評分】（0-100 分，50=中性，>70 偏多，<30 偏空）
+【估值判斷】（1-2 句話：目前處於什麼位置）
+【分析內容】
+1. PE 估值位置分析（與歷史中位數比較、目前百分位意義）
+2. EPS 趨勢分析（成長/衰退/轉折）
+3. 合理 PE 區間建議（給出具體數字）
+4. 目標價位（以合理 PE × TTM EPS 計算上下限）
+5. 風險提醒
+6. 操作建議（具體的進出場策略）`;
+    }
+
+    async function perCallClaude(prompt,apiKey){
+      const model=localStorage.getItem(PER_AI_MODELS.claude)||'claude-sonnet-4-20250514';
+      const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model,max_tokens:2000,temperature:0.7,messages:[{role:'user',content:prompt}]})});
+      if(!r.ok)throw new Error(`Claude HTTP ${r.status}`);
+      const d=await r.json();return d.content?.[0]?.text||'';
+    }
+
+    async function perCallGemini(prompt,apiKey){
+      const model=localStorage.getItem(PER_AI_MODELS.gemini)||'gemini-2.0-flash';
+      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:2000,temperature:0.7}})});
+      if(!r.ok)throw new Error(`Gemini HTTP ${r.status}`);
+      const d=await r.json();return d.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    }
+
+    async function perCallOpenai(prompt,apiKey){
+      const model=localStorage.getItem(PER_AI_MODELS.openai)||'gpt-4o';
+      const r=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
+        body:JSON.stringify({model,max_tokens:2000,temperature:0.7,messages:[{role:'system',content:'你是專業台股本益比估值分析師。'},{role:'user',content:prompt}]})});
+      if(!r.ok)throw new Error(`OpenAI HTTP ${r.status}`);
+      const d=await r.json();return d.choices?.[0]?.message?.content||'';
+    }
+
+    function perParseAIResult(text){
+      const r={verdict:'觀望',score:50,body:text};
+      // Parse verdict
+      const vm=text.match(/【投資建議】[：:\s]*(買進|加碼|持有|觀望|減碼|賣出)/);
+      if(vm)r.verdict=vm[1];
+      else{const kw=text.substring(0,200);if(/強烈買進|積極買入/.test(kw))r.verdict='買進';else if(/買進|加碼|逢低布局/.test(kw))r.verdict='加碼';else if(/賣出|出場|停損/.test(kw))r.verdict='賣出';else if(/減碼|獲利了結/.test(kw))r.verdict='減碼';else if(/持有|續抱/.test(kw))r.verdict='持有'}
+      // Parse score
+      const sm=text.match(/【評分】[：:\s]*(\d+)/);if(sm)r.score=parseInt(sm[1]);
+      // Clean body
+      r.body=text.replace(/【投資建議】[^\n]*/,'').replace(/【評分】[^\n]*/,'').trim();
+      return r;
+    }
+
+    function perVerdictColor(v){if(/買進|加碼/.test(v))return'#3fb950';if(/賣出|減碼/.test(v))return'#f85149';return'#d29922'}
+    function perVerdictCategory(v){if(/買進|加碼/.test(v))return'buy';if(/賣出|減碼/.test(v))return'sell';return'hold'}
+
+    async function perStartAI3(){
+      if(perAI3Running||!PER.data.length)return;
+      const prompt=perBuildPrompt();if(!prompt)return;
+      // Check API keys
+      const keys={};let cnt=0;
+      ['claude','gemini','openai'].forEach(ai=>{const k=localStorage.getItem(PER_AI_KEYS[ai]);if(k){keys[ai]=k;cnt++}});
+      if(!cnt){alert('請先在「分析系統」(analyzer.html) 設定至少一個 API Key！\n\nClaude / Gemini / OpenAI 任一即可。');return}
+      perAI3Running=true;
+      document.getElementById('perAI3Btn').disabled=true;document.getElementById('perAI3Btn').textContent='⏳ 分析中...';
+      document.getElementById('perAI3Hint').textContent=`分析 ${PER.id} ${PER.name}...（${cnt} 個 AI）`;
+      perAI3Results={claude:null,gemini:null,openai:null};
+      document.getElementById('perAI3Vote').style.display='none';
+      document.getElementById('perAI3Final').style.display='none';
+
+      const calls=[];
+      if(keys.claude)calls.push(perRunOneAI('claude',()=>perCallClaude(prompt,keys.claude)));
+      else perSetAICard('claude','—','','未設定 API Key','error','未設定');
+      if(keys.gemini)calls.push(perRunOneAI('gemini',()=>perCallGemini(prompt,keys.gemini)));
+      else perSetAICard('gemini','—','','未設定 API Key','error','未設定');
+      if(keys.openai)calls.push(perRunOneAI('openai',()=>perCallOpenai(prompt,keys.openai)));
+      else perSetAICard('openai','—','','未設定 API Key','error','未設定');
+
+      await Promise.allSettled(calls);
+      perTally();
+      perAI3Running=false;
+      document.getElementById('perAI3Btn').disabled=false;document.getElementById('perAI3Btn').textContent='🚀 重新分析';
+      document.getElementById('perAI3Hint').textContent='';
+    }
+
+    async function perRunOneAI(name,fn){
+      const cap=name.charAt(0).toUpperCase()+name.slice(1);
+      perSetAICard(name,'⏳','','分析中...','running','分析中');
+      try{
+        const text=await fn();const r=perParseAIResult(text);perAI3Results[name]=r;
+        perSetAICard(name,`${r.verdict}`,`評分：${r.score}/100`,r.body,'done','完成');
+        document.getElementById(`per${cap}Verdict`).style.color=perVerdictColor(r.verdict);
+      }catch(e){
+        perSetAICard(name,'❌','',`錯誤：${e.message}`,'error','失敗');
+      }
+    }
+
+    function perSetAICard(name,verdict,score,body,statusCls,statusText){
+      const cap=name.charAt(0).toUpperCase()+name.slice(1);
+      document.getElementById(`per${cap}Verdict`).textContent=verdict;
+      document.getElementById(`per${cap}Score`).textContent=score;
+      document.getElementById(`per${cap}Body`).textContent=body;
+      const st=document.getElementById(`per${cap}Status`);st.className=`ai3-card-status ${statusCls}`;st.textContent=statusText;
+    }
+
+    function perTally(){
+      let buy=0,hold=0,sell=0;const results=[];
+      ['claude','gemini','openai'].forEach(ai=>{
+        const r=perAI3Results[ai];if(!r)return;results.push(r);
+        const cat=perVerdictCategory(r.verdict);if(cat==='buy')buy++;else if(cat==='sell')sell++;else hold++;
+      });
+      if(!results.length)return;
+      document.getElementById('perVoteBuy').textContent=buy;
+      document.getElementById('perVoteHold').textContent=hold;
+      document.getElementById('perVoteSell').textContent=sell;
+      document.getElementById('perAI3Vote').style.display='flex';
+
+      // Final verdict
+      let finalV='觀望',finalC='#d29922';
+      if(buy>sell&&buy>hold){finalV='📈 多數建議買進/加碼';finalC='#3fb950'}
+      else if(sell>buy&&sell>hold){finalV='📉 多數建議賣出/減碼';finalC='#f85149'}
+      else if(buy===sell&&buy>0){finalV='⚖️ 多空分歧，建議觀望';finalC='#d29922'}
+      else{finalV='⏸️ 多數建議持有/觀望';finalC='#d29922'}
+      document.getElementById('perFinalVerdict').textContent=finalV;
+      document.getElementById('perFinalVerdict').style.color=finalC;
+
+      // Composite summary
+      const avgScore=Math.round(results.reduce((s,r)=>s+r.score,0)/results.length);
+      let summary=`📊 ${PER.id} ${PER.name} 3AI 本益比估值總評\n\n`;
+      summary+=`🎯 平均評分：${avgScore}/100（${results.length} 個 AI 參與）\n`;
+      summary+=`📈 買進/加碼：${buy} 票 | ⏸️ 持有/觀望：${hold} 票 | 📉 賣出/減碼：${sell} 票\n\n`;
+      ['claude','gemini','openai'].forEach(ai=>{
+        const r=perAI3Results[ai];if(!r)return;
+        const label=ai==='claude'?'🤖 Claude':ai==='gemini'?'✨ Gemini':'🧠 GPT';
+        summary+=`${label}：${r.verdict}（${r.score}分）\n`;
+      });
+      summary+=`\n📍 目前 PE ${PER.data[PER.data.length-1]?.currentPE?.toFixed(1)}x（中位數 ${(perMedian()||0).toFixed(1)}x）\n`;
+      summary+=`💰 股價 $${PER.lastPrice} | TTM EPS $${PER.data[PER.data.length-1]?.eps?.toFixed(2)}\n`;
+      summary+=`📅 分析時間：${new Date().toLocaleString('zh-TW')}`;
+      document.getElementById('perFinalBody').textContent=summary;
+      document.getElementById('perAI3Final').style.display='block';
+    }
+
+    function perMedian(){const pes=PER.data.map(d=>d.currentPE).filter(Boolean).sort((a,b)=>a-b);if(!pes.length)return 0;const mid=Math.floor(pes.length/2);return pes.length%2?pes[mid]:(pes[mid-1]+pes[mid])/2}
+
+    // Enable AI3 button after data loads
+    const origPerRenderStats=perRenderStats;
+    perRenderStats=function(){origPerRenderStats();const btn=document.getElementById('perAI3Btn');if(btn&&PER.data.length){btn.disabled=false;document.getElementById('perAI3Hint').textContent=`✅ 可分析 ${PER.id} ${PER.name}`}};
 
     let perInitDone=false;
     function perOnTabShow(){
