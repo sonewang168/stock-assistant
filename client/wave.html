@@ -516,6 +516,18 @@
     .per-stat-value.name{font-size:.95rem;font-family:'Noto Sans TC',sans-serif}
     .per-stat-sub{font-size:.65rem;color:#6e7681;margin-top:3px}
     .per-chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+    .per-ac-wrap{position:relative;margin-bottom:14px}
+    .per-ac-input{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;color:#c9d1d9;padding:10px 14px;font-size:.9rem;outline:none;font-family:'Noto Sans TC',sans-serif}
+    .per-ac-input:focus{border-color:#58a6ff}
+    .per-ac-input::placeholder{color:#484f58}
+    .per-ac-list{position:absolute;top:100%;left:0;right:0;background:#161b22;border:1px solid #30363d;border-top:none;border-radius:0 0 8px 8px;max-height:280px;overflow-y:auto;z-index:100;display:none}
+    .per-ac-list.show{display:block}
+    .per-ac-item{padding:9px 14px;cursor:pointer;font-size:.85rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #21262d;transition:background .15s}
+    .per-ac-item:hover,.per-ac-item.sel{background:rgba(35,134,54,.12)}
+    .per-ac-item .code{color:#58a6ff;font-weight:600;font-family:monospace;min-width:50px}
+    .per-ac-item .nm{color:#c9d1d9;flex:1;margin-left:10px}
+    .per-ac-item .mkt{color:#6e7681;font-size:.7rem;margin-left:8px}
+    .per-ac-count{padding:6px 14px;font-size:.7rem;color:#6e7681;border-bottom:1px solid #21262d;background:#0d1117}
     .per-chip{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:5px 13px;font-size:.78rem;font-weight:600;color:#8b949e;cursor:pointer;transition:all .2s}
     .per-chip:hover{border-color:#484f58;color:#c9d1d9}
     .per-chip.active{background:rgba(35,134,54,.15);border-color:rgba(35,134,54,.4);color:#3fb950}
@@ -773,7 +785,12 @@
           </div>
         </div>
         <div class="card-body">
-          <!-- Quick chips -->
+          <!-- Stock Search Autocomplete -->
+          <div class="per-ac-wrap">
+            <input class="per-ac-input" id="perACInput" type="text" placeholder="🔍 輸入股票代碼或名稱搜尋（上市+上櫃）" autocomplete="off">
+            <div class="per-ac-list" id="perACList"></div>
+          </div>
+          <!-- Popular chips -->
           <div class="per-chips" id="perChips"></div>
           <!-- Token -->
           <div class="per-token-bar">
@@ -1799,7 +1816,8 @@
     // =====================================================================
     const PER={id:'',name:'',pe:[],data:[],eps:[],mp:[],ttm:{},lastPrice:0,lastDate:'',src:'none'};
     let perRC=null,perPC=null;
-    const PER_STOCKS=[{id:'2330',name:'台積電'},{id:'2317',name:'鴻海'},{id:'2454',name:'聯發科'},{id:'2882',name:'國泰金'},{id:'2881',name:'富邦金'},{id:'3008',name:'大立光'},{id:'2412',name:'中華電'},{id:'2308',name:'台達電'},{id:'2344',name:'華邦電'},{id:'8069',name:'元太'},{id:'3443',name:'創意'},{id:'6505',name:'台塑化'}];
+    const PER_STOCKS_POP=[{id:'2330',name:'台積電'},{id:'2317',name:'鴻海'},{id:'2454',name:'聯發科'},{id:'2882',name:'國泰金'},{id:'2881',name:'富邦金'},{id:'3008',name:'大立光'},{id:'2412',name:'中華電'},{id:'2308',name:'台達電'},{id:'2344',name:'華邦電'},{id:'2449',name:'京元電子'},{id:'8069',name:'元太'},{id:'3443',name:'創意'}];
+    let PER_ALL_STOCKS=[];  // 動態載入全部上市+上櫃
     const PER_Z=[
       {l:'極度便宜',bg:'rgba(63,185,80,.30)',bc:'#3fb950'},
       {l:'便宜',bg:'rgba(57,211,83,.25)',bc:'#39d353'},
@@ -1817,9 +1835,76 @@
     function perShowLoad(b){const e=document.getElementById('perLoadOverlay'),btn=document.getElementById('perBtnSearch');if(e)e.style.display=b?'flex':'none';if(btn){btn.disabled=b;btn.textContent=b?'⏳':'🔍 查詢'}}
     function perSaveToken(){const t=document.getElementById('perToken').value.trim();if(t){localStorage.setItem('finmind_token',t);perShowTM('✓ 已儲存')}else{localStorage.removeItem('finmind_token');perShowTM('已清除')}}
     function perShowTM(t){const e=document.getElementById('perTokenMsg');if(!e)return;e.style.display='inline';e.textContent=t;setTimeout(()=>e.style.display='none',3000)}
-    function perRenderChips(){const e=document.getElementById('perChips');if(e)e.innerHTML=PER_STOCKS.map(s=>`<span class="per-chip" data-id="${s.id}" onclick="perPick('${s.id}')">${s.id} ${s.name}</span>`).join('')}
-    function perPick(id){document.getElementById('perInput').value=id;perGo()}
+    function perRenderChips(){const e=document.getElementById('perChips');if(e)e.innerHTML=PER_STOCKS_POP.map(s=>`<span class="per-chip" data-id="${s.id}" onclick="perPick('${s.id}')">${s.id} ${s.name}</span>`).join('')}
+    function perPick(id){document.getElementById('perInput').value=id;const ac=document.getElementById('perACInput');if(ac)ac.value='';perHideAC();perGo()}
     function perUpdateChips(){document.querySelectorAll('.per-chip').forEach(c=>c.classList.toggle('active',c.dataset.id===PER.id))}
+
+    // ===== 上市+上櫃完整股票清單 =====
+    async function perFetchStockList(){
+      if(PER_ALL_STOCKS.length>0)return;
+      perLog('📋 載入上市+上櫃股票清單...','in');
+      const token=document.getElementById('perToken').value.trim();
+      const tp=token?`&token=${token}`:'';
+      try{
+        const j=await perApiFetch(`${PER_API}?dataset=TaiwanStockInfo${tp}`);
+        if(j&&j.data){
+          const seen=new Set();
+          PER_ALL_STOCKS=j.data.filter(d=>{
+            if(!d.stock_id||!d.stock_name)return false;
+            if(seen.has(d.stock_id))return false;seen.add(d.stock_id);
+            // 過濾：只保留普通股（4碼數字或4碼+英文）
+            if(!/^\d{4,6}[A-Z]?$/.test(d.stock_id))return false;
+            return true;
+          }).map(d=>({id:d.stock_id,name:d.stock_name,market:d.type||''}));
+          perLog(`✅ 共 ${PER_ALL_STOCKS.length} 檔股票（上市+上櫃）`,'ok');
+          // 快取到 sessionStorage
+          try{sessionStorage.setItem('per_stocks',JSON.stringify(PER_ALL_STOCKS))}catch(e){}
+        }
+      }catch(e){perLog('⚠️ 股票清單載入失敗: '+e.message,'wn')}
+      // 若 API 失敗，嘗試從快取載入
+      if(!PER_ALL_STOCKS.length){
+        try{const c=sessionStorage.getItem('per_stocks');if(c){PER_ALL_STOCKS=JSON.parse(c);perLog(`📋 從快取載入 ${PER_ALL_STOCKS.length} 檔`,'in')}}catch(e){}
+      }
+    }
+
+    // ===== Autocomplete =====
+    let perACIdx=-1;
+    function perInitAC(){
+      const inp=document.getElementById('perACInput');if(!inp)return;
+      inp.addEventListener('input',()=>{perACIdx=-1;perFilterAC(inp.value.trim())});
+      inp.addEventListener('focus',()=>{if(inp.value.trim().length>=1)perFilterAC(inp.value.trim())});
+      inp.addEventListener('keydown',e=>{
+        const list=document.getElementById('perACList');
+        const items=list?.querySelectorAll('.per-ac-item')||[];
+        if(e.key==='ArrowDown'){e.preventDefault();perACIdx=Math.min(perACIdx+1,items.length-1);perHighlightAC(items)}
+        else if(e.key==='ArrowUp'){e.preventDefault();perACIdx=Math.max(perACIdx-1,0);perHighlightAC(items)}
+        else if(e.key==='Enter'){e.preventDefault();if(perACIdx>=0&&items[perACIdx]){items[perACIdx].click()}else if(inp.value.trim()){document.getElementById('perInput').value=inp.value.trim();perHideAC();perGo()}}
+        else if(e.key==='Escape'){perHideAC()}
+      });
+      document.addEventListener('click',e=>{if(!e.target.closest('.per-ac-wrap'))perHideAC()});
+    }
+    function perFilterAC(q){
+      const list=document.getElementById('perACList');if(!list)return;
+      if(q.length<1){perHideAC();return}
+      const ql=q.toLowerCase();
+      let matches=PER_ALL_STOCKS.filter(s=>s.id.startsWith(q)||s.name.toLowerCase().includes(ql)||s.id.includes(q));
+      // 也搜尋 popular（若 API 清單未載入）
+      if(!matches.length){matches=PER_STOCKS_POP.filter(s=>s.id.startsWith(q)||s.name.includes(q))}
+      matches=matches.slice(0,20);
+      if(!matches.length){list.innerHTML='<div class="per-ac-count">找不到符合的股票</div>';list.classList.add('show');return}
+      let h=`<div class="per-ac-count">找到 ${PER_ALL_STOCKS.length>0?matches.length+'／'+PER_ALL_STOCKS.length:matches.length} 檔</div>`;
+      h+=matches.map(s=>`<div class="per-ac-item" onclick="perSelectAC('${s.id}')"><span class="code">${s.id}</span><span class="nm">${s.name}</span><span class="mkt">${s.market==='twse'?'上市':s.market==='tpex'?'上櫃':''}</span></div>`).join('');
+      list.innerHTML=h;list.classList.add('show');
+    }
+    function perHighlightAC(items){items.forEach((it,i)=>it.classList.toggle('sel',i===perACIdx));if(items[perACIdx])items[perACIdx].scrollIntoView({block:'nearest'})}
+    function perSelectAC(id){
+      document.getElementById('perInput').value=id;
+      const ac=document.getElementById('perACInput');
+      const s=PER_ALL_STOCKS.find(x=>x.id===id)||PER_STOCKS_POP.find(x=>x.id===id);
+      if(ac)ac.value=s?`${id} ${s.name}`:id;
+      perHideAC();perGo();
+    }
+    function perHideAC(){const l=document.getElementById('perACList');if(l)l.classList.remove('show');perACIdx=-1}
 
     async function perApiFetch(url){
       try{const r=await fetch(url,{signal:AbortSignal.timeout(8000)});if(r.ok){const j=await r.json();if(j.msg==='success'&&j.data?.length>0)return j}}catch(e){perLog('直連: '+e.message,'wn')}
@@ -1865,7 +1950,7 @@
       PER.name=perFindName(id);PER.eps=epsArr;PER.mp=mp;PER.ttm=ttm;PER.lastPrice=parseFloat(lastDay.close);PER.lastDate=lastDay.date;PER.src='api';
       perSetStatus('ok',`✅ API — ${PER.id} ${PER.name} | ${PER.lastDate} $${PER.lastPrice}`);return true;
     }
-    function perFindName(id){const f=PER_STOCKS.find(s=>s.id===id);return f?f.name:id}
+    function perFindName(id){const f=PER_ALL_STOCKS.find(s=>s.id===id)||PER_STOCKS_POP.find(s=>s.id===id);return f?f.name:id}
 
     const PER_SAM={'2330':{name:'台積電',eps:[{y:2019,q:[2.37,2.57,3.90,4.47]},{y:2020,q:[4.51,4.66,5.30,5.51]},{y:2021,q:[5.39,5.18,6.03,6.41]},{y:2022,q:[7.82,8.86,9.67,7.26]},{y:2023,q:[5.55,5.85,7.83,9.21]},{y:2024,q:[9.56,10.12,12.54,14.08]}],prices:'289,302,295,310,305,265,290,319,332,343,338,331,342,318,426,441,489,510,540,559,584,593,604,615,610,625,638,606,589,583,570,541,512,490,472,439,441,476,506,525,533,540,547,558,534,544,568,593,570,540,530,547,579,598,637,675,737,774,821,870,918,960,990,1010,1060,1060,1040,1030,1010,1050,1095,1080'}};
 
@@ -1963,11 +2048,13 @@
     let perInitDone=false;
     function perOnTabShow(){
       if(perInitDone)return;perInitDone=true;
-      perRenderChips();
+      perRenderChips();perInitAC();
       const sv=localStorage.getItem('finmind_token');if(sv){const el=document.getElementById('perToken');if(el){el.value=sv;perShowTM('✓ 已載入')}}
       const inp=document.getElementById('perInput'),wInp=document.getElementById('stockInput');
       if(inp&&wInp&&wInp.value.trim())inp.value=wInp.value.trim();else if(inp)inp.value='2330';
       inp?.addEventListener('keydown',e=>{if(e.key==='Enter')perGo()});
+      // 同時載入股票清單（背景）與查詢第一支股票
+      perFetchStockList();
       perGo();
     }
   </script>
