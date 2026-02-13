@@ -499,6 +499,68 @@
       padding: 3px 8px; border-radius: 4px; font-size: 0.7rem;
       background: rgba(88, 166, 255, 0.15); color: #58a6ff;
     }
+
+    /* ===== 📊 PE River Styles ===== */
+    .per-status{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:.8rem;color:#8b949e}
+    .per-sdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+    .per-sdot.ok{background:#3fb950;box-shadow:0 0 8px rgba(63,185,80,.4)}
+    .per-sdot.err{background:#f85149;box-shadow:0 0 8px rgba(248,81,73,.4)}
+    .per-sdot.warn{background:#d29922;box-shadow:0 0 8px rgba(210,153,34,.4)}
+    .per-sdot.loading{background:#58a6ff;animation:perPulse 1s infinite}
+    @keyframes perPulse{0%,100%{opacity:1}50%{opacity:.3}}
+    .per-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+    .per-stat-card{background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:14px;transition:border-color .2s}
+    .per-stat-card:hover{border-color:#484f58}
+    .per-stat-label{font-size:.65rem;font-weight:600;color:#6e7681;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+    .per-stat-value{font-size:1.25rem;font-weight:700;font-family:'SFMono-Regular',Consolas,monospace;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .per-stat-value.name{font-size:.95rem;font-family:'Noto Sans TC',sans-serif}
+    .per-stat-sub{font-size:.65rem;color:#6e7681;margin-top:3px}
+    .per-chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+    .per-chip{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:5px 13px;font-size:.78rem;font-weight:600;color:#8b949e;cursor:pointer;transition:all .2s}
+    .per-chip:hover{border-color:#484f58;color:#c9d1d9}
+    .per-chip.active{background:rgba(35,134,54,.15);border-color:rgba(35,134,54,.4);color:#3fb950}
+    .per-ctrl{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+    .per-ck{display:flex;align-items:center;gap:5px;font-size:.8rem;color:#8b949e;cursor:pointer;user-select:none}
+    .per-ck input{accent-color:#bc8cff;cursor:pointer;width:14px;height:14px}
+    .per-btn-o{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:6px 14px;font-size:.8rem;font-weight:600;color:#8b949e;cursor:pointer;transition:all .2s}
+    .per-btn-o:hover{border-color:#484f58}
+    .per-btn-o.active{background:rgba(35,134,54,.12);border-color:rgba(35,134,54,.3);color:#3fb950}
+    .per-pe-editor{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:10px 16px;margin-bottom:14px}
+    .per-pe-tag{display:flex;align-items:center;gap:4px;background:rgba(35,134,54,.12);border-radius:6px;padding:4px 12px;font-size:.8rem;color:#3fb950;font-family:monospace;font-weight:600}
+    .per-pe-tag .x{cursor:pointer;color:#6e7681;font-size:16px;margin-left:4px}.per-pe-tag .x:hover{color:#f85149}
+    .per-pe-input{background:#161b22;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:.8rem;font-family:monospace;width:56px;padding:5px 8px;outline:none}
+    .per-pe-input:focus{border-color:#58a6ff}
+    .per-pe-add{background:#238636;border:none;border-radius:6px;color:#fff;padding:5px 14px;font-size:.85rem;font-weight:700;cursor:pointer}
+    .per-pe-add:hover{background:#2ea043}
+    .per-chart-wrap{position:relative;height:480px}
+    .per-chart-sm{position:relative;height:250px}
+    .per-zone-leg{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+    .per-zi{display:flex;align-items:center;gap:5px;font-size:.7rem;color:#6e7681;font-weight:500}
+    .per-zd{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+    .per-load-ov{position:absolute;inset:0;background:rgba(13,17,23,.9);display:flex;align-items:center;justify-content:center;border-radius:12px;z-index:10}
+    .per-spinner{width:40px;height:40px;border:3px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:spin .7s linear infinite}
+    .per-bottom{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+    .per-bottom .main-card{margin-bottom:0}
+    .per-token-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;font-size:.75rem;color:#6e7681}
+    .per-token-bar input{background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-family:monospace;font-size:.75rem;padding:5px 10px;width:200px;outline:none}
+    .per-token-bar input:focus{border-color:#58a6ff}
+    .per-token-bar a{color:#58a6ff;text-decoration:none;font-weight:600}.per-token-bar a:hover{text-decoration:underline}
+    .per-btn-tiny{background:rgba(35,134,54,.12);border:1px solid rgba(35,134,54,.2);border-radius:5px;color:#3fb950;padding:3px 10px;font-size:.7rem;font-weight:600;cursor:pointer}
+    .per-token-saved{color:#3fb950;font-size:.7rem;font-weight:600}
+    .per-log{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px;max-height:120px;overflow-y:auto;font-family:monospace;font-size:.7rem;color:#484f58;line-height:1.7}
+    .per-log .ok{color:#3fb950}.per-log .er{color:#f85149}.per-log .wn{color:#d29922}.per-log .in{color:#6e7681}
+    .per-table table{width:100%;border-collapse:collapse}
+    .per-table th{font-size:.7rem;font-weight:600;color:#6e7681;padding:8px 10px;text-align:right;border-bottom:1px solid #30363d;font-family:monospace}
+    .per-table th:first-child{text-align:left}
+    .per-table td{font-size:.78rem;padding:7px 10px;text-align:right;color:#c9d1d9;font-family:monospace;border-bottom:1px solid #21262d}
+    .per-table td:first-child{text-align:left;color:#8b949e;font-weight:600}
+    .per-table .per-tot{color:#c9d1d9;font-weight:700}
+    .per-table tr:hover td{background:rgba(88,166,255,.03)}
+    .per-search{display:flex;gap:8px;align-items:center;margin-bottom:14px}
+    .per-search input{background:#0d1117;border:1px solid #30363d;border-radius:8px;color:#c9d1d9;padding:8px 14px;font-size:1rem;font-weight:600;font-family:monospace;width:100px;outline:none}
+    .per-search input:focus{border-color:#58a6ff}
+    @media(max-width:1100px){.per-bottom{grid-template-columns:1fr}}
+    @media(max-width:768px){.per-stats{grid-template-columns:repeat(2,1fr);gap:6px}.per-stat-value{font-size:1rem}.per-chart-wrap{height:360px}.per-chart-sm{height:200px}.per-token-bar input{width:140px}}
   </style>
 </head>
 <body>
@@ -516,6 +578,7 @@
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab active" onclick="showTab('wave')">🌊 波浪分析</button>
+      <button class="tab" onclick="showTab('periver')">📊 本益比河流圖</button>
       <button class="tab" onclick="showTab('portfolio')">💼 投資組合</button>
     </div>
 
@@ -698,6 +761,62 @@
     </div>
 
     <!-- Portfolio Tab -->
+
+    <!-- 📊 PE River Tab -->
+    <div id="peRiverTab" class="hidden">
+      <div class="main-card">
+        <div class="card-header">
+          <h2>📊 本益比河流圖</h2>
+          <div class="per-search">
+            <input id="perInput" type="text" placeholder="2330" maxlength="6">
+            <button class="btn btn-primary" id="perBtnSearch" onclick="perGo()">🔍 查詢</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <!-- Quick chips -->
+          <div class="per-chips" id="perChips"></div>
+          <!-- Token -->
+          <div class="per-token-bar">
+            🔑 FinMind Token：
+            <input id="perToken" type="password" placeholder="選填，提升 API 額度">
+            <button class="per-btn-tiny" onclick="perSaveToken()">💾 記住</button>
+            <span class="per-token-saved" id="perTokenMsg" style="display:none"></span>
+            <a href="https://finmindtrade.com/analysis/#/account/register" target="_blank">免費申請→</a>
+          </div>
+          <!-- Status -->
+          <div class="per-status" id="perStatus"><div class="per-sdot warn"></div><span>等待查詢...</span></div>
+          <!-- Stats -->
+          <div class="per-stats" id="perStats"></div>
+          <!-- Controls -->
+          <div class="per-ctrl">
+            <label class="per-ck"><input type="checkbox" id="perChkMedian" checked onchange="perDraw();perDrawPE()">中位數線</label>
+            <label class="per-ck"><input type="checkbox" id="perChkZone" checked onchange="perDraw()">區間標示</label>
+            <button class="per-btn-o" id="perBtnCustomPE" onclick="perTogglePEEditor()">⚙️ 自訂倍數</button>
+          </div>
+          <div class="per-pe-editor" id="perPEEditor" style="display:none"></div>
+          <!-- River Chart -->
+          <div style="position:relative">
+            <div class="per-zone-leg" id="perZoneLegend"></div>
+            <div class="per-chart-wrap"><canvas id="perRiverChart"></canvas></div>
+            <div class="per-load-ov" id="perLoadOverlay" style="display:none"><div class="per-spinner"></div></div>
+          </div>
+        </div>
+      </div>
+      <!-- Bottom 2-col -->
+      <div class="per-bottom" style="margin-top:16px">
+        <div class="main-card">
+          <div class="card-header"><h2>📈 本益比走勢</h2></div>
+          <div class="card-body"><div class="per-chart-sm"><canvas id="perPEChart"></canvas></div></div>
+        </div>
+        <div class="main-card">
+          <div class="card-header"><h2 id="perTableTitle">📊 季度 EPS</h2></div>
+          <div class="card-body per-table" id="perTableBox"></div>
+        </div>
+      </div>
+      <!-- Log -->
+      <details style="margin-top:16px"><summary style="cursor:pointer;font-size:.8rem;color:#6e7681">📋 API 查詢日誌</summary><div class="per-log" id="perLogBox"></div></details>
+    </div>
+
     <div id="portfolioTab" class="hidden">
       <div class="main-card">
         <div class="card-header"><h2>💼 自訂投資組合</h2></div>
@@ -816,6 +935,9 @@
     window.onload = async function() {
       const urlParams = new URLSearchParams(window.location.search);
       document.getElementById('stockInput').value = urlParams.get('stock') || '2330';
+      // Support ?tab=periver or ?tab=portfolio
+      const tab = urlParams.get('tab');
+      if (tab === 'periver' || tab === 'portfolio') showTab(tab);
       analyzeStock();
       renderPortfolio();
       
@@ -841,9 +963,15 @@
     
     function showTab(tab) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab')[tab === 'wave' ? 0 : 1].classList.add('active');
+      const tabs = document.querySelectorAll('.tab');
+      if (tab === 'wave') tabs[0].classList.add('active');
+      else if (tab === 'periver') tabs[1].classList.add('active');
+      else tabs[2].classList.add('active');
       document.getElementById('waveTab').classList.toggle('hidden', tab !== 'wave');
+      document.getElementById('peRiverTab').classList.toggle('hidden', tab !== 'periver');
       document.getElementById('portfolioTab').classList.toggle('hidden', tab !== 'portfolio');
+      // Init PE River on first visit
+      if (tab === 'periver') perOnTabShow();
     }
     
     // 🆕 分析加權指數
@@ -1665,6 +1793,183 @@
         hideTheory();
       }
     });
+
+    // =====================================================================
+    // 📊 本益比河流圖 — PE River Chart Engine
+    // =====================================================================
+    const PER={id:'',name:'',pe:[],data:[],eps:[],mp:[],ttm:{},lastPrice:0,lastDate:'',src:'none'};
+    let perRC=null,perPC=null;
+    const PER_STOCKS=[{id:'2330',name:'台積電'},{id:'2317',name:'鴻海'},{id:'2454',name:'聯發科'},{id:'2882',name:'國泰金'},{id:'2881',name:'富邦金'},{id:'3008',name:'大立光'},{id:'2412',name:'中華電'},{id:'2308',name:'台達電'},{id:'2344',name:'華邦電'},{id:'8069',name:'元太'},{id:'3443',name:'創意'},{id:'6505',name:'台塑化'}];
+    const PER_Z=[
+      {l:'極度便宜',bg:'rgba(63,185,80,.30)',bc:'#3fb950'},
+      {l:'便宜',bg:'rgba(57,211,83,.25)',bc:'#39d353'},
+      {l:'合理偏低',bg:'rgba(210,153,34,.20)',bc:'#d29922'},
+      {l:'合理',bg:'rgba(219,109,40,.22)',bc:'#db6d28'},
+      {l:'偏貴',bg:'rgba(248,81,73,.25)',bc:'#f85149'},
+      {l:'昂貴',bg:'rgba(218,54,51,.30)',bc:'#da3633'},
+      {l:'極度昂貴',bg:'rgba(163,21,21,.30)',bc:'#a31515'}
+    ];
+    const PER_API='https://api.finmindtrade.com/api/v4/data';
+    const PER_PX=[u=>`https://corsproxy.io/?url=${encodeURIComponent(u)}`,u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`];
+
+    function perLog(m,c='in'){const e=document.getElementById('perLogBox');if(!e)return;e.innerHTML+=`<div class="${c}">[${new Date().toLocaleTimeString()}] ${m}</div>`;e.scrollTop=e.scrollHeight}
+    function perSetStatus(t,x){const e=document.getElementById('perStatus');if(e)e.innerHTML=`<div class="per-sdot ${t}"></div><span>${x}</span>`}
+    function perShowLoad(b){const e=document.getElementById('perLoadOverlay'),btn=document.getElementById('perBtnSearch');if(e)e.style.display=b?'flex':'none';if(btn){btn.disabled=b;btn.textContent=b?'⏳':'🔍 查詢'}}
+    function perSaveToken(){const t=document.getElementById('perToken').value.trim();if(t){localStorage.setItem('finmind_token',t);perShowTM('✓ 已儲存')}else{localStorage.removeItem('finmind_token');perShowTM('已清除')}}
+    function perShowTM(t){const e=document.getElementById('perTokenMsg');if(!e)return;e.style.display='inline';e.textContent=t;setTimeout(()=>e.style.display='none',3000)}
+    function perRenderChips(){const e=document.getElementById('perChips');if(e)e.innerHTML=PER_STOCKS.map(s=>`<span class="per-chip" data-id="${s.id}" onclick="perPick('${s.id}')">${s.id} ${s.name}</span>`).join('')}
+    function perPick(id){document.getElementById('perInput').value=id;perGo()}
+    function perUpdateChips(){document.querySelectorAll('.per-chip').forEach(c=>c.classList.toggle('active',c.dataset.id===PER.id))}
+
+    async function perApiFetch(url){
+      try{const r=await fetch(url,{signal:AbortSignal.timeout(8000)});if(r.ok){const j=await r.json();if(j.msg==='success'&&j.data?.length>0)return j}}catch(e){perLog('直連: '+e.message,'wn')}
+      for(let i=0;i<PER_PX.length;i++){try{perLog(`Proxy ${i+1}...`,'in');const r=await fetch(PER_PX[i](url),{signal:AbortSignal.timeout(15000)});if(r.ok){const j=JSON.parse(await r.text());if(j.msg==='success'&&j.data?.length>0){perLog(`Proxy ${i+1} ✅`,'ok');return j}}}catch(e){perLog(`Proxy ${i+1}: ${e.message}`,'wn')}}
+      return null;
+    }
+
+    async function perGo(){
+      const id=document.getElementById('perInput').value.trim();if(!id)return;
+      PER.id=id;PER.pe=[];perUpdateChips();perShowLoad(true);perSetStatus('loading','正在查詢 FinMind API...');
+      const lb=document.getElementById('perLogBox');if(lb)lb.innerHTML='';perLog(`══ 查詢 ${id} ══`);
+      const token=document.getElementById('perToken').value.trim();
+      let ok=false;try{ok=await perFetchAPI(id,token)}catch(e){perLog('錯誤: '+e.message,'er')}
+      if(!ok){perLog('使用範例數據','wn');perLoadSample(id)}
+      perAutoPE();perBuildData();perRenderStats();perDraw();perDrawPE();perRenderTable();perShowLoad(false);
+    }
+
+    async function perFetchAPI(id,token){
+      const sd='2018-01-01',tp=token?`&token=${token}`:'';
+      perLog('📊 取得股價...','in');
+      const pJ=await perApiFetch(`${PER_API}?dataset=TaiwanStockPrice&data_id=${id}&start_date=${sd}${tp}`);
+      if(!pJ){perLog('❌ 無法取得股價','er');return false}
+      perLog(`✅ ${pJ.data.length} 筆日股價`,'ok');
+      const mm={};pJ.data.forEach(d=>{const m=d.date.substring(0,7),c=parseFloat(d.close);if(!isNaN(c)&&c>0){if(!mm[m]||d.date>mm[m].dt)mm[m]={dt:d.date,close:c}}});
+      const mp=Object.entries(mm).sort(([a],[b])=>a.localeCompare(b)).map(([m,v])=>({month:m,close:v.close}));
+      const lastDay=pJ.data[pJ.data.length-1];
+      perLog(`💰 最新: ${lastDay.date} $${lastDay.close} | ${mp.length} 月度`,'ok');
+      perLog('📋 取得 EPS...','in');
+      const eJ=await perApiFetch(`${PER_API}?dataset=TaiwanStockFinancialStatements&data_id=${id}&start_date=${sd}${tp}`);
+      if(!eJ){perLog('❌ 無法取得 EPS','er');return false}
+      let epsE=eJ.data.filter(d=>d.type==='EPS'||d.type==='基本每股盈餘（元）'||d.type==='BasicEarningsPerShare');
+      if(!epsE.length)epsE=eJ.data.filter(d=>d.origin_name&&d.origin_name.includes('每股盈餘'));
+      if(!epsE.length)epsE=eJ.data.filter(d=>d.type&&(d.type.toLowerCase().includes('eps')||d.type.includes('盈餘')));
+      if(!epsE.length){perLog('❌ 找不到 EPS','er');return false}
+      perLog(`📈 ${epsE.length} 筆 EPS`,'ok');
+      const qMap={};epsE.forEach(d=>{const yr=parseInt(d.date.substring(0,4)),mo=parseInt(d.date.substring(5,7));let q;if(mo<=3)q=1;else if(mo<=6)q=2;else if(mo<=9)q=3;else q=4;const val=parseFloat(d.value);if(!isNaN(val))qMap[`${yr}Q${q}`]={year:yr,quarter:q,eps:val}});
+      const epsArr=Object.values(qMap).sort((a,b)=>a.year-b.year||a.quarter-b.quarter);
+      if(epsArr.length<4){perLog('❌ EPS 不足 4 季','er');return false}
+      const ttm={};for(let i=3;i<epsArr.length;i++){const t4=epsArr[i].eps+epsArr[i-1].eps+epsArr[i-2].eps+epsArr[i-3].eps;const q=epsArr[i];for(let m=0;m<3;m++){const mo=(q.quarter-1)*3+m+1;ttm[`${q.year}-${String(mo).padStart(2,'0')}`]=t4}}
+      const lastTTM=epsArr.slice(-4).reduce((s,e)=>s+e.eps,0);const lastPM=mp[mp.length-1].month;const tK=Object.keys(ttm).sort();
+      if(tK.length){let[cy,cm]=tK[tK.length-1].split('-').map(Number);for(let i=0;i<24;i++){cm++;if(cm>12){cm=1;cy++}const k=`${cy}-${String(cm).padStart(2,'0')}`;ttm[k]=lastTTM;if(k>=lastPM)break}}
+      perLog(`📊 TTM 近四季: $${lastTTM.toFixed(2)}`,'ok');
+      PER.name=perFindName(id);PER.eps=epsArr;PER.mp=mp;PER.ttm=ttm;PER.lastPrice=parseFloat(lastDay.close);PER.lastDate=lastDay.date;PER.src='api';
+      perSetStatus('ok',`✅ API — ${PER.id} ${PER.name} | ${PER.lastDate} $${PER.lastPrice}`);return true;
+    }
+    function perFindName(id){const f=PER_STOCKS.find(s=>s.id===id);return f?f.name:id}
+
+    const PER_SAM={'2330':{name:'台積電',eps:[{y:2019,q:[2.37,2.57,3.90,4.47]},{y:2020,q:[4.51,4.66,5.30,5.51]},{y:2021,q:[5.39,5.18,6.03,6.41]},{y:2022,q:[7.82,8.86,9.67,7.26]},{y:2023,q:[5.55,5.85,7.83,9.21]},{y:2024,q:[9.56,10.12,12.54,14.08]}],prices:'289,302,295,310,305,265,290,319,332,343,338,331,342,318,426,441,489,510,540,559,584,593,604,615,610,625,638,606,589,583,570,541,512,490,472,439,441,476,506,525,533,540,547,558,534,544,568,593,570,540,530,547,579,598,637,675,737,774,821,870,918,960,990,1010,1060,1060,1040,1030,1010,1050,1095,1080'}};
+
+    function perLoadSample(id){
+      const d=PER_SAM[id];if(!d){perSetStatus('err',`找不到 ${id}`);PER.name=id;PER.eps=[];PER.mp=[];PER.ttm={};PER.lastPrice=0;return}
+      PER.name=d.name;PER.eps=[];d.eps.forEach(r=>r.q.forEach((v,i)=>PER.eps.push({year:r.y,quarter:i+1,eps:v})));
+      const pr=d.prices.split(',').map(Number);PER.mp=pr.map((p,i)=>{const yr=2019+Math.floor(i/12),mo=(i%12)+1;return{month:`${yr}-${String(mo).padStart(2,'0')}`,close:p}});
+      PER.ttm={};for(let i=3;i<PER.eps.length;i++){const t4=PER.eps[i].eps+PER.eps[i-1].eps+PER.eps[i-2].eps+PER.eps[i-3].eps;const q=PER.eps[i];for(let m=0;m<3;m++){const mo=(q.quarter-1)*3+m+1;PER.ttm[`${q.year}-${String(mo).padStart(2,'0')}`]=t4}}
+      const lastTTM=PER.eps.slice(-4).reduce((s,e)=>s+e.eps,0);const lpm=PER.mp[PER.mp.length-1].month;const tk=Object.keys(PER.ttm).sort();
+      if(tk.length){let[cy,cm]=tk[tk.length-1].split('-').map(Number);for(let i=0;i<12;i++){cm++;if(cm>12){cm=1;cy++}PER.ttm[`${cy}-${String(cm).padStart(2,'0')}`]=lastTTM;if(`${cy}-${String(cm).padStart(2,'0')}`>=lpm)break}}
+      PER.lastPrice=pr[pr.length-1];PER.lastDate='範例';PER.src='sample';perSetStatus('warn',`⚠️ 範例數據 — ${PER.id} ${PER.name}`);
+    }
+
+    function perAutoPE(){
+      const allPE=[];PER.mp.forEach(p=>{const t=PER.ttm[p.month];if(t&&t>0)allPE.push(p.close/t)});
+      if(!allPE.length){PER.pe=[10,15,20,25,30];return}allPE.sort((a,b)=>a-b);
+      PER.pe=[0.05,0.20,0.40,0.60,0.80,0.95].map(p=>{const i=Math.floor(p*(allPE.length-1));return Math.round(allPE[i])});
+      PER.pe=[...new Set(PER.pe)].sort((a,b)=>a-b);
+      if(PER.pe.length<3){const mn=Math.floor(allPE[0]),mx=Math.ceil(allPE[allPE.length-1]),st=Math.max(1,Math.round((mx-mn)/5));PER.pe=[];for(let v=mn;v<=mx;v+=st)PER.pe.push(v)}
+      perLog(`📐 PE 倍數: ${PER.pe.join(', ')}x`,'ok');
+    }
+
+    function perBuildData(){
+      if(!PER.mp.length||!Object.keys(PER.ttm).length){PER.data=[];return}
+      const sorted=[...PER.pe].sort((a,b)=>a-b);PER.data=[];
+      PER.mp.forEach(p=>{const ttm=PER.ttm[p.month];if(!ttm||ttm<=0)return;const d={label:p.month.replace('-','/'),eps:ttm,price:p.close,currentPE:p.close/ttm};sorted.forEach(pe=>{d[`pe${pe}`]=+(ttm*pe).toFixed(1)});PER.data.push(d)});
+      if(PER.lastPrice&&PER.data.length&&PER.src==='api'){const L=PER.data[PER.data.length-1];L.price=PER.lastPrice;L.currentPE=PER.lastPrice/L.eps}
+    }
+
+    function perRenderStats(){
+      const el=document.getElementById('perStats');if(!el||!PER.data.length){if(el)el.innerHTML='';return}
+      const L=PER.data[PER.data.length-1],pe=L.currentPE,sorted=[...PER.pe].sort((a,b)=>a-b);
+      const pes=PER.data.map(d=>d.currentPE).filter(Boolean).sort((a,b)=>a-b);
+      const mid=Math.floor(pes.length/2),median=pes.length%2?pes[mid]:(pes[mid-1]+pes[mid])/2;
+      const zone=perGetZone(pe,sorted),below=pes.filter(p=>p<=pe).length,pct=((below/pes.length)*100).toFixed(0);
+      el.innerHTML=[
+        {l:'股票',v:`${PER.id} ${PER.name}`,cls:'name'},
+        {l:'最新股價',v:`$${L.price?.toFixed(0)}`,sub:PER.lastDate!=='範例'?PER.lastDate:''},
+        {l:'近四季 EPS',v:`$${L.eps?.toFixed(2)}`},
+        {l:'本益比',v:`${pe?.toFixed(1)}x`,c:zone.c},
+        {l:'歷史中位數',v:`${median?.toFixed(1)}x`},
+        {l:'PE 百分位',v:`${pct}%`,sub:pct<30?'⬇ 偏低':pct>70?'⬆ 偏高':'↔ 中等'},
+        {l:'估值區間',v:zone.l,c:zone.c},
+        {l:'數據',v:PER.src==='api'?'API 即時':'內建',sub:`${PER.data.length} 月`}
+      ].map(c=>`<div class="per-stat-card"><div class="per-stat-label">${c.l}</div><div class="per-stat-value ${c.cls||''}" style="${c.c?`color:${c.c}`:''}">${c.v}</div>${c.sub?`<div class="per-stat-sub">${c.sub}</div>`:''}</div>`).join('');
+    }
+    function perGetZone(pe,s){if(!pe||s.length<2)return{l:'—',c:'#8b949e'};if(pe<=s[0])return{l:'極度便宜',c:'#3fb950'};if(pe<=s[1])return{l:'便宜',c:'#39d353'};if(pe<=s[2])return{l:'合理偏低',c:'#d29922'};const m=Math.floor(s.length/2);if(pe<=s[m])return{l:'合理',c:'#db6d28'};if(pe<=s[s.length-2])return{l:'偏貴',c:'#f85149'};if(pe<=s[s.length-1])return{l:'昂貴',c:'#da3633'};return{l:'極度昂貴',c:'#a31515'}}
+
+    function perDraw(){
+      const data=PER.data;if(!data.length)return;const sorted=[...PER.pe].sort((a,b)=>a-b);
+      const showM=document.getElementById('perChkMedian')?.checked,showZ=document.getElementById('perChkZone')?.checked;
+      const labels=data.map(d=>d.label),ds=[];
+      for(let i=sorted.length-1;i>=0;i--){const pe=sorted[i],ci=Math.min(i,PER_Z.length-1);ds.push({label:`${pe}x`,data:data.map(d=>d[`pe${pe}`]),backgroundColor:PER_Z[ci].bg,borderColor:PER_Z[ci].bc,borderWidth:1,fill:true,tension:.3,pointRadius:0,order:sorted.length-i+1})}
+      if(showM){const pes=data.map(d=>d.currentPE).sort((a,b)=>a-b);const mid=Math.floor(pes.length/2),median=pes.length%2?pes[mid]:(pes[mid-1]+pes[mid])/2;ds.push({label:`中位數 ${median.toFixed(1)}x`,data:data.map(d=>+(d.eps*median).toFixed(1)),borderColor:'#bc8cff',borderWidth:2,borderDash:[8,4],fill:false,tension:.3,pointRadius:0,order:1})}
+      ds.push({label:'實際股價',data:data.map(d=>d.price),borderColor:'#c9d1d9',borderWidth:2.5,fill:false,tension:.3,pointRadius:0,order:0,pointHoverRadius:5,pointHoverBackgroundColor:'#fff'});
+      const allV=[];data.forEach(d=>{allV.push(d.price);sorted.forEach(pe=>{allV.push(d[`pe${pe}`])})});
+      const yMin=Math.max(0,Math.min(...allV)*0.85),yMax=Math.max(...allV)*1.05;
+      if(perRC)perRC.destroy();
+      perRC=new Chart(document.getElementById('perRiverChart'),{type:'line',data:{labels,datasets:ds},options:{
+        responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+        plugins:{legend:{display:true,position:'bottom',labels:{color:'#8b949e',font:{size:10},padding:12,usePointStyle:true,pointStyleWidth:10}},tooltip:{backgroundColor:'rgba(13,17,23,.97)',borderColor:'#30363d',borderWidth:1,cornerRadius:10,titleFont:{size:11},bodyFont:{size:11},padding:14,callbacks:{title:i=>i[0]?.label||'',afterTitle:i=>{const idx=i[0]?.dataIndex;if(idx==null)return'';const d=data[idx],z=perGetZone(d.currentPE,sorted);return`💰 $${d.price?.toFixed(0)} | EPS $${d.eps?.toFixed(2)} | PE ${d.currentPE?.toFixed(1)}x | ${z.l}`}}}},
+        scales:{x:{ticks:{color:'#6e7681',font:{size:9},maxTicksLimit:20,maxRotation:0},grid:{color:'rgba(48,54,61,.3)'}},y:{min:yMin,max:yMax,ticks:{color:'#6e7681',font:{size:10},callback:v=>`$${v.toFixed(0)}`},grid:{color:'rgba(48,54,61,.4)'}}},animation:{duration:1000}}});
+      const zEl=document.getElementById('perZoneLegend');if(!zEl)return;if(!showZ){zEl.innerHTML='';return}
+      const zL=[];for(let i=0;i<=sorted.length;i++){const ci=Math.min(i,PER_Z.length-1);let lbl;if(i===0)lbl=`< ${sorted[0]}x`;else if(i===sorted.length)lbl=`> ${sorted[sorted.length-1]}x`;else lbl=`${sorted[i-1]}~${sorted[i]}x`;zL.push(`<div class="per-zi"><div class="per-zd" style="background:${PER_Z[ci].bc}"></div>${lbl} ${PER_Z[ci].l}</div>`)}
+      zEl.innerHTML=zL.join('');
+    }
+
+    function perDrawPE(){
+      const data=PER.data;if(!data.length)return;const sorted=[...PER.pe].sort((a,b)=>a-b);
+      const pes=data.map(d=>d.currentPE).sort((a,b)=>a-b);const mid=Math.floor(pes.length/2),median=pes.length%2?pes[mid]:(pes[mid-1]+pes[mid])/2;
+      if(perPC)perPC.destroy();const ctx=document.getElementById('perPEChart').getContext('2d');
+      const g=ctx.createLinearGradient(0,0,0,260);g.addColorStop(0,'rgba(88,166,255,.25)');g.addColorStop(1,'rgba(88,166,255,.01)');
+      const ann={};sorted.forEach(pe=>{ann[`pe${pe}`]={type:'line',yMin:pe,yMax:pe,borderColor:'rgba(48,54,61,.5)',borderWidth:1,borderDash:[3,4],label:{display:true,content:`${pe}x`,position:'start',color:'#6e7681',font:{size:8},backgroundColor:'transparent'}}});
+      if(document.getElementById('perChkMedian')?.checked)ann.med={type:'line',yMin:median,yMax:median,borderColor:'#bc8cff',borderWidth:1.5,borderDash:[6,4]};
+      perPC=new Chart(ctx,{type:'line',data:{labels:data.map(d=>d.label),datasets:[{data:data.map(d=>d.currentPE),borderColor:'#58a6ff',borderWidth:2,backgroundColor:g,fill:true,tension:.3,pointRadius:0}]},options:{
+        responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},annotation:{annotations:ann},tooltip:{backgroundColor:'rgba(13,17,23,.97)',cornerRadius:8,bodyFont:{size:11},callbacks:{label:c=>`PE ${c.parsed.y?.toFixed(1)}x`}}},
+        scales:{x:{ticks:{color:'#6e7681',font:{size:8},maxTicksLimit:10,maxRotation:0},grid:{display:false}},y:{ticks:{color:'#6e7681',font:{size:9},callback:v=>`${v.toFixed(0)}x`},grid:{color:'rgba(48,54,61,.3)'}}},animation:{duration:800}}});
+    }
+
+    function perRenderTable(){
+      const el=document.getElementById('perTableBox'),title=document.getElementById('perTableTitle');if(!el)return;
+      if(title)title.textContent=PER.eps.length?`📊 ${PER.id} ${PER.name} EPS`:'📊 季度 EPS';
+      if(!PER.eps.length){el.innerHTML='';return}
+      const yrs={};PER.eps.forEach(d=>{if(!yrs[d.year])yrs[d.year]={};yrs[d.year][`q${d.quarter}`]=d.eps});
+      let h=`<table><thead><tr><th>年度</th><th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th><th>全年</th></tr></thead><tbody>`;
+      Object.keys(yrs).sort().forEach(y=>{const r=yrs[y],q1=r.q1||0,q2=r.q2||0,q3=r.q3||0,q4=r.q4||0,t=q1+q2+q3+q4;h+=`<tr><td>${y}</td><td>${q1?q1.toFixed(2):'—'}</td><td>${q2?q2.toFixed(2):'—'}</td><td>${q3?q3.toFixed(2):'—'}</td><td>${q4?q4.toFixed(2):'—'}</td><td class="per-tot">${t?t.toFixed(2):'—'}</td></tr>`});
+      el.innerHTML=h+'</tbody></table>';
+    }
+
+    function perTogglePEEditor(){const e=document.getElementById('perPEEditor'),b=document.getElementById('perBtnCustomPE');if(!e||!b)return;const show=e.style.display==='none';e.style.display=show?'flex':'none';b.classList.toggle('active',show);if(show)perRenderPEE()}
+    function perRenderPEE(){const sorted=[...PER.pe].sort((a,b)=>a-b);const el=document.getElementById('perPEEditor');if(!el)return;el.innerHTML=sorted.map(pe=>`<span class="per-pe-tag">${pe}x<span class="x" onclick="perRemovePE(${pe})">×</span></span>`).join('')+`<input class="per-pe-input" id="perNewPE" placeholder="新增" onkeydown="if(event.key==='Enter')perAddPE()"><button class="per-pe-add" onclick="perAddPE()">+</button>`}
+    function perAddPE(){const v=parseFloat(document.getElementById('perNewPE').value);if(v>0&&!PER.pe.includes(v)&&v<200){PER.pe.push(v);perBuildData();perDraw();perDrawPE();perRenderStats();perRenderPEE();document.getElementById('perNewPE').value=''}}
+    function perRemovePE(pe){if(PER.pe.length<=2)return;PER.pe=PER.pe.filter(p=>p!==pe);perBuildData();perDraw();perDrawPE();perRenderStats();perRenderPEE()}
+
+    let perInitDone=false;
+    function perOnTabShow(){
+      if(perInitDone)return;perInitDone=true;
+      perRenderChips();
+      const sv=localStorage.getItem('finmind_token');if(sv){const el=document.getElementById('perToken');if(el){el.value=sv;perShowTM('✓ 已載入')}}
+      const inp=document.getElementById('perInput'),wInp=document.getElementById('stockInput');
+      if(inp&&wInp&&wInp.value.trim())inp.value=wInp.value.trim();else if(inp)inp.value='2330';
+      inp?.addEventListener('keydown',e=>{if(e.key==='Enter')perGo()});
+      perGo();
+    }
   </script>
   
   <!-- 🆕 波浪理論教學 Modal -->
