@@ -580,6 +580,19 @@
     .ai3-fck{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;border:1px solid #30363d;background:#0d1117;font-size:.78rem;color:#8b949e;cursor:pointer;transition:all .2s;user-select:none}
     .ai3-fck:hover{border-color:#484f58}
     .ai3-fck.on{background:rgba(35,134,54,.1);border-color:rgba(35,134,54,.3);color:#3fb950}
+    .ai3-stock-info{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:12px 16px;background:#0d1117;border:1px solid #30363d;border-radius:10px}
+    .ai3-badge{padding:4px 10px;border-radius:6px;font-size:.75rem;font-weight:700;display:inline-flex;align-items:center;gap:4px}
+    .ai3-badge.ind{background:rgba(188,140,255,.12);border:1px solid rgba(188,140,255,.25);color:#bc8cff}
+    .ai3-badge.mkt{background:rgba(88,166,255,.12);border:1px solid rgba(88,166,255,.25);color:#58a6ff}
+    .ai3-type-sel{display:flex;gap:6px;margin-left:auto}
+    .ai3-type-btn{padding:5px 12px;border-radius:6px;border:1px solid #30363d;background:#161b22;font-size:.75rem;font-weight:600;color:#8b949e;cursor:pointer;transition:all .2s}
+    .ai3-type-btn:hover{border-color:#484f58}
+    .ai3-type-btn.active{border-width:2px}
+    .ai3-type-btn.t-theme.active{background:rgba(248,81,73,.1);border-color:#f85149;color:#f85149}
+    .ai3-type-btn.t-growth.active{background:rgba(210,153,34,.1);border-color:#d29922;color:#d29922}
+    .ai3-type-btn.t-normal.active{background:rgba(63,185,80,.1);border-color:#3fb950;color:#3fb950}
+    .ai3-type-btn.t-value.active{background:rgba(88,166,255,.1);border-color:#58a6ff;color:#58a6ff}
+    .ai3-type-btn.t-cycle.active{background:rgba(188,140,255,.1);border-color:#bc8cff;color:#bc8cff}
     .ai3-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
     .ai3-card{background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:16px;position:relative;overflow:hidden}
     .ai3-card-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
@@ -880,6 +893,20 @@
       <!-- 3AI Valuation Analysis -->
       <div class="ai3-panel" id="perAI3Panel">
         <div class="ai3-title">🤖 3AI 本益比估值分析與建議</div>
+        <!-- Stock Info & Type -->
+        <div class="ai3-stock-info" id="perStockInfoBar">
+          <span style="font-size:.85rem;font-weight:700;color:#c9d1d9" id="perInfoName">—</span>
+          <span class="ai3-badge ind" id="perInfoIndustry" style="display:none"></span>
+          <span class="ai3-badge mkt" id="perInfoMarket" style="display:none"></span>
+          <div class="ai3-type-sel" id="perTypeSel">
+            <span style="font-size:.7rem;color:#6e7681;align-self:center">股票屬性：</span>
+            <button class="ai3-type-btn t-theme" onclick="perSetType('theme',this)">🔥 題材股</button>
+            <button class="ai3-type-btn t-growth" onclick="perSetType('growth',this)">🚀 成長股</button>
+            <button class="ai3-type-btn t-normal active" onclick="perSetType('normal',this)">📊 一般股</button>
+            <button class="ai3-type-btn t-value" onclick="perSetType('value',this)">💎 價值股</button>
+            <button class="ai3-type-btn t-cycle" onclick="perSetType('cycle',this)">🔄 景氣循環</button>
+          </div>
+        </div>
         <!-- Position Selector -->
         <div style="font-size:.82rem;color:#8b949e;margin-bottom:6px;font-weight:600">📌 我目前的持股狀態：</div>
         <div class="ai3-pos" id="perPosSelector">
@@ -1973,7 +2000,7 @@
             // 過濾：只保留普通股（4碼數字或4碼+英文）
             if(!/^\d{4,6}[A-Z]?$/.test(d.stock_id))return false;
             return true;
-          }).map(d=>({id:d.stock_id,name:d.stock_name,market:d.type||''}));
+          }).map(d=>({id:d.stock_id,name:d.stock_name,market:d.type||'',industry:d.industry_category||d.industry||''}));
           perLog(`✅ 共 ${PER_ALL_STOCKS.length} 檔股票（上市+上櫃）`,'ok');
           // 快取到 sessionStorage
           try{sessionStorage.setItem('per_stocks',JSON.stringify(PER_ALL_STOCKS))}catch(e){}
@@ -2011,7 +2038,7 @@
       matches=matches.slice(0,20);
       if(!matches.length){list.innerHTML='<div class="per-ac-count">找不到符合的股票</div>';list.classList.add('show');return}
       let h=`<div class="per-ac-count">找到 ${PER_ALL_STOCKS.length>0?matches.length+'／'+PER_ALL_STOCKS.length:matches.length} 檔</div>`;
-      h+=matches.map(s=>`<div class="per-ac-item" onclick="perSelectAC('${s.id}')"><span class="code">${s.id}</span><span class="nm">${s.name}</span><span class="mkt">${s.market==='twse'?'上市':s.market==='tpex'?'上櫃':''}</span></div>`).join('');
+      h+=matches.map(s=>`<div class="per-ac-item" onclick="perSelectAC('${s.id}')"><span class="code">${s.id}</span><span class="nm">${s.name}</span>${s.industry?`<span class="mkt" style="color:#bc8cff">${s.industry}</span>`:''}<span class="mkt">${s.market==='twse'?'上市':s.market==='tpex'?'上櫃':''}</span></div>`).join('');
       list.innerHTML=h;list.classList.add('show');
     }
     function perHighlightAC(items){items.forEach((it,i)=>it.classList.toggle('sel',i===perACIdx));if(items[perACIdx])items[perACIdx].scrollIntoView({block:'nearest'})}
@@ -2172,8 +2199,55 @@
     let perAI3Results={claude:null,gemini:null,openai:null};
 
     let perUserPos='want_buy'; // default
+    let perStockType='normal'; // theme|growth|normal|value|cycle
     function perSelectPos(el,pos){perUserPos=pos;document.querySelectorAll('.ai3-pos-opt').forEach(o=>o.classList.remove('selected'));el.classList.add('selected')}
     function perGetFocusAreas(){const out=[];document.querySelectorAll('#perFocusChecks .ai3-fck.on').forEach(c=>out.push(c.dataset.value));return out}
+    function perSetType(t,btn){perStockType=t;document.querySelectorAll('.ai3-type-btn').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active')}
+
+    // Auto-detect stock type from industry
+    const PER_TYPE_MAP={
+      theme:['半導體','光電','電腦及週邊設備','通信網路','電子零組件','資訊服務','其他電子','數位雲端','電子通路','綠能環保'],
+      cycle:['鋼鐵','塑膠','水泥','造紙','航運','橡膠','玻璃陶瓷','紡織纖維','化學','電機機械','汽車'],
+      value:['金融保險','金融','銀行','保險','證券','食品','油電燃氣','電器電纜'],
+      growth:['生技醫療','半導體','電子','AI','機器人']
+    };
+    // Keyword-based detection for specific known stocks
+    const PER_KNOWN_TYPES={'2330':'growth','2454':'growth','3443':'growth','2344':'cycle','2408':'cycle','8069':'theme','6770':'theme','3661':'theme','2303':'growth','3034':'growth','2317':'normal','2412':'value','2882':'value','2881':'value','2886':'value','2891':'value','0050':'value','0056':'value'};
+
+    function perAutoDetectType(id,industry){
+      // Check known stocks first
+      if(PER_KNOWN_TYPES[id]){perSetTypeByName(PER_KNOWN_TYPES[id]);return}
+      // Check industry keywords
+      if(!industry){perSetTypeByName('normal');return}
+      const ind=industry.toLowerCase();
+      // Memory/DRAM specific
+      if(/記憶|dram|nand|flash|存儲/.test(ind)){perSetTypeByName('cycle');return}
+      for(const[type,keywords]of Object.entries(PER_TYPE_MAP)){
+        if(keywords.some(k=>industry.includes(k))){perSetTypeByName(type);return}
+      }
+      perSetTypeByName('normal');
+    }
+    function perSetTypeByName(t){
+      perStockType=t;
+      document.querySelectorAll('.ai3-type-btn').forEach(b=>{b.classList.remove('active');if(b.classList.contains(`t-${t}`))b.classList.add('active')});
+    }
+
+    function perUpdateStockInfo(){
+      const nameEl=document.getElementById('perInfoName');
+      const indEl=document.getElementById('perInfoIndustry');
+      const mktEl=document.getElementById('perInfoMarket');
+      if(!nameEl)return;
+      if(!PER.id){nameEl.textContent='—';indEl.style.display='none';mktEl.style.display='none';return}
+      nameEl.textContent=`${PER.id} ${PER.name}`;
+      // Find stock info
+      const info=PER_ALL_STOCKS.find(s=>s.id===PER.id)||PER_STOCKS_POP.find(s=>s.id===PER.id);
+      const industry=info?.industry||'';
+      const market=info?.market||'';
+      if(industry){indEl.textContent=`🏭 ${industry}`;indEl.style.display='inline-flex'}else{indEl.style.display='none'}
+      if(market){mktEl.textContent=market==='twse'?'🏛️ 上市':market==='tpex'?'📋 上櫃':market;mktEl.style.display='inline-flex'}else{mktEl.style.display='none'}
+      // Auto-detect type
+      perAutoDetectType(PER.id,industry);
+    }
 
     function perBuildPrompt(){
       if(!PER.data.length)return'';
@@ -2211,7 +2285,26 @@
       let focusText=focusAreas.map(k=>focusMap[k]||'').filter(Boolean).join('\n');
       if(!focusText)focusText='請進行全面分析';
 
+      // Stock type context
+      const typeContext={
+        theme:'🔥 題材股／概念股：本益比常因市場題材炒作而大幅偏離基本面，PE 可能長期偏高（30x~100x+），需重點分析題材持續性、籌碼面、與實際營收的落差。高 PE 不一定代表貴，但泡沫風險也高。',
+        growth:'🚀 高成長股：因為 EPS 快速成長，市場願意給予較高本益比（20x~50x），PE 偏高是合理的「成長溢價」。關鍵在於成長能否持續，若 EPS 增速放緩，PE 會快速壓縮（戴維斯雙殺）。',
+        normal:'📊 一般股：本益比主要反映基本面，歷史中位數 PE 是重要參考。高於中位數偏貴，低於中位數偏便宜，適合用河流圖做估值判斷。',
+        value:'💎 價值股／金融股：通常 PE 較低且穩定（8x~18x），重點看殖利率和配息穩定度。PE 突然升高可能是 EPS 衰退而非股價上漲，需注意。',
+        cycle:'🔄 景氣循環股（含記憶體、鋼鐵、航運等）：PE 指標容易誤導！景氣高點 EPS 最好但股價可能見頂（PE 最低時反而最危險），景氣低點 EPS 差但股價可能見底（PE 最高或虧損時反而該買）。分析時必須判斷目前處於景氣週期的哪個階段。'
+      };
+      const info=PER_ALL_STOCKS.find(s=>s.id===PER.id)||PER_STOCKS_POP.find(s=>s.id===PER.id);
+      const industry=info?.industry||'未分類';
+      const typeLabel={theme:'題材股',growth:'成長股',normal:'一般股',value:'價值股',cycle:'景氣循環股'}[perStockType]||'一般股';
+
       return `你是專業台股投資分析師，擅長本益比（PE Ratio）河流圖估值分析。
+
+⚠️ 重要：請根據這檔股票的「屬性分類」調整你的 PE 分析框架，不同類型的股票 PE 解讀方式完全不同！
+
+🏷️ 股票分類資訊：
+- 產業類別：${industry}
+- 股票屬性：${typeLabel}
+- 分析注意：${typeContext[perStockType]||typeContext.normal}
 
 🧑 投資人狀態：${posText}
 
@@ -2302,7 +2395,7 @@ ${focusText}
       if(!cnt){alert('請先在「分析系統」(analyzer.html) 設定至少一個 API Key！\n\nClaude / Gemini / OpenAI 任一即可。');return}
       perAI3Running=true;
       document.getElementById('perAI3Btn').disabled=true;document.getElementById('perAI3Btn').textContent='⏳ 分析中...';
-      document.getElementById('perAI3Hint').textContent=`分析 ${PER.id} ${PER.name}...（${cnt} 個 AI，${perGetFocusAreas().length} 個面向）`;
+      document.getElementById('perAI3Hint').textContent=`分析 ${PER.id} ${PER.name}（${{theme:'題材',growth:'成長',normal:'一般',value:'價值',cycle:'循環'}[perStockType]||''}）...${cnt}AI × ${perGetFocusAreas().length}面向`;
       perAI3Results={claude:null,gemini:null,openai:null};
       document.getElementById('perAI3Vote').style.display='none';
       document.getElementById('perAI3Final').style.display='none';
@@ -2366,7 +2459,10 @@ ${focusText}
       // Composite summary
       const avgScore=Math.round(results.reduce((s,r)=>s+r.score,0)/results.length);
       const posLabel={holding:'💰 已持有',want_buy:'🛒 想買進',watching:'👀 觀望中'}[perUserPos]||'';
+      const typeLabel2={theme:'🔥 題材股',growth:'🚀 成長股',normal:'📊 一般股',value:'💎 價值股',cycle:'🔄 景氣循環'}[perStockType]||'';
+      const infoS=PER_ALL_STOCKS.find(s=>s.id===PER.id);
       let summary=`📊 ${PER.id} ${PER.name} 3AI 本益比估值總評\n`;
+      summary+=`🏷️ ${infoS?.industry||'—'} | ${typeLabel2}\n`;
       summary+=`📌 投資人狀態：${posLabel}\n\n`;
       summary+=`🎯 平均評分：${avgScore}/100（${results.length} 個 AI 參與）\n`;
       summary+=`📈 買進/加碼：${buy} 票 | ⏸️ 持有/觀望：${hold} 票 | 📉 賣出/減碼：${sell} 票\n\n`;
@@ -2388,7 +2484,7 @@ ${focusText}
 
     // Enable AI3 button after data loads
     const origPerRenderStats=perRenderStats;
-    perRenderStats=function(){origPerRenderStats();const btn=document.getElementById('perAI3Btn');if(btn&&PER.data.length){btn.disabled=false;const pl={holding:'💰已持有',want_buy:'🛒想買進',watching:'👀觀望中'}[perUserPos]||'';document.getElementById('perAI3Hint').textContent=`✅ ${PER.id} ${PER.name} | ${pl} | 可開始分析`}};
+    perRenderStats=function(){origPerRenderStats();perUpdateStockInfo();const btn=document.getElementById('perAI3Btn');if(btn&&PER.data.length){btn.disabled=false;const pl={holding:'💰已持有',want_buy:'🛒想買進',watching:'👀觀望中'}[perUserPos]||'';const tl={theme:'🔥題材',growth:'🚀成長',normal:'📊一般',value:'💎價值',cycle:'🔄循環'}[perStockType]||'';document.getElementById('perAI3Hint').textContent=`✅ ${PER.id} ${PER.name} | ${pl} | ${tl} | 可開始分析`}};
 
     let perInitDone=false;
     function perOnTabShow(){
