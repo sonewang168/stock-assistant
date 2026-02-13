@@ -580,7 +580,6 @@
     .ai3-fck{display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;border:1px solid #30363d;background:#0d1117;font-size:.78rem;color:#8b949e;cursor:pointer;transition:all .2s;user-select:none}
     .ai3-fck:hover{border-color:#484f58}
     .ai3-fck.on{background:rgba(35,134,54,.1);border-color:rgba(35,134,54,.3);color:#3fb950}
-    .ai3-fck input{display:none}
     .ai3-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
     .ai3-card{background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:16px;position:relative;overflow:hidden}
     .ai3-card-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
@@ -901,14 +900,14 @@
         <div class="ai3-focus">
           <div class="ai3-focus-title">🔍 我想了解的面向（可多選）：</div>
           <div class="ai3-focus-checks" id="perFocusChecks">
-            <label class="ai3-fck on" onclick="this.classList.toggle('on')"><input type="checkbox" value="pe_valuation" checked>📊 本益比估值</label>
-            <label class="ai3-fck on" onclick="this.classList.toggle('on')"><input type="checkbox" value="eps_trend" checked>📈 EPS成長趨勢</label>
-            <label class="ai3-fck on" onclick="this.classList.toggle('on')"><input type="checkbox" value="entry_exit" checked>🎯 進出場策略</label>
-            <label class="ai3-fck" onclick="this.classList.toggle('on')"><input type="checkbox" value="risk">⚠️ 風險評估</label>
-            <label class="ai3-fck" onclick="this.classList.toggle('on')"><input type="checkbox" value="industry">🏭 產業前景</label>
-            <label class="ai3-fck" onclick="this.classList.toggle('on')"><input type="checkbox" value="dividend">💵 殖利率與配息</label>
-            <label class="ai3-fck" onclick="this.classList.toggle('on')"><input type="checkbox" value="compare">🔄 同業比較</label>
-            <label class="ai3-fck" onclick="this.classList.toggle('on')"><input type="checkbox" value="short_term">⚡ 短線技術面</label>
+            <div class="ai3-fck on" data-value="pe_valuation" onclick="this.classList.toggle('on')">📊 本益比估值</div>
+            <div class="ai3-fck on" data-value="eps_trend" onclick="this.classList.toggle('on')">📈 EPS成長趨勢</div>
+            <div class="ai3-fck on" data-value="entry_exit" onclick="this.classList.toggle('on')">🎯 進出場策略</div>
+            <div class="ai3-fck" data-value="risk" onclick="this.classList.toggle('on')">⚠️ 風險評估</div>
+            <div class="ai3-fck" data-value="industry" onclick="this.classList.toggle('on')">🏭 產業前景</div>
+            <div class="ai3-fck" data-value="dividend" onclick="this.classList.toggle('on')">💵 殖利率與配息</div>
+            <div class="ai3-fck" data-value="compare" onclick="this.classList.toggle('on')">🔄 同業比較</div>
+            <div class="ai3-fck" data-value="short_term" onclick="this.classList.toggle('on')">⚡ 短線技術面</div>
           </div>
         </div>
         <!-- Button -->
@@ -2174,7 +2173,7 @@
 
     let perUserPos='want_buy'; // default
     function perSelectPos(el,pos){perUserPos=pos;document.querySelectorAll('.ai3-pos-opt').forEach(o=>o.classList.remove('selected'));el.classList.add('selected')}
-    function perGetFocusAreas(){const out=[];document.querySelectorAll('#perFocusChecks .ai3-fck.on input').forEach(c=>out.push(c.value));return out}
+    function perGetFocusAreas(){const out=[];document.querySelectorAll('#perFocusChecks .ai3-fck.on').forEach(c=>out.push(c.dataset.value));return out}
 
     function perBuildPrompt(){
       if(!PER.data.length)return'';
