@@ -278,10 +278,14 @@ class ChipService {
 
   // ==================== 統一入口 ====================
 
-  async fetchInstitutional(stockId, date = null) {
+  async fetchInstitutional(stockId, date = null, market = null) {
+    // 判斷上市/上櫃：優先用前端傳入的 market，其次用 isOTC
+    const isOtc = market === 'tpex' || (!market && this.isOTC(stockId));
+    console.log(`📋 ${stockId} market=${market}, isOtc=${isOtc}`);
+
     // 如果指定日期，只查該日
     if (date) {
-      if (this.isOTC(stockId)) {
+      if (isOtc) {
         const data = await this.fetchInstitutionalFromTPEX(stockId, date);
         if (data) return data;
         return await this.fetchInstitutionalFromTWSE(stockId, date);
@@ -311,7 +315,7 @@ class ChipService {
 
     for (const tryDate of datesToTry) {
       let data;
-      if (this.isOTC(stockId)) {
+      if (isOtc) {
         data = await this.fetchInstitutionalFromTPEX(stockId, tryDate);
         if (!data) data = await this.fetchInstitutionalFromTWSE(stockId, tryDate);
       } else {
