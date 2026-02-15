@@ -20832,7 +20832,10 @@ ${analysisContext}
                 // ★ 方法2：後端 API（上櫃首選 / 上市 fallback）
                 if (!got) {
                     try {
-                        const res = await fetch(`/api/chip/${s.code}?days=1&market=${s.market || 'twse'}&force=1`);
+                        const ctrl = new AbortController();
+                        const timer = setTimeout(() => ctrl.abort(), 12000);
+                        const res = await fetch(`/api/chip/${s.code}?days=1&market=${s.market || 'twse'}&force=1`, { signal: ctrl.signal });
+                        clearTimeout(timer);
                         if (res.ok) {
                             const json = await res.json();
                             if (json.success && json.data && json.data.latest) {
@@ -20855,6 +20858,8 @@ ${analysisContext}
                     s.instData = { foreignNet: 0, trustNet: 0, dealerNet: 0, noData: true };
                     console.log(`⚠️ ${s.code} 法人全失敗，設零值`);
                 }
+                // 每處理完一檔就刷新表格，不要等全部完成
+                renderFullLotTable();
                 if (i < fullLotStocks.length - 1) await new Promise(r => setTimeout(r, 600));
             }
             saveFullLotList();

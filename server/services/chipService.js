@@ -120,7 +120,7 @@ class ChipService {
         console.log(`📡 TPEX OpenAPI ${label}: 全量抓取...`);
         const response = await axios.get(url, {
           headers: { ...BROWSER_HEADERS, 'Referer': 'https://www.tpex.org.tw/' },
-          timeout: 25000
+          timeout: 10000
         });
 
         if (Array.isArray(response.data) && response.data.length > 0) {
@@ -225,7 +225,7 @@ class ChipService {
             'Referer': `${base}/web/stock/3insti/daily_trade/3itrade_hedge.php`,
             'Origin': base,
           },
-          timeout: 15000
+          timeout: 8000
         });
 
         const aaData = response.data?.aaData;
@@ -284,15 +284,14 @@ class ChipService {
     const pageResult = await this.fetchTPEXFromPage(stockId, date);
     if (pageResult) return pageResult;
 
-    console.log(`⚠️ TPEX ${stockId} 當日無資料，往前找...`);
+    console.log(`⚠️ TPEX ${stockId} 當日無資料，往前找（最多2天）...`);
     const dateObj = new Date(this.toISODate(date));
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 3 && i <= 2; i++) {
       dateObj.setDate(dateObj.getDate() - 1);
       if (dateObj.getDay() === 0 || dateObj.getDay() === 6) continue;
       const prevDate = dateObj.toISOString().slice(0, 10).replace(/-/g, '');
       const result = await this.fetchTPEXFromPage(stockId, prevDate);
       if (result) return result;
-      await new Promise(r => setTimeout(r, 500));
     }
     return null;
   }
@@ -376,7 +375,7 @@ class ChipService {
             'Referer': `${base}/web/stock/3insti/daily_trade/3itrade_hedge.php`,
             'Origin': base,
           },
-          timeout: 15000
+          timeout: 8000
         });
 
         const aaData = response.data?.aaData;
