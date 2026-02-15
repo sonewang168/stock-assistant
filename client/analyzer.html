@@ -20854,6 +20854,26 @@ ${analysisContext}
                     } catch(e) { console.log(`⚠️ ${s.code} 後端API失敗:`, e.message); }
                 }
 
+                // ★ 方法3：上櫃股票 - 前端 fetchTPExInstitutional（allorigins proxy 等備援）
+                if (!got && s.market === 'tpex') {
+                    for (const date of tradeDates) {
+                        if (got) break;
+                        try {
+                            const result = await fetchTPExInstitutional(s.code, date);
+                            if (result) {
+                                s.instData = result;
+                                if (!foundDate) foundDate = date;
+                                got = true;
+                                console.log(`✅ ${s.code} 法人（前端 TPEx fallback）外=${result.foreignNet} 投=${result.trustNet} 自=${result.dealerNet}`);
+                                break;
+                            }
+                        } catch(e) {
+                            console.log(`❌ ${s.code} TPEx前端 ${date}:`, e.message);
+                        }
+                        await new Promise(r => setTimeout(r, 300));
+                    }
+                }
+
                 if (!got) {
                     s.instData = { foreignNet: 0, trustNet: 0, dealerNet: 0, noData: true };
                     console.log(`⚠️ ${s.code} 法人全失敗，設零值`);
