@@ -20832,7 +20832,7 @@ ${analysisContext}
                     }
                 }
 
-                // ★ 方法2：後端 API（fallback，先用DB快取，再強制抓取）
+                // ★ 方法2：後端 API（fallback，先試快取再試強制抓取）
                 if (!got) {
                     for (const forceMode of ['0', '1']) {
                         if (got) break;
@@ -20857,7 +20857,7 @@ ${analysisContext}
                     }
                 }
 
-                // ★ 方法3：全部失敗時設為 0（表示無法人交易紀錄）
+                // ★ 方法3：全部失敗，設零值兜底（顯示 0 而非 -）
                 if (!got) {
                     s.instData = { foreignNet: 0, trustNet: 0, dealerNet: 0, noData: true };
                     console.log(`⚠️ ${s.code} 法人數據全部失敗，設為 0`);
