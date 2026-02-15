@@ -91,9 +91,24 @@ class ChipService {
   // ==================== TPEX 多重備援 ====================
 
   /**
-   * 方法1: TPEX OpenAPI（回傳最近交易日，Cloudflare 通常不擋）
+   * 方法1: TPEX OpenAPI（回傳所有上櫃股票，快取 5 分鐘）
    */
   async fetchTPEXFromOpenAPI(stockId) {
+    // 快取：OpenAPI 回傳全部上櫃股票，只需抓一次
+    const now = Date.now();
+    if (this._tpexOpenApiCache && (now - this._tpexOpenApiCacheTime) < 300000) {
+      const cached = this._tpexOpenApiCache.find(d => {
+        const vals = Object.values(d).map(v => String(v).trim());
+        return vals.includes(stockId);
+      });
+      if (cached) {
+        console.log(`✅ TPEX OpenAPI (快取) 找到 ${stockId}`);
+        return this._parseTPEXOpenAPI(cached, stockId);
+      }
+      console.log(`⚠️ TPEX OpenAPI (快取 ${this._tpexOpenApiCache.length} 筆) 找不到 ${stockId}`);
+      return null;
+    }
+
     const urls = [
       'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_3itrade_hedge',
       'https://wwwov.tpex.org.tw/openapi/v1/tpex_mainboard_3itrade_hedge',
@@ -102,13 +117,18 @@ class ChipService {
     for (const url of urls) {
       try {
         const label = url.includes('wwwov') ? '海外' : '主站';
-        console.log(`📡 TPEX OpenAPI ${label}: ${stockId}`);
+        console.log(`📡 TPEX OpenAPI ${label}: 全量抓取...`);
         const response = await axios.get(url, {
           headers: { ...BROWSER_HEADERS, 'Referer': 'https://www.tpex.org.tw/' },
-          timeout: 20000
+          timeout: 25000
         });
 
         if (Array.isArray(response.data) && response.data.length > 0) {
+          // 快取全部資料
+          this._tpexOpenApiCache = response.data;
+          this._tpexOpenApiCacheTime = now;
+          console.log(`✅ TPEX OpenAPI ${label}: 快取 ${response.data.length} 筆`);
+
           const item = response.data.find(d => {
             const vals = Object.values(d).map(v => String(v).trim());
             return vals.includes(stockId);
@@ -119,6 +139,7 @@ class ChipService {
             return this._parseTPEXOpenAPI(item, stockId);
           }
           console.log(`⚠️ TPEX OpenAPI ${label}: ${response.data.length} 筆但找不到 ${stockId}`);
+          return null; // 已有完整資料但找不到此股票，不需再試
         }
       } catch (e) {
         const label = url.includes('wwwov') ? '海外' : '主站';

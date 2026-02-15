@@ -20809,35 +20809,13 @@ ${analysisContext}
                 const s = fullLotStocks[i];
                 let got = false;
 
-                // ★ 方法1：前端直連 TWSE/TPEx（欄位索引已修正，最可靠）
-                for (const date of tradeDates) {
-                    if (got) break;
-                    const fns = s.market === 'tpex'
-                        ? [fetchTPExInstitutional, fetchTWSEInstitutional]
-                        : [fetchTWSEInstitutional, fetchTPExInstitutional];
-                    for (const fn of fns) {
-                        try {
-                            const result = await fn(s.code, date);
-                            if (result) {
-                                s.instData = result;
-                                if (!foundDate) foundDate = date;
-                                got = true;
-                                console.log(`✅ ${s.code} 法人（前端 ${fn.name}）外=${result.foreignNet} 投=${result.trustNet} 自=${result.dealerNet}`);
-                                break;
-                            }
-                        } catch(e) {
-                            console.log(`❌ ${s.code} ${fn.name} 失敗:`, e.message);
-                        }
-                        await new Promise(r => setTimeout(r, 300));
-                    }
-                }
-
-                // ★ 方法2：後端 API（fallback，先試快取再試強制抓取）
-                if (!got) {
+                if (s.market === 'tpex') {
+                    // ★ 上櫃股票：前端直連 TPEx 會被 CORS 擋，優先走後端
+                    // 步驟1：後端 API（DB快取 → 強制抓取）
                     for (const forceMode of ['0', '1']) {
                         if (got) break;
                         try {
-                            const res = await fetch(`/api/chip/${s.code}?days=1&market=${s.market || 'twse'}&force=${forceMode}`);
+                            const res = await fetch(`/api/chip/${s.code}?days=1&market=tpex&force=${forceMode}`);
                             if (res.ok) {
                                 const json = await res.json();
                                 if (json.success && json.data && json.data.latest) {
@@ -20850,14 +20828,72 @@ ${analysisContext}
                                     };
                                     if (!foundDate && json.data.date) foundDate = String(json.data.date).slice(0, 10);
                                     got = true;
-                                    console.log(`✅ ${s.code} 法人（後端API force=${forceMode}）外=${s.instData.foreignNet} 投=${s.instData.trustNet} 自=${s.instData.dealerNet}`);
+                                    console.log(`✅ ${s.code} 上櫃法人（後端 force=${forceMode}）外=${s.instData.foreignNet} 投=${s.instData.trustNet} 自=${s.instData.dealerNet}`);
                                 }
                             }
-                        } catch(e) { console.log(`⚠️ ${s.code} 後端API(force=${forceMode})失敗:`, e.message); }
+                        } catch(e) { console.log(`⚠️ ${s.code} 後端(force=${forceMode}):`, e.message); }
+                    }
+                    // 步驟2：試 TWSE T86（有時上櫃股也出現在 T86）
+                    if (!got) {
+                        for (const date of tradeDates) {
+                            if (got) break;
+                            try {
+                                const result = await fetchTWSEInstitutional(s.code, date);
+                                if (result) {
+                                    s.instData = result;
+                                    if (!foundDate) foundDate = date;
+                                    got = true;
+                                    console.log(`✅ ${s.code} 上櫃法人（TWSE fallback）外=${result.foreignNet} 投=${result.trustNet} 自=${result.dealerNet}`);
+                                }
+                            } catch(e) { /* skip */ }
+                            await new Promise(r => setTimeout(r, 300));
+                        }
+                    }
+                } else {
+                    // ★ 上市股票：前端直連 TWSE（最快，無 CORS 問題）
+                    for (const date of tradeDates) {
+                        if (got) break;
+                        try {
+                            const result = await fetchTWSEInstitutional(s.code, date);
+                            if (result) {
+                                s.instData = result;
+                                if (!foundDate) foundDate = date;
+                                got = true;
+                                console.log(`✅ ${s.code} 法人（前端 TWSE）外=${result.foreignNet} 投=${result.trustNet} 自=${result.dealerNet}`);
+                                break;
+                            }
+                        } catch(e) {
+                            console.log(`❌ ${s.code} TWSE ${date}:`, e.message);
+                        }
+                        await new Promise(r => setTimeout(r, 300));
+                    }
+                    // 後端 fallback
+                    if (!got) {
+                        for (const forceMode of ['0', '1']) {
+                            if (got) break;
+                            try {
+                                const res = await fetch(`/api/chip/${s.code}?days=1&market=${s.market || 'twse'}&force=${forceMode}`);
+                                if (res.ok) {
+                                    const json = await res.json();
+                                    if (json.success && json.data && json.data.latest) {
+                                        const d = json.data.latest;
+                                        s.instData = {
+                                            date: json.data.date,
+                                            foreignNet: Math.round((d.foreign.net || 0) / 1000),
+                                            trustNet: Math.round((d.trust.net || 0) / 1000),
+                                            dealerNet: Math.round((d.dealer.net || 0) / 1000)
+                                        };
+                                        if (!foundDate && json.data.date) foundDate = String(json.data.date).slice(0, 10);
+                                        got = true;
+                                        console.log(`✅ ${s.code} 法人（後端 force=${forceMode}）外=${s.instData.foreignNet} 投=${s.instData.trustNet} 自=${s.instData.dealerNet}`);
+                                    }
+                                }
+                            } catch(e) { /* skip */ }
+                        }
                     }
                 }
 
-                // ★ 方法3：全部失敗，設零值兜底（顯示 0 而非 -）
+                // ★ 全部失敗，零值兜底
                 if (!got) {
                     s.instData = { foreignNet: 0, trustNet: 0, dealerNet: 0, noData: true };
                     console.log(`⚠️ ${s.code} 法人數據全部失敗，設為 0`);
